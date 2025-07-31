@@ -17,10 +17,10 @@ export default defineConfig({
   },
   server: {
     https: {
-      key: fs.readFileSync(path.resolve(__dirname, '../backend/ssl/192.168.1.50-key.pem')),
-      cert: fs.readFileSync(path.resolve(__dirname, '../backend/ssl/192.168.1.50.pem')),
+      key: fs.readFileSync(path.resolve(__dirname, '../backend/ssl/127.0.0.1+1-key.pem')),
+      cert: fs.readFileSync(path.resolve(__dirname, '../backend/ssl/127.0.0.1+1.pem')),
     },
-    host: '192.168.1.50',
+    host: 'localhost',
     port: 5173,
   },
 })
