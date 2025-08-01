@@ -59,8 +59,12 @@ export const useDeepgramTranscription = (): DeepgramTranscriptionHook => {
         isSocketOwner.current = false; // Nous ne possédons pas ce socket
       } else if (!socketRef.current) {
         const SERVER_HOST = import.meta.env.VITE_SERVER_HOST || window.location.hostname;
-        const API_PORT = import.meta.env.VITE_API_PORT || '3000';
-        const socketUrl = `https://${SERVER_HOST}:${API_PORT}`;
+        const isDevelopment = SERVER_HOST === 'localhost' || SERVER_HOST === '127.0.0.1' || SERVER_HOST.startsWith('192.168.');
+        
+        // Use nginx proxy in production, direct port in development
+        const socketUrl = isDevelopment 
+          ? `https://${SERVER_HOST}:${import.meta.env.VITE_API_PORT || '3000'}`
+          : `https://${SERVER_HOST}`;
         
         console.log('🎙️ COMMERCIAL - Création socket pour transcriptions:', socketUrl);
         socketRef.current = io(socketUrl, {

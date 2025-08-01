@@ -2,6 +2,935 @@
 
 This guide will help you deploy your full-stack application (React Frontend + NestJS Backend + Python Audio Server + PostgreSQL) on AWS.
 
+## Fix Production Environment Variables
+
+```bash
+cd /home/ubuntu/frontetback/moduleProspec-1dc4f634c6c14f0913f8052d2523c56f04d7738b
+cat > .env << 'EOF'
+VITE_MAPBOX_ACCESS_TOKEN=pk.eyJ1IjoiYmVuemFocmEiLCJhIjoiY21heG85dnd0MDBjbTJuc2RhbWhhOWxsMyJ9.XZm932vHWSs-cHO9lmtmKg
+
+# Configuration des adresses réseau - PRODUCTION
+VITE_SERVER_HOST=35.181.48.18
+VITE_API_PORT=443
+VITE_PYTHON_HTTP_PORT=8000
+VITE_PYTHON_HTTPS_PORT=8443
+
+# Deepgram API pour la transcription
+VITE_DEEPGRAM_API_KEY=7189f2a24e42949bf3a561b9a89328de00526605
+EOF
+
+sudo chown -R ubuntu:ubuntu dist
+npm run build
+sudo chown -R www-data:www-data dist
+sudo chmod -R 755 dist
+sudo systemctl reload nginx
+```
+
+## Fix Nginx Socket.IO Proxy
+
+```bash
+
+
+
+sudo nginx -t
+sudo systemctl reload nginx
+```
+
+## Build and Restart Backend Services
+
+```bash
+cd /home/ubuntu/frontetback/backend
+npm install
+npm run build
+pm2 restart backend
+pm2 restart python-server
+curl http://localhost:3000
+curl http://localhost:8000/health
+```
+
+## Diagnose Services
+
+```bash
+pm2 logs backend --lines 5
+pm2 logs python-server --lines 5
+netstat -tlnp | grep :3000
+netstat -tlnp | grep :8000
+ls -la /home/ubuntu/frontetback/backend/dist/
+```
+
+## Fix Backend Build and SSL Issues
+
+```bash
+cd /home/ubuntu/frontetback/backend
+ls -la dist/
+npm run build
+ls -la dist/
+sudo chown ubuntu:ubuntu /etc/ssl/private/nginx-selfsigned.key
+sudo chown ubuntu:ubuntu /etc/ssl/certs/nginx-selfsigned.crt
+sudo chmod 644 /etc/ssl/certs/nginx-selfsigned.crt
+sudo chmod 600 /etc/ssl/private/nginx-selfsigned.key
+pm2 restart backend
+pm2 restart python-server
+sleep 3
+curl http://localhost:3000
+curl http://localhost:8000/health
+```
+
+## Fix Backend Build Issue
+
+```bash
+cd /home/ubuntu/frontetback/backend
+pm2 delete backend
+pm2 start npm --name "backend" -- run start:dev
+sleep 10
+pm2 logs backend --lines 10
+curl -k https://localhost:3000
+```
+
+## Debug Backend Connection
+
+```bash
+sudo apt install net-tools -y
+netstat -tlnp | grep :3000
+pm2 status
+pm2 logs backend --lines 5
+curl -k https://localhost:3000
+curl -k https://localhost:3000/api
+```
+
+## Test Application
+
+```bash
+curl -k https://35.181.48.18/
+curl -k https://35.181.48.18/api/commerciaux
+curl -k https://35.181.48.18/python/health
+```
+
+## Check Database and Fix Frontend IP
+
+```bash
+curl -k https://35.181.48.18/api/commerciaux
+cd /home/ubuntu/frontetback/moduleProspec-1dc4f634c6c14f0913f8052d2523c56f04d7738b
+cat > .env << 'EOF'
+VITE_MAPBOX_ACCESS_TOKEN=pk.eyJ1IjoiYmVuemFocmEiLCJhIjoiY21heG85dnd0MDBjbTJuc2RhbWhhOWxsMyJ9.XZm932vHWSs-cHO9lmtmKg
+
+# Configuration des adresses réseau - PRODUCTION
+VITE_SERVER_HOST=35.181.48.18
+VITE_API_PORT=443
+VITE_PYTHON_HTTP_PORT=8000
+VITE_PYTHON_HTTPS_PORT=8443
+
+# URLs via nginx proxy
+VITE_API_URL=https://35.181.48.18/api
+VITE_SOCKET_URL=wss://35.181.48.18
+VITE_PYTHON_SERVER_URL=https://35.181.48.18/python
+
+# Deepgram API pour la transcription
+VITE_DEEPGRAM_API_KEY=7189f2a24e42949bf3a561b9a89328de00526605
+EOF
+
+sudo chown -R ubuntu:ubuntu dist
+npm run build
+sudo chown -R www-data:www-data dist
+sudo chmod -R 755 dist
+sudo systemctl reload nginx
+```
+
+## Force Fix IP in Config (Copy-Paste)
+
+```bash
+cd /home/ubuntu/frontetback/moduleProspec-1dc4f634c6c14f0913f8052d2523c56f04d7738b
+cp src/config.ts src/config.ts.backup
+cat > src/config.ts << 'EOF'
+export const API_BASE_URL = 'https://35.181.48.18/api';
+EOF
+sudo chown -R ubuntu:ubuntu .
+rm -rf dist/
+rm -rf node_modules/.cache
+rm -rf .vite
+npm run build
+grep -r "35.180.112.84" dist/ || echo "✅ Ancienne IP supprimée"
+grep -r "35.181.48.18" dist/ | head -2
+sudo chown -R www-data:www-data dist
+sudo chmod -R 755 dist
+sudo systemctl reload nginx
+```
+
+## Fix Audio Server URL (Copy-Paste)
+
+```bash
+cd /home/ubuntu/frontetback/moduleProspec-1dc4f634c6c14f0913f8052d2523c56f04d7738b
+cat > .env << 'EOF'
+VITE_MAPBOX_ACCESS_TOKEN=pk.eyJ1IjoiYmVuemFocmEiLCJhIjoiY21heG85dnd0MDBjbTJuc2RhbWhhOWxsMyJ9.XZm932vHWSs-cHO9lmtmKg
+
+# Configuration des adresses réseau - PRODUCTION
+VITE_SERVER_HOST=35.181.48.18
+VITE_API_PORT=443
+VITE_PYTHON_HTTP_PORT=8000
+VITE_PYTHON_HTTPS_PORT=8443
+
+# URLs via nginx proxy - FIXED
+VITE_API_URL=https://35.181.48.18/api
+VITE_SOCKET_URL=wss://35.181.48.18
+VITE_PYTHON_SERVER_URL=https://35.181.48.18/python
+
+# Deepgram API pour la transcription
+VITE_DEEPGRAM_API_KEY=7189f2a24e42949bf3a561b9a89328de00526605
+EOF
+sudo chown -R ubuntu:ubuntu .
+rm -rf dist/
+npm run build
+sudo chown -R www-data:www-data dist
+sudo chmod -R 755 dist
+sudo systemctl reload nginx
+curl -k https://35.181.48.18/python/health
+```
+
+## Force Audio Config in Code (Copy-Paste)
+
+```bash
+cd /home/ubuntu/frontetback/moduleProspec-1dc4f634c6c14f0913f8052d2523c56f04d7738b
+cp src/config.ts src/config.ts.backup2
+cat > src/config.ts << 'EOF'
+export const API_BASE_URL = 'https://35.181.48.18/api';
+export const PYTHON_SERVER_URL = 'https://35.181.48.18/python';
+EOF
+sudo chown -R ubuntu:ubuntu .
+rm -rf dist/
+npm run build
+grep -r ":8443" dist/ || echo "✅ Port 8443 supprimé"
+grep -r "/python" dist/ | head -2
+sudo chown -R www-data:www-data dist
+sudo chmod -R 755 dist
+sudo systemctl reload nginx
+```
+index-D4KQwndt.js:518 🔌 Initialisation socket GPS: https://35.181.48.18:443
+index-D4KQwndt.js:518 📍 Service GPS connecté
+index-D4KQwndt.js:535 🚀 Initialisation du GPS pour le commercial: Alice Martin
+index-D4KQwndt.js:518 📍 Tentative d'accès à la géolocalisation...
+index-D4KQwndt.js:518 📍 Tentative GPS 1/3...
+index-D4KQwndt.js:518 ✅ Permission GPS accordée et position obtenue
+index-D4KQwndt.js:518 📍 Position envoyée: Object
+index-D4KQwndt.js:518 📍 Suivi GPS démarré
+index-D4KQwndt.js:518 📍 Position envoyée: Object
+index-D4KQwndt.js:1969 🎤 COMMERCIAL PAGE - Configuration audio streaming:
+index-D4KQwndt.js:1969 🎤 COMMERCIAL PAGE - Server URL: https://35.181.48.18:8443
+index-D4KQwndt.js:1969 🎤 COMMERCIAL PAGE - User ID: bb44efd1-87bc-411c-99cd-b8a37c8412d3
+index-D4KQwndt.js:1969 🎤 COMMERCIAL PAGE - User role: commercial
+index-D4KQwndt.js:1969 🎤 COMMERCIAL PAGE - User info: Object
+index-D4KQwndt.js:1969 🎤 COMMERCIAL PAGE - useEffect connexion audio, user: bb44efd1-87bc-411c-99cd-b8a37c8412d3
+index-D4KQwndt.js:1969 🎤 COMMERCIAL PAGE - Tentative de connexion au serveur audio...
+index-D4KQwndt.js:1956 🔌 AUDIO STREAMING - Connect appelé
+index-D4KQwndt.js:1956 🔌 AUDIO STREAMING - Server URL: https://35.181.48.18:8443
+index-D4KQwndt.js:1956 🔌 AUDIO STREAMING - User role: commercial
+index-D4KQwndt.js:1956 🔌 AUDIO STREAMING - Socket existant connecté: undefined
+index-D4KQwndt.js:1956 🔌 AUDIO STREAMING - Création de la connexion socket...
+index-D4KQwndt.js:1969 🎤 COMMERCIAL PAGE - Configuration audio streaming:
+index-D4KQwndt.js:1969 🎤 COMMERCIAL PAGE - Server URL: https://35.181.48.18:8443
+index-D4KQwndt.js:1969 🎤 COMMERCIAL PAGE - User ID: bb44efd1-87bc-411c-99cd-b8a37c8412d3
+index-D4KQwndt.js:1969 🎤 COMMERCIAL PAGE - User role: commercial
+index-D4KQwndt.js:1969 🎤 COMMERCIAL PAGE - User info: Object
+index-D4KQwndt.js:1969 🎤 COMMERCIAL PAGE - Configuration audio streaming:
+index-D4KQwndt.js:1969 🎤 COMMERCIAL PAGE - Server URL: https://35.181.48.18:8443
+index-D4KQwndt.js:1969 🎤 COMMERCIAL PAGE - User ID: bb44efd1-87bc-411c-99cd-b8a37c8412d3
+index-D4KQwndt.js:1969 🎤 COMMERCIAL PAGE - User role: commercial
+index-D4KQwndt.js:1969 🎤 COMMERCIAL PAGE - User info: Object
+:8443/socket.io/?EIO=4&transport=polling&t=6gsnwwq0:1  Failed to load resource: net::ERR_CONNECTION_TIMED_OUT
+index-D4KQwndt.js:1956 ❌ Erreur de connexion socket: _he: xhr poll error
+    at Ahe.onError (https://35.181.48.18/assets/index-D4KQwndt.js:518:12386)
+    at QE.<anonymous> (https://35.181.48.18/assets/index-D4KQwndt.js:518:15017)
+    at Bo.emit (https://35.181.48.18/assets/index-D4KQwndt.js:518:10657)
+    at QE._onError (https://35.181.48.18/assets/index-D4KQwndt.js:518:16526)
+    at https://35.181.48.18/assets/index-D4KQwndt.js:518:16293
+(anonymous) @ index-D4KQwndt.js:1956
+index-D4KQwndt.js:1956 ❌ Erreur details: _he: xhr poll error
+    at Ahe.onError (https://35.181.48.18/assets/index-D4KQwndt.js:518:12386)
+    at QE.<anonymous> (https://35.181.48.18/assets/index-D4KQwndt.js:518:15017)
+    at Bo.emit (https://35.181.48.18/assets/index-D4KQwndt.js:518:10657)
+    at QE._onError (https://35.181.48.18/assets/index-D4KQwndt.js:518:16526)
+    at https://35.181.48.18/assets/index-D4KQwndt.js:518:16293
+(anonymous) @ index-D4KQwndt.js:1956
+index-D4KQwndt.js:1969 🎤 COMMERCIAL PAGE - Configuration audio streaming:
+index-D4KQwndt.js:1969 🎤 COMMERCIAL PAGE - Server URL: https://35.181.48.18:8443
+index-D4KQwndt.js:1969 🎤 COMMERCIAL PAGE - User ID: bb44efd1-87bc-411c-99cd-b8a37c8412d3
+index-D4KQwndt.js:1969 🎤 COMMERCIAL PAGE - User role: commercial
+index-D4KQwndt.js:1969 🎤 COMMERCIAL PAGE - User info: Object
+:8443/socket.io/?EIO=4&transport=polling&t=6gzt0jmr:1  Failed to load resource: net::ERR_CONNECTION_TIMED_OUT
+index-D4KQwndt.js:1956 ❌ Erreur de connexion socket: _he: xhr poll error
+    at Ahe.onError (https://35.181.48.18/assets/index-D4KQwndt.js:518:12386)
+    at QE.<anonymous> (https://35.181.48.18/assets/index-D4KQwndt.js:518:15017)
+    at Bo.emit (https://35.181.48.18/assets/index-D4KQwndt.js:518:10657)
+    at QE._onError (https://35.181.48.18/assets/index-D4KQwndt.js:518:16526)
+    at https://35.181.48.18/assets/index-D4KQwndt.js:518:16293
+(anonymous) @ index-D4KQwndt.js:1956
+Bo.emit @ index-D4KQwndt.js:518
+onerror @ index-D4KQwndt.js:518
+Bo.emit @ index-D4KQwndt.js:518
+s @ index-D4KQwndt.js:518
+Bo.emit @ index-D4KQwndt.js:518
+_onError @ index-D4KQwndt.js:518
+Bo.emit @ index-D4KQwndt.js:518
+onError @ index-D4KQwndt.js:518
+(anonymous) @ index-D4KQwndt.js:518
+Bo.emit @ index-D4KQwndt.js:518
+_onError @ index-D4KQwndt.js:518
+(anonymous) @ index-D4KQwndt.js:518
+setTimeout
+r.onreadystatechange @ index-D4KQwndt.js:518
+index-D4KQwndt.js:1956 ❌ Erreur details: _he: xhr poll error
+    at Ahe.onError (https://35.181.48.18/assets/index-D4KQwndt.js:518:12386)
+    at QE.<anonymous> (https://35.181.48.18/assets/index-D4KQwndt.js:518:15017)
+    at Bo.emit (https://35.181.48.18/assets/index-D4KQwndt.js:518:10657)
+    at QE._onError (https://35.181.48.18/assets/index-D4KQwndt.js:518:16526)
+    at https://35.181.48.18/assets/index-D4KQwndt.js:518:16293
+(anonymous) @ index-D4KQwndt.js:1956
+Bo.emit @ index-D4KQwndt.js:518
+onerror @ index-D4KQwndt.js:518
+Bo.emit @ index-D4KQwndt.js:518
+s @ index-D4KQwndt.js:518
+Bo.emit @ index-D4KQwndt.js:518
+_onError @ index-D4KQwndt.js:518
+Bo.emit @ index-D4KQwndt.js:518
+onError @ index-D4KQwndt.js:518
+(anonymous) @ index-D4KQwndt.js:518
+Bo.emit @ index-D4KQwndt.js:518
+_onError @ index-D4KQwndt.js:518
+(anonymous) @ index-D4KQwndt.js:518
+setTimeout
+r.onreadystatechange @ index-D4KQwndt.js:518
+index-D4KQwndt.js:518  GET https://35.181.48.18:8443/socket.io/?EIO=4&transport=polling&t=6h6oz0jf net::ERR_CONNECTION_TIMED_OUT
+_create @ index-D4KQwndt.js:518
+QE @ index-D4KQwndt.js:518
+request @ index-D4KQwndt.js:518
+doPoll @ index-D4KQwndt.js:518
+_poll @ index-D4KQwndt.js:518
+doOpen @ index-D4KQwndt.js:518
+open @ index-D4KQwndt.js:518
+_open @ index-D4KQwndt.js:518
+Om @ index-D4KQwndt.js:518
+khe @ index-D4KQwndt.js:518
+Nhe @ index-D4KQwndt.js:518
+open @ index-D4KQwndt.js:518
+(anonymous) @ index-D4KQwndt.js:518
+setTimeout
+reconnect @ index-D4KQwndt.js:518
+(anonymous) @ index-D4KQwndt.js:518
+s @ index-D4KQwndt.js:518
+Bo.emit @ index-D4KQwndt.js:518
+_onError @ index-D4KQwndt.js:518
+Bo.emit @ index-D4KQwndt.js:518
+onError @ index-D4KQwndt.js:518
+(anonymous) @ index-D4KQwndt.js:518
+Bo.emit @ index-D4KQwndt.js:518
+_onError @ index-D4KQwndt.js:518
+(anonymous) @ index-D4KQwndt.js:518
+setTimeout
+r.onreadystatechange @ index-D4KQwndt.js:518
+index-D4KQwndt.js:1956 ❌ Erreur de connexion socket: _he: xhr poll error
+    at Ahe.onError (https://35.181.48.18/assets/index-D4KQwndt.js:518:12386)
+    at QE.<anonymous> (https://35.181.48.18/assets/index-D4KQwndt.js:518:15017)
+    at Bo.emit (https://35.181.48.18/assets/index-D4KQwndt.js:518:10657)
+    at QE._onError (https://35.181.48.18/assets/index-D4KQwndt.js:518:16526)
+    at https://35.181.48.18/assets/index-D4KQwndt.js:518:16293
+(anonymous) @ index-D4KQwndt.js:1956
+Bo.emit @ index-D4KQwndt.js:518
+onerror @ index-D4KQwndt.js:518
+Bo.emit @ index-D4KQwndt.js:518
+s @ index-D4KQwndt.js:518
+Bo.emit @ index-D4KQwndt.js:518
+_onError @ index-D4KQwndt.js:518
+Bo.emit @ index-D4KQwndt.js:518
+onError @ index-D4KQwndt.js:518
+(anonymous) @ index-D4KQwndt.js:518
+Bo.emit @ index-D4KQwndt.js:518
+_onError @ index-D4KQwndt.js:518
+(anonymous) @ index-D4KQwndt.js:518
+setTimeout
+r.onreadystatechange @ index-D4KQwndt.js:518
+XMLHttpRequest.send
+_create @ index-D4KQwndt.js:518
+QE @ index-D4KQwndt.js:518
+request @ index-D4KQwndt.js:518
+doPoll @ index-D4KQwndt.js:518
+_poll @ index-D4KQwndt.js:518
+doOpen @ index-D4KQwndt.js:518
+open @ index-D4KQwndt.js:518
+_open @ index-D4KQwndt.js:518
+Om @ index-D4KQwndt.js:518
+khe @ index-D4KQwndt.js:518
+Nhe @ index-D4KQwndt.js:518
+open @ index-D4KQwndt.js:518
+(anonymous) @ index-D4KQwndt.js:518
+setTimeout
+reconnect @ index-D4KQwndt.js:518
+(anonymous) @ index-D4KQwndt.js:518
+s @ index-D4KQwndt.js:518
+Bo.emit @ index-D4KQwndt.js:518
+_onError @ index-D4KQwndt.js:518
+Bo.emit @ index-D4KQwndt.js:518
+onError @ index-D4KQwndt.js:518
+(anonymous) @ index-D4KQwndt.js:518
+Bo.emit @ index-D4KQwndt.js:518
+_onError @ index-D4KQwndt.js:518
+(anonymous) @ index-D4KQwndt.js:518
+setTimeout
+r.onreadystatechange @ index-D4KQwndt.js:518
+index-D4KQwndt.js:1956 ❌ Erreur details: _he: xhr poll error
+    at Ahe.onError (https://35.181.48.18/assets/index-D4KQwndt.js:518:12386)
+    at QE.<anonymous> (https://35.181.48.18/assets/index-D4KQwndt.js:518:15017)
+    at Bo.emit (https://35.181.48.18/assets/index-D4KQwndt.js:518:10657)
+    at QE._onError (https://35.181.48.18/assets/index-D4KQwndt.js:518:16526)
+    at https://35.181.48.18/assets/index-D4KQwndt.js:518:16293
+(anonymous) @ index-D4KQwndt.js:1956
+Bo.emit @ index-D4KQwndt.js:518
+onerror @ index-D4KQwndt.js:518
+Bo.emit @ index-D4KQwndt.js:518
+s @ index-D4KQwndt.js:518
+Bo.emit @ index-D4KQwndt.js:518
+_onError @ index-D4KQwndt.js:518
+Bo.emit @ index-D4KQwndt.js:518
+onError @ index-D4KQwndt.js:518
+(anonymous) @ index-D4KQwndt.js:518
+Bo.emit @ index-D4KQwndt.js:518
+_onError @ index-D4KQwndt.js:518
+(anonymous) @ index-D4KQwndt.js:518
+setTimeout
+r.onreadystatechange @ index-D4KQwndt.js:518
+XMLHttpRequest.send
+_create @ index-D4KQwndt.js:518
+QE @ index-D4KQwndt.js:518
+request @ index-D4KQwndt.js:518
+doPoll @ index-D4KQwndt.js:518
+_poll @ index-D4KQwndt.js:518
+doOpen @ index-D4KQwndt.js:518
+open @ index-D4KQwndt.js:518
+_open @ index-D4KQwndt.js:518
+Om @ index-D4KQwndt.js:518
+khe @ index-D4KQwndt.js:518
+Nhe @ index-D4KQwndt.js:518
+open @ index-D4KQwndt.js:518
+(anonymous) @ index-D4KQwndt.js:518
+setTimeout
+reconnect @ index-D4KQwndt.js:518
+(anonymous) @ index-D4KQwndt.js:518
+s @ index-D4KQwndt.js:518
+Bo.emit @ index-D4KQwndt.js:518
+_onError @ index-D4KQwndt.js:518
+Bo.emit @ index-D4KQwndt.js:518
+onError @ index-D4KQwndt.js:518
+(anonymous) @ index-D4KQwndt.js:518
+Bo.emit @ index-D4KQwndt.js:518
+_onError @ index-D4KQwndt.js:518
+(anonymous) @ index-D4KQwndt.js:518
+setTimeout
+r.onreadystatechange @ index-D4KQwndt.js:518
+index-D4KQwndt.js:518  GET https://35.181.48.18:8443/socket.io/?EIO=4&transport=polling&t=6hgg2bwr net::ERR_CONNECTION_TIMED_OUT
+_create @ index-D4KQwndt.js:518
+QE @ index-D4KQwndt.js:518
+request @ index-D4KQwndt.js:518
+doPoll @ index-D4KQwndt.js:518
+_poll @ index-D4KQwndt.js:518
+doOpen @ index-D4KQwndt.js:518
+open @ index-D4KQwndt.js:518
+_open @ index-D4KQwndt.js:518
+Om @ index-D4KQwndt.js:518
+khe @ index-D4KQwndt.js:518
+Nhe @ index-D4KQwndt.js:518
+open @ index-D4KQwndt.js:518
+(anonymous) @ index-D4KQwndt.js:518
+setTimeout
+reconnect @ index-D4KQwndt.js:518
+(anonymous) @ index-D4KQwndt.js:518
+s @ index-D4KQwndt.js:518
+Bo.emit @ index-D4KQwndt.js:518
+_onError @ index-D4KQwndt.js:518
+Bo.emit @ index-D4KQwndt.js:518
+onError @ index-D4KQwndt.js:518
+(anonymous) @ index-D4KQwndt.js:518
+Bo.emit @ index-D4KQwndt.js:518
+_onError @ index-D4KQwndt.js:518
+(anonymous) @ index-D4KQwndt.js:518
+setTimeout
+r.onreadystatechange @ index-D4KQwndt.js:518
+XMLHttpRequest.send
+_create @ index-D4KQwndt.js:518
+QE @ index-D4KQwndt.js:518
+request @ index-D4KQwndt.js:518
+doPoll @ index-D4KQwndt.js:518
+_poll @ index-D4KQwndt.js:518
+doOpen @ index-D4KQwndt.js:518
+open @ index-D4KQwndt.js:518
+_open @ index-D4KQwndt.js:518
+Om @ index-D4KQwndt.js:518
+khe @ index-D4KQwndt.js:518
+Nhe @ index-D4KQwndt.js:518
+open @ index-D4KQwndt.js:518
+(anonymous) @ index-D4KQwndt.js:518
+setTimeout
+reconnect @ index-D4KQwndt.js:518
+(anonymous) @ index-D4KQwndt.js:518
+s @ index-D4KQwndt.js:518
+Bo.emit @ index-D4KQwndt.js:518
+_onError @ index-D4KQwndt.js:518
+Bo.emit @ index-D4KQwndt.js:518
+onError @ index-D4KQwndt.js:518
+(anonymous) @ index-D4KQwndt.js:518
+Bo.emit @ index-D4KQwndt.js:518
+_onError @ index-D4KQwndt.js:518
+(anonymous) @ index-D4KQwndt.js:518
+setTimeout
+r.onreadystatechange @ index-D4KQwndt.js:518
+index-D4KQwndt.js:1956 ❌ Erreur de connexion socket: _he: xhr poll error
+    at Ahe.onError (https://35.181.48.18/assets/index-D4KQwndt.js:518:12386)
+    at QE.<anonymous> (https://35.181.48.18/assets/index-D4KQwndt.js:518:15017)
+    at Bo.emit (https://35.181.48.18/assets/index-D4KQwndt.js:518:10657)
+    at QE._onError (https://35.181.48.18/assets/index-D4KQwndt.js:518:16526)
+    at https://35.181.48.18/assets/index-D4KQwndt.js:518:16293
+(anonymous) @ index-D4KQwndt.js:1956
+Bo.emit @ index-D4KQwndt.js:518
+onerror @ index-D4KQwndt.js:518
+Bo.emit @ index-D4KQwndt.js:518
+s @ index-D4KQwndt.js:518
+Bo.emit @ index-D4KQwndt.js:518
+_onError @ index-D4KQwndt.js:518
+Bo.emit @ index-D4KQwndt.js:518
+onError @ index-D4KQwndt.js:518
+(anonymous) @ index-D4KQwndt.js:518
+Bo.emit @ index-D4KQwndt.js:518
+_onError @ index-D4KQwndt.js:518
+(anonymous) @ index-D4KQwndt.js:518
+setTimeout
+r.onreadystatechange @ index-D4KQwndt.js:518
+XMLHttpRequest.send
+_create @ index-D4KQwndt.js:518
+QE @ index-D4KQwndt.js:518
+request @ index-D4KQwndt.js:518
+doPoll @ index-D4KQwndt.js:518
+_poll @ index-D4KQwndt.js:518
+doOpen @ index-D4KQwndt.js:518
+open @ index-D4KQwndt.js:518
+_open @ index-D4KQwndt.js:518
+Om @ index-D4KQwndt.js:518
+khe @ index-D4KQwndt.js:518
+Nhe @ index-D4KQwndt.js:518
+open @ index-D4KQwndt.js:518
+(anonymous) @ index-D4KQwndt.js:518
+setTimeout
+reconnect @ index-D4KQwndt.js:518
+(anonymous) @ index-D4KQwndt.js:518
+s @ index-D4KQwndt.js:518
+Bo.emit @ index-D4KQwndt.js:518
+_onError @ index-D4KQwndt.js:518
+Bo.emit @ index-D4KQwndt.js:518
+onError @ index-D4KQwndt.js:518
+(anonymous) @ index-D4KQwndt.js:518
+Bo.emit @ index-D4KQwndt.js:518
+_onError @ index-D4KQwndt.js:518
+(anonymous) @ index-D4KQwndt.js:518
+setTimeout
+r.onreadystatechange @ index-D4KQwndt.js:518
+XMLHttpRequest.send
+_create @ index-D4KQwndt.js:518
+QE @ index-D4KQwndt.js:518
+request @ index-D4KQwndt.js:518
+doPoll @ index-D4KQwndt.js:518
+_poll @ index-D4KQwndt.js:518
+doOpen @ index-D4KQwndt.js:518
+open @ index-D4KQwndt.js:518
+_open @ index-D4KQwndt.js:518
+Om @ index-D4KQwndt.js:518
+khe @ index-D4KQwndt.js:518
+Nhe @ index-D4KQwndt.js:518
+open @ index-D4KQwndt.js:518
+(anonymous) @ index-D4KQwndt.js:518
+setTimeout
+reconnect @ index-D4KQwndt.js:518
+(anonymous) @ index-D4KQwndt.js:518
+s @ index-D4KQwndt.js:518
+Bo.emit @ index-D4KQwndt.js:518
+_onError @ index-D4KQwndt.js:518
+Bo.emit @ index-D4KQwndt.js:518
+onError @ index-D4KQwndt.js:518
+(anonymous) @ index-D4KQwndt.js:518
+Bo.emit @ index-D4KQwndt.js:518
+_onError @ index-D4KQwndt.js:518
+(anonymous) @ index-D4KQwndt.js:518
+setTimeout
+r.onreadystatechange @ index-D4KQwndt.js:518
+index-D4KQwndt.js:1956 ❌ Erreur details: _he: xhr poll error
+    at Ahe.onError (https://35.181.48.18/assets/index-D4KQwndt.js:518:12386)
+    at QE.<anonymous> (https://35.181.48.18/assets/index-D4KQwndt.js:518:15017)
+    at Bo.emit (https://35.181.48.18/assets/index-D4KQwndt.js:518:10657)
+    at QE._onError (https://35.181.48.18/assets/index-D4KQwndt.js:518:16526)
+    at https://35.181.48.18/assets/index-D4KQwndt.js:518:16293
+(anonymous) @ index-D4KQwndt.js:1956
+Bo.emit @ index-D4KQwndt.js:518
+onerror @ index-D4KQwndt.js:518
+Bo.emit @ index-D4KQwndt.js:518
+s @ index-D4KQwndt.js:518
+Bo.emit @ index-D4KQwndt.js:518
+_onError @ index-D4KQwndt.js:518
+Bo.emit @ index-D4KQwndt.js:518
+onError @ index-D4KQwndt.js:518
+(anonymous) @ index-D4KQwndt.js:518
+Bo.emit @ index-D4KQwndt.js:518
+_onError @ index-D4KQwndt.js:518
+(anonymous) @ index-D4KQwndt.js:518
+setTimeout
+r.onreadystatechange @ index-D4KQwndt.js:518
+XMLHttpRequest.send
+_create @ index-D4KQwndt.js:518
+QE @ index-D4KQwndt.js:518
+request @ index-D4KQwndt.js:518
+doPoll @ index-D4KQwndt.js:518
+_poll @ index-D4KQwndt.js:518
+doOpen @ index-D4KQwndt.js:518
+open @ index-D4KQwndt.js:518
+_open @ index-D4KQwndt.js:518
+Om @ index-D4KQwndt.js:518
+khe @ index-D4KQwndt.js:518
+Nhe @ index-D4KQwndt.js:518
+open @ index-D4KQwndt.js:518
+(anonymous) @ index-D4KQwndt.js:518
+setTimeout
+reconnect @ index-D4KQwndt.js:518
+(anonymous) @ index-D4KQwndt.js:518
+s @ index-D4KQwndt.js:518
+Bo.emit @ index-D4KQwndt.js:518
+_onError @ index-D4KQwndt.js:518
+Bo.emit @ index-D4KQwndt.js:518
+onError @ index-D4KQwndt.js:518
+(anonymous) @ index-D4KQwndt.js:518
+Bo.emit @ index-D4KQwndt.js:518
+_onError @ index-D4KQwndt.js:518
+(anonymous) @ index-D4KQwndt.js:518
+setTimeout
+r.onreadystatechange @ index-D4KQwndt.js:518
+XMLHttpRequest.send
+_create @ index-D4KQwndt.js:518
+QE @ index-D4KQwndt.js:518
+request @ index-D4KQwndt.js:518
+doPoll @ index-D4KQwndt.js:518
+_poll @ index-D4KQwndt.js:518
+doOpen @ index-D4KQwndt.js:518
+open @ index-D4KQwndt.js:518
+_open @ index-D4KQwndt.js:518
+Om @ index-D4KQwndt.js:518
+khe @ index-D4KQwndt.js:518
+Nhe @ index-D4KQwndt.js:518
+open @ index-D4KQwndt.js:518
+(anonymous) @ index-D4KQwndt.js:518
+setTimeout
+reconnect @ index-D4KQwndt.js:518
+(anonymous) @ index-D4KQwndt.js:518
+s @ index-D4KQwndt.js:518
+Bo.emit @ index-D4KQwndt.js:518
+_onError @ index-D4KQwndt.js:518
+Bo.emit @ index-D4KQwndt.js:518
+onError @ index-D4KQwndt.js:518
+(anonymous) @ index-D4KQwndt.js:518
+Bo.emit @ index-D4KQwndt.js:518
+_onError @ index-D4KQwndt.js:518
+(anonymous) @ index-D4KQwndt.js:518
+setTimeout
+r.onreadystatechange @ index-D4KQwndt.js:518
+index-D4KQwndt.js:518  GET https://35.181.48.18:8443/socket.io/?EIO=4&transport=polling&t=6hqh6xjh net::ERR_CONNECTION_TIMED_OUT
+_create @ index-D4KQwndt.js:518
+QE @ index-D4KQwndt.js:518
+request @ index-D4KQwndt.js:518
+doPoll @ index-D4KQwndt.js:518
+_poll @ index-D4KQwndt.js:518
+doOpen @ index-D4KQwndt.js:518
+open @ index-D4KQwndt.js:518
+_open @ index-D4KQwndt.js:518
+Om @ index-D4KQwndt.js:518
+khe @ index-D4KQwndt.js:518
+Nhe @ index-D4KQwndt.js:518
+open @ index-D4KQwndt.js:518
+(anonymous) @ index-D4KQwndt.js:518
+setTimeout
+reconnect @ index-D4KQwndt.js:518
+(anonymous) @ index-D4KQwndt.js:518
+s @ index-D4KQwndt.js:518
+Bo.emit @ index-D4KQwndt.js:518
+_onError @ index-D4KQwndt.js:518
+Bo.emit @ index-D4KQwndt.js:518
+onError @ index-D4KQwndt.js:518
+(anonymous) @ index-D4KQwndt.js:518
+Bo.emit @ index-D4KQwndt.js:518
+_onError @ index-D4KQwndt.js:518
+(anonymous) @ index-D4KQwndt.js:518
+setTimeout
+r.onreadystatechange @ index-D4KQwndt.js:518
+XMLHttpRequest.send
+_create @ index-D4KQwndt.js:518
+QE @ index-D4KQwndt.js:518
+request @ index-D4KQwndt.js:518
+doPoll @ index-D4KQwndt.js:518
+_poll @ index-D4KQwndt.js:518
+doOpen @ index-D4KQwndt.js:518
+open @ index-D4KQwndt.js:518
+_open @ index-D4KQwndt.js:518
+Om @ index-D4KQwndt.js:518
+khe @ index-D4KQwndt.js:518
+Nhe @ index-D4KQwndt.js:518
+open @ index-D4KQwndt.js:518
+(anonymous) @ index-D4KQwndt.js:518
+setTimeout
+reconnect @ index-D4KQwndt.js:518
+(anonymous) @ index-D4KQwndt.js:518
+s @ index-D4KQwndt.js:518
+Bo.emit @ index-D4KQwndt.js:518
+_onError @ index-D4KQwndt.js:518
+Bo.emit @ index-D4KQwndt.js:518
+onError @ index-D4KQwndt.js:518
+(anonymous) @ index-D4KQwndt.js:518
+Bo.emit @ index-D4KQwndt.js:518
+_onError @ index-D4KQwndt.js:518
+(anonymous) @ index-D4KQwndt.js:518
+setTimeout
+r.onreadystatechange @ index-D4KQwndt.js:518
+XMLHttpRequest.send
+_create @ index-D4KQwndt.js:518
+QE @ index-D4KQwndt.js:518
+request @ index-D4KQwndt.js:518
+doPoll @ index-D4KQwndt.js:518
+_poll @ index-D4KQwndt.js:518
+doOpen @ index-D4KQwndt.js:518
+open @ index-D4KQwndt.js:518
+_open @ index-D4KQwndt.js:518
+Om @ index-D4KQwndt.js:518
+khe @ index-D4KQwndt.js:518
+Nhe @ index-D4KQwndt.js:518
+open @ index-D4KQwndt.js:518
+(anonymous) @ index-D4KQwndt.js:518
+setTimeout
+reconnect @ index-D4KQwndt.js:518
+(anonymous) @ index-D4KQwndt.js:518
+s @ index-D4KQwndt.js:518
+Bo.emit @ index-D4KQwndt.js:518
+_onError @ index-D4KQwndt.js:518
+Bo.emit @ index-D4KQwndt.js:518
+onError @ index-D4KQwndt.js:518
+(anonymous) @ index-D4KQwndt.js:518
+Bo.emit @ index-D4KQwndt.js:518
+_onError @ index-D4KQwndt.js:518
+(anonymous) @ index-D4KQwndt.js:518
+setTimeout
+r.onreadystatechange @ index-D4KQwndt.js:518
+index-D4KQwndt.js:1956 ❌ Erreur de connexion socket: _he: xhr poll error
+    at Ahe.onError (https://35.181.48.18/assets/index-D4KQwndt.js:518:12386)
+    at QE.<anonymous> (https://35.181.48.18/assets/index-D4KQwndt.js:518:15017)
+    at Bo.emit (https://35.181.48.18/assets/index-D4KQwndt.js:518:10657)
+    at QE._onError (https://35.181.48.18/assets/index-D4KQwndt.js:518:16526)
+    at https://35.181.48.18/assets/index-D4KQwndt.js:518:16293
+(anonymous) @ index-D4KQwndt.js:1956
+Bo.emit @ index-D4KQwndt.js:518
+onerror @ index-D4KQwndt.js:518
+Bo.emit @ index-D4KQwndt.js:518
+s @ index-D4KQwndt.js:518
+Bo.emit @ index-D4KQwndt.js:518
+_onError @ index-D4KQwndt.js:518
+Bo.emit @ index-D4KQwndt.js:518
+onError @ index-D4KQwndt.js:518
+(anonymous) @ index-D4KQwndt.js:518
+Bo.emit @ index-D4KQwndt.js:518
+_onError @ index-D4KQwndt.js:518
+(anonymous) @ index-D4KQwndt.js:518
+setTimeout
+r.onreadystatechange @ index-D4KQwndt.js:518
+XMLHttpRequest.send
+_create @ index-D4KQwndt.js:518
+QE @ index-D4KQwndt.js:518
+request @ index-D4KQwndt.js:518
+doPoll @ index-D4KQwndt.js:518
+_poll @ index-D4KQwndt.js:518
+doOpen @ index-D4KQwndt.js:518
+open @ index-D4KQwndt.js:518
+_open @ index-D4KQwndt.js:518
+Om @ index-D4KQwndt.js:518
+khe @ index-D4KQwndt.js:518
+Nhe @ index-D4KQwndt.js:518
+open @ index-D4KQwndt.js:518
+(anonymous) @ index-D4KQwndt.js:518
+setTimeout
+reconnect @ index-D4KQwndt.js:518
+(anonymous) @ index-D4KQwndt.js:518
+s @ index-D4KQwndt.js:518
+Bo.emit @ index-D4KQwndt.js:518
+_onError @ index-D4KQwndt.js:518
+Bo.emit @ index-D4KQwndt.js:518
+onError @ index-D4KQwndt.js:518
+(anonymous) @ index-D4KQwndt.js:518
+Bo.emit @ index-D4KQwndt.js:518
+_onError @ index-D4KQwndt.js:518
+(anonymous) @ index-D4KQwndt.js:518
+setTimeout
+r.onreadystatechange @ index-D4KQwndt.js:518
+XMLHttpRequest.send
+_create @ index-D4KQwndt.js:518
+QE @ index-D4KQwndt.js:518
+request @ index-D4KQwndt.js:518
+doPoll @ index-D4KQwndt.js:518
+_poll @ index-D4KQwndt.js:518
+doOpen @ index-D4KQwndt.js:518
+open @ index-D4KQwndt.js:518
+_open @ index-D4KQwndt.js:518
+Om @ index-D4KQwndt.js:518
+khe @ index-D4KQwndt.js:518
+Nhe @ index-D4KQwndt.js:518
+open @ index-D4KQwndt.js:518
+(anonymous) @ index-D4KQwndt.js:518
+setTimeout
+reconnect @ index-D4KQwndt.js:518
+(anonymous) @ index-D4KQwndt.js:518
+s @ index-D4KQwndt.js:518
+Bo.emit @ index-D4KQwndt.js:518
+_onError @ index-D4KQwndt.js:518
+Bo.emit @ index-D4KQwndt.js:518
+onError @ index-D4KQwndt.js:518
+(anonymous) @ index-D4KQwndt.js:518
+Bo.emit @ index-D4KQwndt.js:518
+_onError @ index-D4KQwndt.js:518
+(anonymous) @ index-D4KQwndt.js:518
+setTimeout
+r.onreadystatechange @ index-D4KQwndt.js:518
+XMLHttpRequest.send
+_create @ index-D4KQwndt.js:518
+QE @ index-D4KQwndt.js:518
+request @ index-D4KQwndt.js:518
+doPoll @ index-D4KQwndt.js:518
+_poll @ index-D4KQwndt.js:518
+doOpen @ index-D4KQwndt.js:518
+open @ index-D4KQwndt.js:518
+_open @ index-D4KQwndt.js:518
+Om @ index-D4KQwndt.js:518
+khe @ index-D4KQwndt.js:518
+Nhe @ index-D4KQwndt.js:518
+open @ index-D4KQwndt.js:518
+(anonymous) @ index-D4KQwndt.js:518
+setTimeout
+reconnect @ index-D4KQwndt.js:518
+(anonymous) @ index-D4KQwndt.js:518
+s @ index-D4KQwndt.js:518
+Bo.emit @ index-D4KQwndt.js:518
+_onError @ index-D4KQwndt.js:518
+Bo.emit @ index-D4KQwndt.js:518
+onError @ index-D4KQwndt.js:518
+(anonymous) @ index-D4KQwndt.js:518
+Bo.emit @ index-D4KQwndt.js:518
+_onError @ index-D4KQwndt.js:518
+(anonymous) @ index-D4KQwndt.js:518
+setTimeout
+r.onreadystatechange @ index-D4KQwndt.js:518
+index-D4KQwndt.js:1956 ❌ Erreur details: _he: xhr poll error
+    at Ahe.onError (https://35.181.48.18/assets/index-D4KQwndt.js:518:12386)
+    at QE.<anonymous> (https://35.181.48.18/assets/index-D4KQwndt.js:518:15017)
+    at Bo.emit (https://35.181.48.18/assets/index-D4KQwndt.js:518:10657)
+    at QE._onError (https://35.181.48.18/assets/index-D4KQwndt.js:518:16526)
+    at https://35.181.48.18/assets/index-D4KQwndt.js:518:16293
+(anonymous) @ index-D4KQwndt.js:1956
+Bo.emit @ index-D4KQwndt.js:518
+onerror @ index-D4KQwndt.js:518
+Bo.emit @ index-D4KQwndt.js:518
+s @ index-D4KQwndt.js:518
+Bo.emit @ index-D4KQwndt.js:518
+_onError @ index-D4KQwndt.js:518
+Bo.emit @ index-D4KQwndt.js:518
+onError @ index-D4KQwndt.js:518
+(anonymous) @ index-D4KQwndt.js:518
+Bo.emit @ index-D4KQwndt.js:518
+_onError @ index-D4KQwndt.js:518
+(anonymous) @ index-D4KQwndt.js:518
+setTimeout
+r.onreadystatechange @ index-D4KQwndt.js:518
+XMLHttpRequest.send
+_create @ index-D4KQwndt.js:518
+QE @ index-D4KQwndt.js:518
+request @ index-D4KQwndt.js:518
+doPoll @ index-D4KQwndt.js:518
+_poll @ index-D4KQwndt.js:518
+doOpen @ index-D4KQwndt.js:518
+open @ index-D4KQwndt.js:518
+_open @ index-D4KQwndt.js:518
+Om @ index-D4KQwndt.js:518
+khe @ index-D4KQwndt.js:518
+Nhe @ index-D4KQwndt.js:518
+open @ index-D4KQwndt.js:518
+(anonymous) @ index-D4KQwndt.js:518
+setTimeout
+reconnect @ index-D4KQwndt.js:518
+(anonymous) @ index-D4KQwndt.js:518
+s @ index-D4KQwndt.js:518
+Bo.emit @ index-D4KQwndt.js:518
+_onError @ index-D4KQwndt.js:518
+Bo.emit @ index-D4KQwndt.js:518
+onError @ index-D4KQwndt.js:518
+(anonymous) @ index-D4KQwndt.js:518
+Bo.emit @ index-D4KQwndt.js:518
+_onError @ index-D4KQwndt.js:518
+(anonymous) @ index-D4KQwndt.js:518
+setTimeout
+r.onreadystatechange @ index-D4KQwndt.js:518
+XMLHttpRequest.send
+_create @ index-D4KQwndt.js:518
+QE @ index-D4KQwndt.js:518
+request @ index-D4KQwndt.js:518
+doPoll @ index-D4KQwndt.js:518
+_poll @ index-D4KQwndt.js:518
+doOpen @ index-D4KQwndt.js:518
+open @ index-D4KQwndt.js:518
+_open @ index-D4KQwndt.js:518
+Om @ index-D4KQwndt.js:518
+khe @ index-D4KQwndt.js:518
+Nhe @ index-D4KQwndt.js:518
+open @ index-D4KQwndt.js:518
+(anonymous) @ index-D4KQwndt.js:518
+setTimeout
+reconnect @ index-D4KQwndt.js:518
+(anonymous) @ index-D4KQwndt.js:518
+s @ index-D4KQwndt.js:518
+Bo.emit @ index-D4KQwndt.js:518
+_onError @ index-D4KQwndt.js:518
+Bo.emit @ index-D4KQwndt.js:518
+onError @ index-D4KQwndt.js:518
+(anonymous) @ index-D4KQwndt.js:518
+Bo.emit @ index-D4KQwndt.js:518
+_onError @ index-D4KQwndt.js:518
+(anonymous) @ index-D4KQwndt.js:518
+setTimeout
+r.onreadystatechange @ index-D4KQwndt.js:518
+XMLHttpRequest.send
+_create @ index-D4KQwndt.js:518
+QE @ index-D4KQwndt.js:518
+request @ index-D4KQwndt.js:518
+doPoll @ index-D4KQwndt.js:518
+_poll @ index-D4KQwndt.js:518
+doOpen @ index-D4KQwndt.js:518
+open @ index-D4KQwndt.js:518
+_open @ index-D4KQwndt.js:518
+Om @ index-D4KQwndt.js:518
+khe @ index-D4KQwndt.js:518
+Nhe @ index-D4KQwndt.js:518
+open @ index-D4KQwndt.js:518
+(anonymous) @ index-D4KQwndt.js:518
+setTimeout
+reconnect @ index-D4KQwndt.js:518
+(anonymous) @ index-D4KQwndt.js:518
+s @ index-D4KQwndt.js:518
+Bo.emit @ index-D4KQwndt.js:518
+_onError @ index-D4KQwndt.js:518
+Bo.emit @ index-D4KQwndt.js:518
+onError @ index-D4KQwndt.js:518
+(anonymous) @ index-D4KQwndt.js:518
+Bo.emit @ index-D4KQwndt.js:518
+_onError @ index-D4KQwndt.js:518
+(anonymous) @ index-D4KQwndt.js:518
+setTimeout
+r.onreadystatechange @ index-D4KQwndt.js:518
+index-D4KQwndt.js:518 📍 Position envoyée: {commercialId: 'bb44efd1-87bc-411c-99cd-b8a37c8412d3', position: Array(2), timestamp: '2025-08-01T18:50:14.306Z', speed: undefined, heading: undefined, …}
+
+
 ## Architecture Overview
 
 ```

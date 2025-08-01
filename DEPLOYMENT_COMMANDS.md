@@ -1,5 +1,24 @@
 # Commandes de Déploiement AWS - Ubuntu Instance
 
+## ⚡ COMMANDES RAPIDES DE DÉPLOIEMENT (APRÈS CHANGEMENTS)
+
+```bash
+pm2 stop all
+
+cd moduleProspec-*
+rm -rf dist/
+npm run build
+
+cd ../backend
+rm -rf dist/
+npm run build
+
+pm2 start all
+pm2 restart nginx
+
+pm2 logs --lines 20
+```
+
 ## 1. Installation des Prérequis
 
 ```bash

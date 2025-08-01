@@ -8,10 +8,16 @@ export const useSocket = (buildingId?: string) => {
     if (!buildingId) return;
 
     const SERVER_HOST = import.meta.env.VITE_SERVER_HOST || window.location.hostname;
-    const API_PORT = import.meta.env.VITE_API_PORT || '3000';
-    const protocol = window.location.protocol === 'https:' ? 'https' : 'http';
-    socketRef.current = io(`${protocol}://${SERVER_HOST}:${API_PORT}`, {
-      secure: protocol === 'https',
+    const isDevelopment = SERVER_HOST === 'localhost' || SERVER_HOST === '127.0.0.1' || SERVER_HOST.startsWith('192.168.');
+    const protocol = window.location.protocol === 'https:' ? 'wss' : 'ws';
+    
+    // Use nginx proxy in production, direct port in development
+    const socketUrl = isDevelopment 
+      ? `https://${SERVER_HOST}:${import.meta.env.VITE_API_PORT || '3000'}`
+      : `${protocol}://${SERVER_HOST}`;
+    
+    socketRef.current = io(socketUrl, {
+      secure: protocol === 'wss',
       transports: ['websocket', 'polling'],
       forceNew: true,
       upgrade: true,

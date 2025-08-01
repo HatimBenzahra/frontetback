@@ -15,6 +15,7 @@ import { porteService } from '@/services/porte.service';
 import { statisticsService } from '@/services/statistics.service';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/contexts/AuthContext';
+import { PYTHON_SERVER_URL } from '@/config';
 import { toast } from 'sonner';
 import {
   AlertDialog,
@@ -62,22 +63,8 @@ const ProspectingDoorsPage = () => {
     const [doorToDeleteId, setDoorToDeleteId] = useState<string | null>(null);
     const [openFloor, setOpenFloor] = useState<number | null>(1);
 
-    // Configuration du streaming audio pour les commerciaux - détection automatique du protocole
-    const getAudioServerUrl = () => {
-        const isHttps = window.location.protocol === 'https:';
-        const hostname = import.meta.env.VITE_SERVER_HOST || window.location.hostname;
-        const httpsPort = import.meta.env.VITE_PYTHON_HTTPS_PORT || '8443';
-        const httpPort = import.meta.env.VITE_PYTHON_HTTP_PORT || '8080';
-        
-        // Si on est en HTTPS, on utilise HTTPS pour le serveur audio aussi
-        if (isHttps) {
-            return `https://${hostname}:${httpsPort}`;
-        } else {
-            return `http://${hostname}:${httpPort}`;
-        }
-    };
-
-    const audioServerUrl = getAudioServerUrl();
+    // Configuration du streaming audio pour les commerciaux - utilise la config centralisée
+    const audioServerUrl = PYTHON_SERVER_URL;
     console.log('🎤 COMMERCIAL PAGE - Configuration audio streaming:');
     console.log('🎤 COMMERCIAL PAGE - Server URL:', audioServerUrl);
     console.log('🎤 COMMERCIAL PAGE - User ID:', user?.id);

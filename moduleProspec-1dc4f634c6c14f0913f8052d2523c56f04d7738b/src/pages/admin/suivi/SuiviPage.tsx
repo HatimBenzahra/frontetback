@@ -25,6 +25,7 @@ import {
 import { SuiviMap } from './SuiviMap';
 import { createColumns } from './suivi-table/columns';
 import { DataTable } from '@/components/data-table/DataTable';
+import { PYTHON_SERVER_URL } from '@/config';
 
 interface CommercialGPS {
   id: string;
@@ -71,34 +72,8 @@ const SuiviPage = () => {
   const [selectedSession, setSelectedSession] = useState<TranscriptionSession | null>(null);
   const transcriptionRef = useRef<HTMLDivElement>(null);
 
-  // Configuration du streaming audio - détection automatique du protocole
-  const getAudioServerUrl = () => {
-    const isHttps = window.location.protocol === 'https:';
-    const hostname = import.meta.env.VITE_SERVER_HOST || window.location.hostname;
-    const httpsPort = import.meta.env.VITE_PYTHON_HTTPS_PORT || '8443';
-    const httpPort = import.meta.env.VITE_PYTHON_HTTP_PORT || '8080';
-    
-    // Use different URLs for development vs production
-    const isDevelopment = hostname === 'localhost' || hostname === '127.0.0.1' || hostname.startsWith('192.168.');
-    
-    if (isDevelopment) {
-      // Development: connect directly to python server
-      if (isHttps) {
-        console.log('🔧 Utilisation HTTPS pour le serveur audio (page en HTTPS)');
-        return `https://${hostname}:${httpsPort}`;
-      } else {
-        console.log('🔧 Utilisation HTTP pour le serveur audio (page en HTTP)');
-        return `http://${hostname}:${httpPort}`;
-      }
-    } else {
-      // Production: use nginx proxy
-      const protocol = isHttps ? 'https' : 'http';
-      console.log('🔧 Utilisation proxy nginx pour le serveur audio');
-      return `${protocol}://${hostname}/python`;
-    }
-  };
-
-  const audioServerUrl = getAudioServerUrl();
+  // Configuration du streaming audio - utilise la config centralisée
+  const audioServerUrl = PYTHON_SERVER_URL;
   console.log('🎧 ADMIN PAGE - Configuration audio streaming:');
   console.log('🎧 ADMIN PAGE - Server URL:', audioServerUrl);
   console.log('🎧 ADMIN PAGE - User ID:', user?.id);
