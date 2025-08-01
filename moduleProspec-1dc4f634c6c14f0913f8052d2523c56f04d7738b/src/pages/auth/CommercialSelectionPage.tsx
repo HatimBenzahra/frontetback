@@ -22,9 +22,10 @@ const CommercialSelectionPage: React.FC = () => {
     const fetchCommerciaux = async () => {
       try {
         const data = await commercialService.getCommerciaux();
-        setCommerciaux(data);
+        setCommerciaux(Array.isArray(data) ? data : []);
       } catch (err) {
         setError('Impossible de charger la liste des commerciaux.');
+        setCommerciaux([]);
         console.error(err);
       } finally {
         setLoading(false);
@@ -64,7 +65,7 @@ const CommercialSelectionPage: React.FC = () => {
     return (
       <ScrollArea className="h-72 w-full rounded-md border p-4">
         <div className="grid gap-4">
-          {commerciaux.map((commercial) => (
+          {(commerciaux || []).map((commercial) => (
             <Button
               key={commercial.id}
               variant="outline"

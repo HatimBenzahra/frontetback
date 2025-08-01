@@ -544,6 +544,26 @@ curl -k https://35.181.43.99/
 
 **Note** : N'oubliez pas d'ouvrir les ports 80 et 443 dans AWS Security Groups si l'accès externe ne fonctionne pas encore.
 
+## URGENT - Déploiement de la correction config.ts
+
+cd /home/ubuntu/frontetback
+
+git pull origin main
+
+cd /home/ubuntu/frontetback/moduleProspec-1dc4f634c6c14f0913f8052d2523c56f04d7738b
+
+sudo chown -R ubuntu:ubuntu dist
+
+npm run build
+
+sudo chown -R www-data:www-data dist
+
+sudo chmod -R 755 dist
+
+sudo systemctl reload nginx
+
+curl -k https://35.181.48.18/
+
 ## 24. Correction de l'IP publique
 
 ```bash
