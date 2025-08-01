@@ -18,8 +18,10 @@ from aiortc.contrib.media import MediaRelay
 import ssl
 from dotenv import load_dotenv
 
-# Charger les variables d'environnement
-load_dotenv()
+# Charger les variables d'environnement depuis le fichier .env du backend principal
+import os.path
+backend_env_path = os.path.join(os.path.dirname(__file__), '..', '.env')
+load_dotenv(backend_env_path)
 
 # Configuration du logging
 logging.basicConfig(level=logging.INFO)
@@ -27,17 +29,26 @@ logger = logging.getLogger(__name__)
 
 class AudioStreamingServer:
     def __init__(self):
-        # Récupérer l'adresse du client depuis les variables d'environnement
+        # Récupérer toutes les adresses depuis les variables d'environnement
         client_host = os.getenv('CLIENT_HOST', '192.168.1.116')
+        frontend_port = os.getenv('FRONTEND_PORT', '5173')
+        production_ip = os.getenv('PRODUCTION_IP', '35.181.43.99')
+        localhost_dev = os.getenv('LOCALHOST_DEV', 'localhost')
+        localhost_ip = os.getenv('LOCALHOST_IP', '127.0.0.1')
         
         self.sio = socketio.AsyncServer(
             cors_allowed_origins=[
-                "http://localhost:5173",
-                "https://localhost:5173", 
-                "http://127.0.0.1:5173",
-                "https://127.0.0.1:5173",
-                f"http://{client_host}:5173",
-                f"https://{client_host}:5173"
+                f"http://{localhost_dev}:{frontend_port}",
+                f"https://{localhost_dev}:{frontend_port}", 
+                f"http://{localhost_ip}:{frontend_port}",
+                f"https://{localhost_ip}:{frontend_port}",
+                f"http://{client_host}:{frontend_port}",
+                f"https://{client_host}:{frontend_port}",
+                f"http://{client_host}",
+                f"https://{client_host}",
+                # Pour la production AWS
+                f"http://{production_ip}",
+                f"https://{production_ip}"
             ],
             logger=True,
             engineio_logger=True
@@ -78,14 +89,25 @@ class AudioStreamingServer:
             
             # Obtenir l'origine de la requête
             origin = request.headers.get('Origin')
+            # Récupérer toutes les adresses depuis les variables d'environnement
             client_host = os.getenv('CLIENT_HOST', '192.168.1.116')
+            frontend_port = os.getenv('FRONTEND_PORT', '5173')
+            production_ip = os.getenv('PRODUCTION_IP', '35.181.43.99')
+            localhost_dev = os.getenv('LOCALHOST_DEV', 'localhost')
+            localhost_ip = os.getenv('LOCALHOST_IP', '127.0.0.1')
+            
             allowed_origins = [
-                "http://localhost:5173",
-                "https://localhost:5173", 
-                "http://127.0.0.1:5173",
-                "https://127.0.0.1:5173",
-                f"http://{client_host}:5173",
-                f"https://{client_host}:5173"
+                f"http://{localhost_dev}:{frontend_port}",
+                f"https://{localhost_dev}:{frontend_port}", 
+                f"http://{localhost_ip}:{frontend_port}",
+                f"https://{localhost_ip}:{frontend_port}",
+                f"http://{client_host}:{frontend_port}",
+                f"https://{client_host}:{frontend_port}",
+                f"http://{client_host}",
+                f"https://{client_host}",
+                # Pour la production AWS
+                f"http://{production_ip}",
+                f"https://{production_ip}"
             ]
             
             if origin in allowed_origins:
@@ -498,14 +520,31 @@ class AudioStreamingServer:
         """Créer le contexte SSL pour HTTPS"""
         ssl_context = ssl.create_default_context(ssl.Purpose.CLIENT_AUTH)
         try:
-            # Utiliser les mêmes certificats que le serveur Vite
+            # Déterminer les chemins des certificats selon l'environnement
             import os.path
             ssl_dir = os.path.join(os.path.dirname(__file__), '..', 'ssl')
-            ssl_context.load_cert_chain(
-                os.path.join(ssl_dir, '127.0.0.1+1.pem'),
-                os.path.join(ssl_dir, '127.0.0.1+1-key.pem')
-            )
-            logger.info("✅ Certificats SSL chargés avec succès")
+            
+            # Variables d'environnement pour les certificats
+            cert_file = os.getenv('SSL_CERT_FILE')
+            key_file = os.getenv('SSL_KEY_FILE')
+            
+            if cert_file and key_file:
+                # Utiliser les certificats spécifiés dans les variables d'environnement (production)
+                ssl_context.load_cert_chain(cert_file, key_file)
+                logger.info(f"✅ Certificats SSL de production chargés: {cert_file}")
+            else:
+                # Fallback vers les certificats de développement local
+                localhost_ip = os.getenv('LOCALHOST_IP', '127.0.0.1')
+                cert_path = os.path.join(ssl_dir, f'{localhost_ip}+1.pem')
+                key_path = os.path.join(ssl_dir, f'{localhost_ip}+1-key.pem')
+                
+                if os.path.exists(cert_path) and os.path.exists(key_path):
+                    ssl_context.load_cert_chain(cert_path, key_path)
+                    logger.info("✅ Certificats SSL de développement chargés")
+                else:
+                    logger.warning("⚠️  Aucun certificat SSL trouvé, HTTPS sera désactivé")
+                    return None
+            
             return ssl_context
         except Exception as e:
             logger.error(f"❌ Erreur lors du chargement des certificats SSL: {e}")
