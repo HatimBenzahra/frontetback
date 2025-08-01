@@ -78,13 +78,23 @@ const SuiviPage = () => {
     const httpsPort = import.meta.env.VITE_PYTHON_HTTPS_PORT || '8443';
     const httpPort = import.meta.env.VITE_PYTHON_HTTP_PORT || '8080';
     
-    // Utiliser HTTPS si la page est en HTTPS, sinon HTTP
-    if (isHttps) {
-      console.log('🔧 Utilisation HTTPS pour le serveur audio (page en HTTPS)');
-      return `https://${hostname}:${httpsPort}`;
+    // Use different URLs for development vs production
+    const isDevelopment = hostname === 'localhost' || hostname === '127.0.0.1' || hostname.startsWith('192.168.');
+    
+    if (isDevelopment) {
+      // Development: connect directly to python server
+      if (isHttps) {
+        console.log('🔧 Utilisation HTTPS pour le serveur audio (page en HTTPS)');
+        return `https://${hostname}:${httpsPort}`;
+      } else {
+        console.log('🔧 Utilisation HTTP pour le serveur audio (page en HTTP)');
+        return `http://${hostname}:${httpPort}`;
+      }
     } else {
-      console.log('🔧 Utilisation HTTP pour le serveur audio (page en HTTP)');
-      return `http://${hostname}:${httpPort}`;
+      // Production: use nginx proxy
+      const protocol = isHttps ? 'https' : 'http';
+      console.log('🔧 Utilisation proxy nginx pour le serveur audio');
+      return `${protocol}://${hostname}/python`;
     }
   };
 
@@ -109,7 +119,10 @@ const SuiviPage = () => {
     const SERVER_HOST = import.meta.env.VITE_SERVER_HOST || window.location.hostname;
     const API_PORT = import.meta.env.VITE_API_PORT || '3000';
     const protocol = window.location.protocol === 'https:' ? 'https' : 'http';
-    const socketUrl = `${protocol}://${SERVER_HOST}:${API_PORT}`;
+    
+    // Use different URLs for development vs production
+    const isDevelopment = SERVER_HOST === 'localhost' || SERVER_HOST === '127.0.0.1' || SERVER_HOST.startsWith('192.168.');
+    const socketUrl = isDevelopment ? `${protocol}://${SERVER_HOST}:${API_PORT}` : `${protocol}://${SERVER_HOST}`;
     console.log('🔌 Connexion socket admin GPS:', socketUrl);
     
     const socketConnection = io(socketUrl, {

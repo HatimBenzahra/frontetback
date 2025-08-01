@@ -30,7 +30,9 @@ async function bootstrap() {
         `https://${process.env.CLIENT_HOST || '192.168.1.116'}:5173`,
         `http://localhost:5173`, 
         `http://127.0.0.1:5173`,
-        `http://${process.env.CLIENT_HOST || '192.168.1.116'}:5173`
+        `http://${process.env.CLIENT_HOST || '192.168.1.116'}:5173`,
+        `https://${process.env.PRODUCTION_IP || process.env.SERVER_HOST}`,
+        `http://${process.env.PRODUCTION_IP || process.env.SERVER_HOST}`
       ],
       methods: 'GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS',
       credentials: true,
@@ -54,7 +56,9 @@ async function bootstrap() {
         `http://${process.env.CLIENT_HOST || '192.168.1.116'}:5173`,
         `https://localhost:5173`, 
         `https://127.0.0.1:5173`,
-        `https://${process.env.CLIENT_HOST || '192.168.1.116'}:5173`
+        `https://${process.env.CLIENT_HOST || '192.168.1.116'}:5173`,
+        `https://${process.env.PRODUCTION_IP || process.env.SERVER_HOST}`,
+        `http://${process.env.PRODUCTION_IP || process.env.SERVER_HOST}`
       ],
       methods: 'GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS',
       credentials: true,

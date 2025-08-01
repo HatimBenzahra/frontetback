@@ -22,7 +22,10 @@ class LocationService {
   private initializeSocket() {
     const SERVER_HOST = import.meta.env.VITE_SERVER_HOST || window.location.hostname;
     const API_PORT = import.meta.env.VITE_API_PORT || '3000';
-    const socketUrl = `https://${SERVER_HOST}:${API_PORT}`;
+    
+    // Use different URLs for development vs production
+    const isDevelopment = SERVER_HOST === 'localhost' || SERVER_HOST === '127.0.0.1' || SERVER_HOST.startsWith('192.168.');
+    const socketUrl = isDevelopment ? `https://${SERVER_HOST}:${API_PORT}` : `https://${SERVER_HOST}`;
     console.log('🔌 Initialisation socket GPS:', socketUrl);
     
     this.socket = io(socketUrl, {
