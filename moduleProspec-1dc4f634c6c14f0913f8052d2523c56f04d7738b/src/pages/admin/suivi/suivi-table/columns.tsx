@@ -29,7 +29,6 @@ export const createColumns = (
   },
   onStartListening: (commercialId: string) => Promise<void>,
   onShowOnMap: (commercial: CommercialGPS) => void,
-  onSelectCommercial: (commercial: CommercialGPS) => void,
   onShowHistory: (commercial: CommercialGPS) => void
 ): ColumnDef<CommercialGPS>[] => [
   {

@@ -69,7 +69,7 @@ const ProspectingSetupPage = () => {
     }, [buildingId, user]);
 
     useEffect(() => {
-        let interval: NodeJS.Timeout | undefined;
+        let interval: number | undefined;
         if (sentRequestId && isSendingInvitation) {
             interval = setInterval(async () => {
                 try {

@@ -333,9 +333,6 @@ const SuiviPage = () => {
     }
   }, [transcriptionHistory, selectedSession]);
 
-  const handleSelectCommercial = (commercial: CommercialGPS) => {
-    setSelectedCommercial(commercial);
-  };
 
   const handleShowOnMap = (commercial: CommercialGPS) => {
     setSelectedCommercial(commercial);
@@ -951,7 +948,6 @@ const SuiviPage = () => {
     audioStreaming,
     handleStartListening,
     handleShowOnMap,
-    handleSelectCommercial,
     handleShowHistory
   );
 
@@ -1012,7 +1008,6 @@ const SuiviPage = () => {
           filterColumnId="name"
           filterPlaceholder="Rechercher un commercial..."
           title="Suivi GPS en temps réel"
-          onRowClick={handleSelectCommercial}
         />
       </div>
       

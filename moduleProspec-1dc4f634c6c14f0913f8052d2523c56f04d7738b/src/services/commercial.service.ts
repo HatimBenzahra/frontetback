@@ -32,24 +32,6 @@ const getCommerciaux = async (): Promise<CommercialFromAPI[]> => {
   return response.data;
 };
 
-// Récupérer les commerciaux avec leurs données GPS pour le suivi
-const getCommerciauxWithGPS = async (): Promise<any[]> => {
-  try {
-    const response = await axios.get(`${API_URL}/gps-tracking`);
-    return response.data;
-  } catch (error) {
-    console.warn('Endpoint GPS non disponible, utilisation des données de base');
-    // Fallback vers l'endpoint normal
-    const response = await axios.get(API_URL);
-    return response.data.map((c: any) => ({
-      ...c,
-      lastPosition: null,
-      lastSeen: null,
-      lastSpeed: 0,
-      lastHeading: null
-    }));
-  }
-};
 
 const createCommercial = async (data: CreateCommercialPayload): Promise<CommercialFromAPI> => {
   const response = await axios.post(API_URL, data);
