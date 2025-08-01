@@ -28,7 +28,7 @@ logger = logging.getLogger(__name__)
 class AudioStreamingServer:
     def __init__(self):
         # Récupérer l'adresse du client depuis les variables d'environnement
-        client_host = os.getenv('CLIENT_HOST', '192.168.1.50')
+        client_host = os.getenv('CLIENT_HOST', '192.168.1.116')
         
         self.sio = socketio.AsyncServer(
             cors_allowed_origins=[
@@ -78,7 +78,7 @@ class AudioStreamingServer:
             
             # Obtenir l'origine de la requête
             origin = request.headers.get('Origin')
-            client_host = os.getenv('CLIENT_HOST', '192.168.1.50')
+            client_host = os.getenv('CLIENT_HOST', '192.168.1.116')
             allowed_origins = [
                 "http://localhost:5173",
                 "https://localhost:5173", 
@@ -502,8 +502,8 @@ class AudioStreamingServer:
             import os.path
             ssl_dir = os.path.join(os.path.dirname(__file__), '..', 'ssl')
             ssl_context.load_cert_chain(
-                os.path.join(ssl_dir, '192.168.1.50.pem'),
-                os.path.join(ssl_dir, '192.168.1.50-key.pem')
+                os.path.join(ssl_dir, '127.0.0.1+1.pem'),
+                os.path.join(ssl_dir, '127.0.0.1+1-key.pem')
             )
             logger.info("✅ Certificats SSL chargés avec succès")
             return ssl_context

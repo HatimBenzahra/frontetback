@@ -27,10 +27,10 @@ async function bootstrap() {
       origin: [
         `https://localhost:5173`, 
         `https://127.0.0.1:5173`,
-        `https://${process.env.CLIENT_HOST || '192.168.1.50'}:5173`,
+        `https://${process.env.CLIENT_HOST || '192.168.1.116'}:5173`,
         `http://localhost:5173`, 
         `http://127.0.0.1:5173`,
-        `http://${process.env.CLIENT_HOST || '192.168.1.50'}:5173`
+        `http://${process.env.CLIENT_HOST || '192.168.1.116'}:5173`
       ],
       methods: 'GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS',
       credentials: true,
@@ -51,10 +51,10 @@ async function bootstrap() {
       origin: [
         `http://localhost:5173`, 
         `http://127.0.0.1:5173`,
-        `http://${process.env.CLIENT_HOST || '192.168.1.50'}:5173`,
+        `http://${process.env.CLIENT_HOST || '192.168.1.116'}:5173`,
         `https://localhost:5173`, 
         `https://127.0.0.1:5173`,
-        `https://${process.env.CLIENT_HOST || '192.168.1.50'}:5173`
+        `https://${process.env.CLIENT_HOST || '192.168.1.116'}:5173`
       ],
       methods: 'GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS',
       credentials: true,
