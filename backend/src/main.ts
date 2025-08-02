@@ -25,14 +25,14 @@ async function bootstrap() {
 
     app.enableCors({
       origin: [
-        `https://localhost:5173`, 
-        `https://127.0.0.1:5173`,
-        `https://${process.env.CLIENT_HOST || '192.168.1.116'}:5173`,
-        `http://localhost:5173`, 
-        `http://127.0.0.1:5173`,
-        `http://${process.env.CLIENT_HOST || '192.168.1.116'}:5173`,
-        `https://${process.env.PRODUCTION_IP || process.env.SERVER_HOST}`,
-        `http://${process.env.PRODUCTION_IP || process.env.SERVER_HOST}`
+        `https://${process.env.LOCALHOST_DEV}:${process.env.FRONTEND_PORT}`, 
+        `https://${process.env.LOCALHOST_IP}:${process.env.FRONTEND_PORT}`,
+        `https://${process.env.CLIENT_HOST}:${process.env.FRONTEND_PORT}`,
+        `http://${process.env.LOCALHOST_DEV}:${process.env.FRONTEND_PORT}`, 
+        `http://${process.env.LOCALHOST_IP}:${process.env.FRONTEND_PORT}`,
+        `http://${process.env.CLIENT_HOST}:${process.env.FRONTEND_PORT}`,
+        `https://${process.env.PRODUCTION_IP}`,
+        `http://${process.env.PRODUCTION_IP}`
       ],
       methods: 'GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS',
       credentials: true,
@@ -51,14 +51,14 @@ async function bootstrap() {
 
     app.enableCors({
       origin: [
-        `http://localhost:5173`, 
-        `http://127.0.0.1:5173`,
-        `http://${process.env.CLIENT_HOST || '192.168.1.116'}:5173`,
-        `https://localhost:5173`, 
-        `https://127.0.0.1:5173`,
-        `https://${process.env.CLIENT_HOST || '192.168.1.116'}:5173`,
-        `https://${process.env.PRODUCTION_IP || process.env.SERVER_HOST}`,
-        `http://${process.env.PRODUCTION_IP || process.env.SERVER_HOST}`
+        `http://${process.env.LOCALHOST_DEV}:${process.env.FRONTEND_PORT}`, 
+        `http://${process.env.LOCALHOST_IP}:${process.env.FRONTEND_PORT}`,
+        `http://${process.env.CLIENT_HOST}:${process.env.FRONTEND_PORT}`,
+        `https://${process.env.LOCALHOST_DEV}:${process.env.FRONTEND_PORT}`, 
+        `https://${process.env.LOCALHOST_IP}:${process.env.FRONTEND_PORT}`,
+        `https://${process.env.CLIENT_HOST}:${process.env.FRONTEND_PORT}`,
+        `https://${process.env.PRODUCTION_IP}`,
+        `http://${process.env.PRODUCTION_IP}`
       ],
       methods: 'GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS',
       credentials: true,
