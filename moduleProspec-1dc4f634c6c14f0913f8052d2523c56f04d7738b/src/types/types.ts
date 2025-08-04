@@ -214,3 +214,106 @@ export interface LocationHistory {
   speed?: number;
   heading?: number;
 }
+
+// Types pour le suivi GPS et les composants modaux
+export interface Zone {
+  id: string;
+  name: string;
+  coordinates: [number, number][];
+  color: string;
+  latlng: [number, number];
+  radius: number;
+}
+
+export interface AudioStreamingState {
+  isConnected: boolean;
+  isListening: boolean;
+  currentListeningTo: string | null;
+  error: string | null;
+  audioVolume: number;
+  setVolume: (volume: number) => void;
+  connect: () => void;
+  disconnect: () => void;
+  startListening: (commercialId: string) => Promise<void>;
+  stopListening: () => Promise<void>;
+}
+
+export interface SuiviPageState {
+  commercials: CommercialGPS[];
+  selectedCommercial: CommercialGPS | null;
+  zones: Zone[];
+  loading: boolean;
+  showListeningModal: boolean;
+  showMapModal: boolean;
+  showHistoryModal: boolean;
+  attemptedListeningTo: string | null;
+  transcriptions: Record<string, string>;
+  transcriptionHistory: TranscriptionSession[];
+  loadingHistory: boolean;
+  selectedCommercialForHistory: CommercialGPS | null;
+  selectedSession: TranscriptionSession | null;
+}
+
+export interface SuiviPageActions {
+  handleShowOnMap: (commercial: CommercialGPS) => void;
+  handleShowHistory: (commercial: CommercialGPS) => Promise<void>;
+  handleStartListening: (commercialId: string) => Promise<void>;
+  handleStopListening: () => Promise<void>;
+  setShowListeningModal: (show: boolean) => void;
+  setShowMapModal: (show: boolean) => void;
+  setShowHistoryModal: (show: boolean) => void;
+  setSelectedCommercial: (commercial: CommercialGPS | null) => void;
+  setSelectedCommercialForHistory: (commercial: CommercialGPS | null) => void;
+  setSelectedSession: (session: TranscriptionSession | null) => void;
+}
+
+export interface TranscriptionSession {
+  id: string;
+  commercial_id: string;
+  commercial_name: string;
+  start_time: string;
+  end_time: string;
+  duration_seconds: number;
+  full_transcript: string;
+  building_name?: string;
+}
+
+export interface SuiviStatsProps {
+  commercials: CommercialGPS[];
+  audioStreaming: AudioStreamingState;
+}
+
+export interface ListeningModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  commercial: CommercialGPS | null;
+  audioStreaming: AudioStreamingState;
+  transcription: string;
+  onStopListening: () => Promise<void>;
+}
+
+export interface HistoryModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  commercial: CommercialGPS | null;
+  transcriptionHistory: TranscriptionSession[];
+  loadingHistory: boolean;
+  selectedSession: TranscriptionSession | null;
+  onSessionSelect: (session: TranscriptionSession) => void;
+}
+
+export interface MapModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  commercial: CommercialGPS | null;
+  zones: Zone[];
+  commercials: CommercialGPS[];
+}
+
+export interface SuiviTableProps {
+  commercials: CommercialGPS[];
+  audioStreaming: AudioStreamingState;
+  onShowOnMap: (commercial: CommercialGPS) => void;
+  onShowHistory: (commercial: CommercialGPS) => Promise<void>;
+  onStartListening: (commercialId: string) => Promise<void>;
+}
