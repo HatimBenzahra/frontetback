@@ -1,8 +1,7 @@
 import { Modal } from '@/components/ui-admin/Modal';
 import { Button } from '@/components/ui-admin/button';
-import { Badge } from '@/components/ui-admin/badge';
-import { History, Calendar, Clock, FileText, Building } from 'lucide-react';
-import type { HistoryModalProps, TranscriptionSession } from '@/types/types';
+import { History, Clock, FileText, Building } from 'lucide-react';
+import type { HistoryModalProps } from '@/types/types';
 
 const formatDuration = (seconds: number) => {
   const minutes = Math.floor(seconds / 60);

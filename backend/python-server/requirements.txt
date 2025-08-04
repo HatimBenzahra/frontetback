@@ -1,15 +1,49 @@
-# Dépendances pour le serveur de streaming audio
-aiohttp
-python-socketio
-aiortc
-aiofiles
-
-# Dépendances audio supplémentaires (optionnelles)
-# sounddevice
-# numpy
+# Dépendances principales pour le serveur de streaming audio
+aiohttp==3.9.1
+python-socketio==5.10.0
+aiortc==1.5.0
+aiofiles==23.2.1
 
 # Dépendances pour la gestion SSL/TLS
-cryptography
+cryptography==41.0.8
 
-# Outils de développement
-python-dotenv
+# Outils de développement et configuration
+python-dotenv==1.0.0
+
+# Dépendances audio et WebRTC
+av==10.0.0
+aioice==0.9.0
+pyee==11.0.0
+
+# Dépendances pour la gestion des processus
+psutil==5.9.6
+
+# Dépendances pour la gestion des logs
+structlog==23.2.0
+
+# Dépendances pour la gestion des erreurs
+tenacity==8.2.3
+
+# Dépendances pour la validation des données
+pydantic==2.5.2
+
+# Dépendances pour la gestion des environnements
+python-decouple==3.8
+
+# Dépendances pour la gestion des certificats SSL
+certifi==2023.11.17
+
+# Dépendances pour la gestion des timeouts
+asyncio-timeout==4.0.3
+
+# Dépendances pour la gestion des connexions
+websockets==12.0
+
+# Dépendances pour la gestion des médias
+Pillow==10.1.0
+
+# Dépendances pour la gestion des formats audio
+numpy==1.24.3
+
+# Dépendances pour la gestion des processus système
+setproctitle==1.3.3

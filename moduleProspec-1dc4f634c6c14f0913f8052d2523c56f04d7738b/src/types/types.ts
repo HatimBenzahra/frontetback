@@ -219,10 +219,14 @@ export interface LocationHistory {
 export interface Zone {
   id: string;
   name: string;
-  coordinates: [number, number][];
+  assignedTo?: string;
   color: string;
   latlng: [number, number];
   radius: number;
+  dateCreation?: string;
+  nbImmeubles?: number;
+  totalContratsSignes?: number;
+  totalRdvPris?: number;
 }
 
 export interface AudioStreamingState {

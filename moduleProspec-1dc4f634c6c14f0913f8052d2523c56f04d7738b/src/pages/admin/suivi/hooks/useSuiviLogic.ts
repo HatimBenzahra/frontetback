@@ -10,8 +10,7 @@ import { PYTHON_SERVER_URL } from '@/config';
 import type { 
   CommercialGPS, 
   Zone, 
-  TranscriptionSession, 
-  AudioStreamingState 
+  TranscriptionSession
 } from '@/types/types';
 
 export const useSuiviLogic = () => {

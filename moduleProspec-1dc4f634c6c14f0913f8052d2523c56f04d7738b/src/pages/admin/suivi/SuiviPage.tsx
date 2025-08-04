@@ -1,11 +1,10 @@
-import { useEffect } from 'react';
+import { useEffect, useMemo, useCallback } from 'react';
 import { useSuiviLogic } from './hooks/useSuiviLogic';
 import { SuiviStats } from './components/SuiviStats';
 import { SuiviTable } from './components/SuiviTable';
 import { ListeningModal } from './components/ListeningModal';
 import { HistoryModal } from './components/HistoryModal';
 import { MapModal } from './components/MapModal';
-import type { CommercialGPS, TranscriptionSession } from '@/types/types';
 
 const SuiviPage = () => {
   const {
@@ -33,8 +32,7 @@ const SuiviPage = () => {
     setShowListeningModal,
     setShowMapModal,
     setShowHistoryModal,
-    setSelectedCommercial,
-    setSelectedCommercialForHistory,
+
     setSelectedSession,
     setAttemptedListeningTo,
   } = useSuiviLogic();
@@ -46,6 +44,35 @@ const SuiviPage = () => {
     }
   }, [transcriptionHistory, selectedSession, setSelectedSession]);
 
+  // Optimisation : mémoriser le commercial en cours d'écoute
+  const listeningCommercial = useMemo(() => {
+    const currentListeningTo = audioStreaming.currentListeningTo || attemptedListeningTo;
+    return commercials.find(c => c.id === currentListeningTo) || null;
+  }, [commercials, audioStreaming.currentListeningTo, attemptedListeningTo]);
+
+  // Optimisation : mémoriser la transcription actuelle
+  const currentTranscription = useMemo(() => {
+    if (!listeningCommercial || !transcriptions[listeningCommercial.id]) {
+      return "En attente de transcription...";
+    }
+    return transcriptions[listeningCommercial.id];
+  }, [listeningCommercial, transcriptions]);
+
+  // Optimisation : mémoriser les callbacks pour éviter les re-renders
+  const handleCloseListeningModal = useCallback(() => {
+    handleStopListening();
+    setShowListeningModal(false);
+    setAttemptedListeningTo(null);
+  }, [handleStopListening, setShowListeningModal, setAttemptedListeningTo]);
+
+  const handleCloseMapModal = useCallback(() => {
+    setShowMapModal(false);
+  }, [setShowMapModal]);
+
+  const handleCloseHistoryModal = useCallback(() => {
+    setShowHistoryModal(false);
+  }, [setShowHistoryModal]);
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-[calc(100vh-8rem)]">
@@ -56,11 +83,6 @@ const SuiviPage = () => {
       </div>
     );
   }
-
-  const listeningCommercial = commercials.find(c => c.id === (audioStreaming.currentListeningTo || attemptedListeningTo)) || null;
-  const currentTranscription = listeningCommercial && transcriptions[listeningCommercial.id] 
-    ? transcriptions[listeningCommercial.id] 
-    : "En attente de transcription...";
 
   return (
     <div className="relative space-y-6">
@@ -79,7 +101,7 @@ const SuiviPage = () => {
       {/* Modals */}
       <MapModal
         isOpen={showMapModal}
-        onClose={() => setShowMapModal(false)}
+        onClose={handleCloseMapModal}
         commercial={selectedCommercial}
         zones={zones}
         commercials={commercials}
@@ -87,11 +109,7 @@ const SuiviPage = () => {
       
       <ListeningModal
         isOpen={showListeningModal}
-        onClose={() => {
-          handleStopListening();
-          setShowListeningModal(false);
-          setAttemptedListeningTo(null);
-        }}
+        onClose={handleCloseListeningModal}
         commercial={listeningCommercial}
         audioStreaming={audioStreaming}
         transcription={currentTranscription}
@@ -100,7 +118,7 @@ const SuiviPage = () => {
       
       <HistoryModal
         isOpen={showHistoryModal}
-        onClose={() => setShowHistoryModal(false)}
+        onClose={handleCloseHistoryModal}
         commercial={selectedCommercialForHistory}
         transcriptionHistory={transcriptionHistory}
         loadingHistory={loadingHistory}

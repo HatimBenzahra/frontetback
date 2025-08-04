@@ -1,0 +1,112 @@
+version: '3.8'
+
+services:
+  # Base de données PostgreSQL
+  postgres:
+    image: postgres:15-alpine
+    container_name: prospec_postgres
+    environment:
+      POSTGRES_DB: prospec_db
+      POSTGRES_USER: prospec_user
+      POSTGRES_PASSWORD: prospec_password
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - prospec_network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U prospec_user -d prospec_db"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Backend NestJS
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: prospec_backend
+    environment:
+      DATABASE_URL: postgresql://prospec_user:prospec_password@postgres:5432/prospec_db
+      NODE_ENV: production
+      PORT: 3000
+      JWT_SECRET: your_jwt_secret_here
+      CORS_ORIGIN: http://localhost:5173,http://frontend:5173
+    ports:
+      - "3000:3000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    volumes:
+      - ./backend:/app
+      - /app/node_modules
+    networks:
+      - prospec_network
+    restart: unless-stopped
+
+  # Serveur Python pour le streaming audio
+  python-server:
+    build:
+      context: ./backend/python-server
+      dockerfile: Dockerfile
+    container_name: prospec_python_server
+    environment:
+      PYTHONUNBUFFERED: 1
+      HOST: 0.0.0.0
+      PORT: 8000
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./backend/python-server:/app
+    networks:
+      - prospec_network
+    restart: unless-stopped
+
+  # Frontend React/Vite
+  frontend:
+    build:
+      context: ./moduleProspec-1dc4f634c6c14f0913f8052d2523c56f04d7738b
+      dockerfile: Dockerfile
+    container_name: prospec_frontend
+    environment:
+      VITE_API_URL: http://localhost:3000
+      VITE_SERVER_HOST: localhost
+      VITE_API_PORT: 3000
+      VITE_PYTHON_SERVER_URL: http://localhost:8000
+    ports:
+      - "5173:5173"
+    depends_on:
+      - backend
+      - python-server
+    volumes:
+      - ./moduleProspec-1dc4f634c6c14f0913f8052d2523c56f04d7738b:/app
+      - /app/node_modules
+    networks:
+      - prospec_network
+    restart: unless-stopped
+
+  # Nginx pour le reverse proxy (optionnel)
+  nginx:
+    image: nginx:alpine
+    container_name: prospec_nginx
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf
+      - ./nginx/ssl:/etc/nginx/ssl
+    depends_on:
+      - frontend
+      - backend
+      - python-server
+    networks:
+      - prospec_network
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
+
+networks:
+  prospec_network:
+    driver: bridge 
