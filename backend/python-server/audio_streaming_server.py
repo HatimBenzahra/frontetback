@@ -30,9 +30,9 @@ logger = logging.getLogger(__name__)
 class AudioStreamingServer:
     def __init__(self):
         # Récupérer toutes les adresses depuis les variables d'environnement
-        client_host = os.getenv('CLIENT_HOST', '192.168.1.116')
+        client_host = os.getenv('CLIENT_HOST', '192.168.1.120')
         frontend_port = os.getenv('FRONTEND_PORT', '5173')
-        production_ip = os.getenv('PRODUCTION_IP', '35.181.43.99')
+        production_ip = os.getenv('PRODUCTION_IP', '35.181.43.18')
         localhost_dev = os.getenv('LOCALHOST_DEV', 'localhost')
         localhost_ip = os.getenv('LOCALHOST_IP', '127.0.0.1')
         
@@ -90,9 +90,9 @@ class AudioStreamingServer:
             # Obtenir l'origine de la requête
             origin = request.headers.get('Origin')
             # Récupérer toutes les adresses depuis les variables d'environnement
-            client_host = os.getenv('CLIENT_HOST', '192.168.1.116')
+            client_host = os.getenv('CLIENT_HOST', '192.168.1.120')
             frontend_port = os.getenv('FRONTEND_PORT', '5173')
-            production_ip = os.getenv('PRODUCTION_IP', '35.181.43.99')
+            production_ip = os.getenv('PRODUCTION_IP', '35.181.43.120')
             localhost_dev = os.getenv('LOCALHOST_DEV', 'localhost')
             localhost_ip = os.getenv('LOCALHOST_IP', '127.0.0.1')
             
