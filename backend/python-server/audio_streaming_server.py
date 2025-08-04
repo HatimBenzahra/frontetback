@@ -30,11 +30,11 @@ logger = logging.getLogger(__name__)
 class AudioStreamingServer:
     def __init__(self):
         # Récupérer toutes les adresses depuis les variables d'environnement
-        client_host = os.getenv('CLIENT_HOST', '192.168.1.120')
-        frontend_port = os.getenv('FRONTEND_PORT', '5173')
-        production_ip = os.getenv('PRODUCTION_IP', '35.181.43.18')
-        localhost_dev = os.getenv('LOCALHOST_DEV', 'localhost')
-        localhost_ip = os.getenv('LOCALHOST_IP', '127.0.0.1')
+        client_host = os.getenv('CLIENT_HOST')
+        frontend_port = os.getenv('FRONTEND_PORT')
+        production_ip = os.getenv('PRODUCTION_IP')
+        localhost_dev = os.getenv('LOCALHOST_DEV')
+        localhost_ip = os.getenv('LOCALHOST_IP')
         
         self.sio = socketio.AsyncServer(
             cors_allowed_origins=[
@@ -90,11 +90,11 @@ class AudioStreamingServer:
             # Obtenir l'origine de la requête
             origin = request.headers.get('Origin')
             # Récupérer toutes les adresses depuis les variables d'environnement
-            client_host = os.getenv('CLIENT_HOST', '192.168.1.120')
-            frontend_port = os.getenv('FRONTEND_PORT', '5173')
-            production_ip = os.getenv('PRODUCTION_IP', '35.181.43.120')
-            localhost_dev = os.getenv('LOCALHOST_DEV', 'localhost')
-            localhost_ip = os.getenv('LOCALHOST_IP', '127.0.0.1')
+            client_host = os.getenv('CLIENT_HOST')
+            frontend_port = os.getenv('FRONTEND_PORT')
+            production_ip = os.getenv('PRODUCTION_IP')
+            localhost_dev = os.getenv('LOCALHOST_DEV')
+            localhost_ip = os.getenv('LOCALHOST_IP')
             
             allowed_origins = [
                 f"http://{localhost_dev}:{frontend_port}",
@@ -534,9 +534,9 @@ class AudioStreamingServer:
                 logger.info(f"✅ Certificats SSL de production chargés: {cert_file}")
             else:
                 # Fallback vers les certificats de développement local
-                localhost_ip = os.getenv('LOCALHOST_IP', '127.0.0.1')
-                cert_path = os.path.join(ssl_dir, f'{localhost_ip}+1.pem')
-                key_path = os.path.join(ssl_dir, f'{localhost_ip}+1-key.pem')
+                ssl_cert_name = os.getenv('SSL_CERT_NAME', '127.0.0.1+4')
+                cert_path = os.path.join(ssl_dir, f'{ssl_cert_name}.pem')
+                key_path = os.path.join(ssl_dir, f'{ssl_cert_name}-key.pem')
                 
                 if os.path.exists(cert_path) and os.path.exists(key_path):
                     ssl_context.load_cert_chain(cert_path, key_path)

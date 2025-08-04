@@ -13,8 +13,8 @@ async function bootstrap() {
   try {
     // Essayer HTTPS d'abord
     const httpsOptions = {
-      key: fs.readFileSync(path.join(sslPath, '127.0.0.1+1-key.pem')),
-      cert: fs.readFileSync(path.join(sslPath, '127.0.0.1+1.pem')),
+      key: fs.readFileSync(path.join(sslPath, '127.0.0.1+4-key.pem')),
+      cert: fs.readFileSync(path.join(sslPath, '127.0.0.1+4.pem')),
     };
 
     const app = await NestFactory.create(AppModule, {

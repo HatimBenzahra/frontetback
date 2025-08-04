@@ -29,14 +29,14 @@ interface TranscriptionSession {
 @WebSocketGateway({
   cors: {
     origin: [
-      `https://localhost:5173`, 
-      `https://127.0.0.1:5173`,
-      `https://${process.env.CLIENT_HOST || '192.168.1.120'}:5173`,
-      `https://${process.env.LOCALHOST_IP || '192.168.1.120'}:5173`,
-      `http://localhost:5173`, 
-      `http://127.0.0.1:5173`,
-      `http://${process.env.CLIENT_HOST || '192.168.1.120'}:5173`,
-      `http://${process.env.LOCALHOST_IP || '192.168.1.120'}:5173`
+      `https://${process.env.LOCALHOST_DEV}:${process.env.FRONTEND_PORT}`, 
+      `https://127.0.0.1:${process.env.FRONTEND_PORT}`,
+      `https://${process.env.CLIENT_HOST}:${process.env.FRONTEND_PORT}`,
+      `https://${process.env.LOCALHOST_IP}:${process.env.FRONTEND_PORT}`,
+      `http://${process.env.LOCALHOST_DEV}:${process.env.FRONTEND_PORT}`, 
+      `http://127.0.0.1:${process.env.FRONTEND_PORT}`,
+      `http://${process.env.CLIENT_HOST}:${process.env.FRONTEND_PORT}`,
+      `http://${process.env.LOCALHOST_IP}:${process.env.FRONTEND_PORT}`
     ],
     credentials: true,
   },
