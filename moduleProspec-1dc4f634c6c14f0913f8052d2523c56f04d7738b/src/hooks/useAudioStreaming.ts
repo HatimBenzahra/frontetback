@@ -188,25 +188,48 @@ export const useAudioStreaming = (config: AudioStreamingConfig): AudioStreamingH
       setError(null);
       
       console.log('🔌 AUDIO STREAMING - Création de la connexion socket...');
-      const socket = io(config.serverUrl, {
-        secure: config.serverUrl.startsWith('https'),
+      
+      // Configuration Socket.IO avec le Manager pour le namespace
+      const serverBaseUrl = config.serverUrl.replace('/audio-streaming', '');
+      const namespace = '/audio-streaming';
+      
+      console.log('🔌 AUDIO STREAMING - Server base URL:', serverBaseUrl);
+      console.log('🔌 AUDIO STREAMING - Namespace:', namespace);
+      console.log('🔌 AUDIO STREAMING - Connexion vers:', `${serverBaseUrl}${namespace}`);
+      
+      // Utiliser la syntaxe correcte pour Socket.IO v4
+      const socket = io(`${serverBaseUrl}${namespace}`, {
         transports: ['polling', 'websocket'],
+        upgrade: true,
+        forceNew: true,
         reconnection: true,
         reconnectionAttempts: 10,
         reconnectionDelay: 1000,
         timeout: 20000,
-        forceNew: true,
-        rejectUnauthorized: false // Accepter les certificats auto-signés
+        autoConnect: true,
+        withCredentials: true // Important pour CORS
       });
 
       socketRef.current = socket;
 
+      // Enregistrer l'utilisateur dès la connexion
       socket.on('connect', () => {
         console.log('✅ Connecté au serveur de streaming audio');
         console.log('🔌 Socket ID:', socket.id);
         console.log('🔌 Socket connected:', socket.connected);
+        
+        // Enregistrer l'utilisateur avec son rôle
+        socket.emit('register_user', {
+          role: config.userRole,
+          user_info: { ...config.userInfo, id: config.userId }
+        });
+        
         setIsConnected(true);
         setError(null);
+      });
+
+      socket.on('user_registered', (data) => {
+        console.log('✅ Utilisateur enregistré:', data);
       });
 
       socket.on('disconnect', () => {
@@ -290,6 +313,11 @@ export const useAudioStreaming = (config: AudioStreamingConfig): AudioStreamingH
               listeners_count: 0
             }];
           });
+        });
+
+        socket.on('available_streams', (streams) => {
+          console.log('📻 Liste des streams disponibles:', streams);
+          setAvailableStreams(streams || []);
         });
 
         socket.on('commercial_stream_ended', (data) => {

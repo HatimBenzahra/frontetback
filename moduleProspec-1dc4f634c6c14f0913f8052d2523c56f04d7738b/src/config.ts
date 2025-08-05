@@ -6,8 +6,8 @@ const isDevelopment = SERVER_HOST === 'localhost' || SERVER_HOST === '127.0.0.1'
 export const API_BASE_URL = import.meta.env.VITE_API_URL || 
   (isDevelopment ? `https://${SERVER_HOST}:${API_PORT}` : `https://${SERVER_HOST}/api`);
 
-// Python server URL for audio streaming
-export const PYTHON_SERVER_URL = import.meta.env.VITE_PYTHON_SERVER_URL || 
+// Audio streaming service URL (intégré dans le backend NestJS)
+export const PYTHON_SERVER_URL = import.meta.env.VITE_AUDIO_STREAMING_URL || 
   (isDevelopment 
-    ? `https://${SERVER_HOST}:${import.meta.env.VITE_PYTHON_HTTPS_PORT || '8443'}` 
-    : `https://${SERVER_HOST}/python`);
+    ? `https://${SERVER_HOST}:${API_PORT}/audio-streaming`
+    : `https://${SERVER_HOST}/audio-streaming`);

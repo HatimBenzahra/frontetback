@@ -32,7 +32,11 @@ async function bootstrap() {
         `http://${process.env.LOCALHOST_IP}:${process.env.FRONTEND_PORT}`,
         `http://${process.env.CLIENT_HOST}:${process.env.FRONTEND_PORT}`,
         `https://${process.env.PRODUCTION_IP}`,
-        `http://${process.env.PRODUCTION_IP}`
+        `http://${process.env.PRODUCTION_IP}`,
+        'http://192.168.1.50:5173',
+        'https://192.168.1.50:5173',
+        'http://192.168.1.50:3000',
+        'https://192.168.1.50:3000'
       ],
       methods: 'GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS',
       credentials: true,
@@ -58,7 +62,11 @@ async function bootstrap() {
         `https://${process.env.LOCALHOST_IP}:${process.env.FRONTEND_PORT}`,
         `https://${process.env.CLIENT_HOST}:${process.env.FRONTEND_PORT}`,
         `https://${process.env.PRODUCTION_IP}`,
-        `http://${process.env.PRODUCTION_IP}`
+        `http://${process.env.PRODUCTION_IP}`,
+        'http://192.168.1.50:5173',
+        'https://192.168.1.50:5173',
+        'http://192.168.1.50:3000',
+        'https://192.168.1.50:3000'
       ],
       methods: 'GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS',
       credentials: true,
