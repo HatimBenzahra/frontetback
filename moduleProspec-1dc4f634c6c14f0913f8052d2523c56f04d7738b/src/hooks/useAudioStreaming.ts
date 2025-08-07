@@ -66,35 +66,35 @@ export const useAudioStreaming = (config: AudioStreamingConfig): AudioStreamingH
       
       // Logs pour l'élément audio global
       remoteAudioRef.current.onloadstart = () => {
-        console.log('🔊 ADMIN - Début du chargement audio');
+        console.log('ADMIN - Début du chargement audio');
       };
       
       remoteAudioRef.current.oncanplay = () => {
-        console.log('🔊 ADMIN - Audio prêt à être lu');
+        console.log('ADMIN - Audio prêt à être lu');
       };
       
       remoteAudioRef.current.onended = () => {
-        console.log('🔊 ADMIN - Audio terminé');
+        console.log('ADMIN - Audio terminé');
       };
       
       remoteAudioRef.current.onvolumechange = () => {
-        console.log('🔊 ADMIN - Volume changé automatiquement:', remoteAudioRef.current?.volume);
+        console.log('ADMIN - Volume changé automatiquement:', remoteAudioRef.current?.volume);
       };
 
       remoteAudioRef.current.onerror = (e) => {
-        console.error('❌ ADMIN - Erreur audio globale:', e);
+        console.error('ADMIN - Erreur audio globale:', e);
         setError('Erreur de lecture audio');
       };
 
       remoteAudioRef.current.onstalled = () => {
-        console.warn('⚠️ ADMIN - Audio en attente de données');
+        console.warn('ADMIN - Audio en attente de données');
       };
 
       remoteAudioRef.current.onwaiting = () => {
         console.warn('⏳ ADMIN - Audio en attente');
       };
       
-      console.log('✅ ADMIN - Élément audio initialisé avec volume:', audioVolume);
+      console.log('ADMIN - Élément audio initialisé avec volume:', audioVolume);
     }
   }, [config.userRole]); // Retirer audioVolume de la dépendance pour éviter les re-créations
 
@@ -135,37 +135,37 @@ export const useAudioStreaming = (config: AudioStreamingConfig): AudioStreamingH
           
           // Ajouter des événements pour traquer la lecture
           remoteAudioRef.current.onloadedmetadata = () => {
-            console.log('✅ ADMIN - Métadonnées audio chargées');
+            console.log('ADMIN - Métadonnées audio chargées');
           };
           
           remoteAudioRef.current.onplaying = () => {
-            console.log('✅ ADMIN - AUDIO EN COURS DE LECTURE! 🔊');
+            console.log('ADMIN - AUDIO EN COURS DE LECTURE! 🔊');
           };
           
           remoteAudioRef.current.onpause = () => {
-            console.log('⏸️ ADMIN - Audio en pause');
+            console.log('⏸ADMIN - Audio en pause');
           };
           
           remoteAudioRef.current.onerror = (e) => {
-            console.error('❌ ADMIN - Erreur audio:', e);
+            console.error('ADMIN - Erreur audio:', e);
           };
           
           remoteAudioRef.current.onvolumechange = () => {
-            console.log('🔊 ADMIN - Volume changé:', remoteAudioRef.current?.volume);
+            console.log('ADMIN - Volume changé:', remoteAudioRef.current?.volume);
           };
           
           console.log('🎵 ADMIN - Tentative de lecture audio...');
           remoteAudioRef.current.play()
             .then(() => {
-              console.log('✅ ADMIN - Audio démarré avec succès! 🎉');
+              console.log('ADMIN - Audio démarré avec succès! 🎉');
             })
             .catch(e => {
-              console.error('❌ ADMIN - Erreur lecture audio:', e);
+              console.error('ADMIN - Erreur lecture audio:', e);
               // Essayer de forcer la lecture avec interaction utilisateur
               console.log('🎵 ADMIN - Tentative de lecture forcée...');
             });
         } else {
-          console.error('❌ ADMIN - Élément audio ou stream manquant');
+          console.error('❌ADMIN - Élément audio ou stream manquant');
         }
       };
     }
@@ -214,9 +214,9 @@ export const useAudioStreaming = (config: AudioStreamingConfig): AudioStreamingH
 
       // Enregistrer l'utilisateur dès la connexion
       socket.on('connect', () => {
-        console.log('✅ Connecté au serveur de streaming audio');
-        console.log('🔌 Socket ID:', socket.id);
-        console.log('🔌 Socket connected:', socket.connected);
+        console.log('Connecté au serveur de streaming audio');
+        console.log('Socket ID:', socket.id);
+        console.log('Socket connected:', socket.connected);
         
         // Enregistrer l'utilisateur avec son rôle
         socket.emit('register_user', {
@@ -229,24 +229,24 @@ export const useAudioStreaming = (config: AudioStreamingConfig): AudioStreamingH
       });
 
       socket.on('user_registered', (data) => {
-        console.log('✅ Utilisateur enregistré:', data);
+        console.log('Utilisateur enregistré:', data);
       });
 
       socket.on('disconnect', () => {
-        console.log('❌ Déconnecté du serveur de streaming audio');
+        console.log('Déconnecté du serveur de streaming audio');
         setIsConnected(false);
         setIsListening(false);
         setIsStreaming(false);
       });
 
       socket.on('error', (data) => {
-        console.error('❌ Erreur serveur:', data.message);
+        console.error('Erreur serveur:', data.message);
         setError(data.message);
       });
 
       socket.on('connect_error', (error) => {
-        console.error('❌ Erreur de connexion socket:', error);
-        console.error('❌ Erreur details:', error);
+        console.error('Erreur de connexion socket:', error);
+        console.error('Erreur details:', error);
         setError(`Erreur de connexion: ${error.message}`);
       });
 
@@ -280,10 +280,10 @@ export const useAudioStreaming = (config: AudioStreamingConfig): AudioStreamingH
                 answer: answer,
                 commercial_id: data.commercial_id
               });
-              console.log('✅ ADMIN - Réponse WebRTC envoyée');
+              console.log('DMIN - Réponse WebRTC envoyée');
             }
           } catch (error) {
-            console.error('❌ ADMIN - Erreur WebRTC:', error);
+            console.error('ADMIN - Erreur WebRTC:', error);
           }
         });
 
@@ -291,7 +291,7 @@ export const useAudioStreaming = (config: AudioStreamingConfig): AudioStreamingH
           console.log('🧊 ADMIN - ICE candidate reçu:', data);
           if (peerConnectionRef.current && data.candidate) {
             peerConnectionRef.current.addIceCandidate(new RTCIceCandidate(data.candidate))
-              .catch(error => console.error('❌ ADMIN - Erreur ajout ICE candidate:', error));
+              .catch(error => console.error('ADMIN - Erreur ajout ICE candidate:', error));
           }
         });
 
@@ -383,9 +383,9 @@ export const useAudioStreaming = (config: AudioStreamingConfig): AudioStreamingH
               }
             });
 
-            console.log('✅ ADMIN - Réponse WebRTC envoyée au serveur');
+            console.log('ADMIN - Réponse WebRTC envoyée au serveur');
           } catch (error) {
-            console.error('❌ ADMIN - Erreur traitement offre WebRTC:', error);
+            console.error('ADMIN - Erreur traitement offre WebRTC:', error);
             setError('Erreur lors de l\'établissement de la connexion audio');
           }
         });
@@ -395,7 +395,7 @@ export const useAudioStreaming = (config: AudioStreamingConfig): AudioStreamingH
           try {
             if (peerConnectionRef.current && data.candidate) {
               await peerConnectionRef.current.addIceCandidate(data.candidate);
-              console.log('✅ Candidat ICE ajouté');
+              console.log('Candidat ICE ajouté');
             }
           } catch (error) {
             console.error('Erreur ajout candidat ICE:', error);
@@ -475,7 +475,7 @@ export const useAudioStreaming = (config: AudioStreamingConfig): AudioStreamingH
       const pc = createPeerConnection();
       peerConnectionRef.current = pc;
 
-      console.log('✅ Prêt à recevoir l\'audio du commercial', commercialId);
+      console.log('Prêt à recevoir l\'audio du commercial', commercialId);
     } catch (error) {
       console.error('Erreur démarrage écoute:', error);
       setError('Impossible de démarrer l\'écoute');
