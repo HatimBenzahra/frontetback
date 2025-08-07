@@ -15,7 +15,6 @@ import { porteService } from '@/services/porte.service';
 import { statisticsService } from '@/services/statistics.service';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/contexts/AuthContext';
-import { PYTHON_SERVER_URL } from '@/config';
 import { toast } from 'sonner';
 import {
   AlertDialog,
@@ -28,14 +27,10 @@ import {
   AlertDialogTitle,
 } from "@/components/ui-admin/alert-dialog";
 import { useSocket } from '@/hooks/useSocket';
-import { useAudioStreaming } from '@/hooks/useAudioStreaming';
-import { useDeepgramTranscription } from '@/hooks/useDeepgramTranscription';
-import { transcriptionHistoryService } from '@/services/transcriptionHistory.service';
-import { Mic, MicOff } from 'lucide-react';
 
 
 const ProspectingDoorsPage = () => {
-    const { buildingId } = useParams<{ buildingId: string }>();
+    const {buildingId } = useParams<{ buildingId: string }>();
     const navigate = useNavigate();
     const { user } = useAuth();
     const layoutControls = useOutletContext<LayoutControls>();
@@ -62,60 +57,6 @@ const ProspectingDoorsPage = () => {
     const [isConfirmDeleteOpen, setIsConfirmDeleteOpen] = useState(false);
     const [doorToDeleteId, setDoorToDeleteId] = useState<string | null>(null);
     const [openFloor, setOpenFloor] = useState<number | null>(1);
-
-    // Configuration du streaming audio pour les commerciaux - utilise la config centralisée
-    const audioServerUrl = PYTHON_SERVER_URL;
-    console.log('🎤 COMMERCIAL PAGE - Configuration audio streaming:');
-    console.log('🎤 COMMERCIAL PAGE - Server URL:', audioServerUrl);
-    console.log('🎤 COMMERCIAL PAGE - User ID:', user?.id);
-    console.log('🎤 COMMERCIAL PAGE - User role: commercial');
-    console.log('🎤 COMMERCIAL PAGE - User info:', {
-        name: user?.nom || '',
-        equipe: 'Équipe Commercial'
-    });
-
-    const audioStreaming = useAudioStreaming({
-        serverUrl: audioServerUrl,
-        userId: user?.id || '',
-        userRole: 'commercial',
-        userInfo: {
-            name: user?.nom || '',
-            equipe: 'Équipe Commercial'
-        }
-    });
-
-    // Hook pour la transcription côté commercial
-    const deepgramTranscription = useDeepgramTranscription();
-
-    // Gestion de l'arrêt brusque (fermeture de page, navigation, etc.)
-    useEffect(() => {
-        const handleBeforeUnload = async () => {
-            if (audioStreaming.isStreaming) {
-                console.log('🚨 Arrêt brusque détecté - Sauvegarde automatique de la transcription');
-                try {
-                    const transcriptionSession = await deepgramTranscription.stopTranscription();
-                    if (transcriptionSession && transcriptionSession.full_transcript.trim()) {
-                        const enrichedSession = {
-                            ...transcriptionSession,
-                            commercial_name: user?.nom || 'Commercial',
-                            building_id: buildingId,
-                            building_name: building ? `${building.adresse}, ${building.ville}` : 'Bâtiment'
-                        };
-                        await transcriptionHistoryService.saveTranscriptionSession(enrichedSession);
-                        console.log('📚 Session transcription sauvegardée lors de l\'arrêt brusque');
-                    }
-                } catch (error) {
-                    console.error('❌ Erreur sauvegarde lors de l\'arrêt brusque:', error);
-                }
-            }
-        };
-
-        window.addEventListener('beforeunload', handleBeforeUnload);
-        
-        return () => {
-            window.removeEventListener('beforeunload', handleBeforeUnload);
-        };
-    }, [audioStreaming.isStreaming, deepgramTranscription, user?.nom, buildingId, building]);
 
     useEffect(() => {
         if (!socket || !buildingId) return;
@@ -220,20 +161,6 @@ const ProspectingDoorsPage = () => {
             fetchData(buildingId);
         }
     }, [buildingId, fetchData]);
-
-    // Connecter au serveur de streaming audio
-    useEffect(() => {
-        console.log('🎤 COMMERCIAL PAGE - useEffect connexion audio, user:', user?.id);
-        if (user?.id) {
-            console.log('🎤 COMMERCIAL PAGE - Tentative de connexion au serveur audio...');
-            audioStreaming.connect();
-        }
-        
-        return () => {
-            console.log('🎤 COMMERCIAL PAGE - Déconnexion du serveur audio');
-            audioStreaming.disconnect();
-        };
-    }, [user?.id]);
 
     const handleEdit = useCallback((doorId: string) => {
         const doorToEdit = portes.find(p => p.id === doorId);
@@ -350,176 +277,6 @@ const ProspectingDoorsPage = () => {
         }
     };
 
-    const handleToggleStreaming = async () => {
-        console.log('🎤 COMMERCIAL PAGE - handleToggleStreaming appelé!');
-        console.log('🎤 COMMERCIAL PAGE - État actuel isStreaming:', audioStreaming.isStreaming);
-        console.log('🎤 COMMERCIAL PAGE - État connexion:', audioStreaming.isConnected);
-        
-        try {
-            if (audioStreaming.isStreaming) {
-                console.log('🎤 COMMERCIAL PAGE - Arrêt du streaming...');
-                await audioStreaming.stopStreaming();
-                
-                // Arrêter la transcription et récupérer la session AVANT nettoyage
-                const transcriptionSession = await deepgramTranscription.stopTranscription();
-                
-                // Sauvegarder automatiquement l'historique de transcription (NOUVEAU HISTORIQUE À CHAQUE CYCLE)
-                if (transcriptionSession && transcriptionSession.full_transcript.trim()) {
-                    try {
-                        // Enrichir la session avec les informations du bâtiment
-                        const enrichedSession = {
-                            ...transcriptionSession,
-                            commercial_name: user?.nom || 'Commercial',
-                            building_id: buildingId,
-                            building_name: building ? `${building.adresse}, ${building.ville}` : 'Bâtiment'
-                        };
-                        
-                        await transcriptionHistoryService.saveTranscriptionSession(enrichedSession);
-                        console.log('📚 NOUVEAU HISTORIQUE sauvegardé avec ID:', enrichedSession.id);
-                        console.log('📚 Contenu historique:', enrichedSession.full_transcript.substring(0, 100) + '...');
-                        toast.success(`Session enregistrée (${Math.floor(transcriptionSession.duration_seconds / 60)}min ${transcriptionSession.duration_seconds % 60}s)`);
-                    } catch (saveError) {
-                        console.error('❌ Erreur sauvegarde historique:', saveError);
-                        toast.error("Erreur lors de la sauvegarde de l'historique");
-                    }
-                } else {
-                    console.log('📚 Aucune transcription à sauvegarder (session vide)');
-                    toast.info("Session vide - aucun historique créé");
-                }
-                
-                // Aussi notifier le serveur Node.js pour les admins
-                if (socket) {
-                    socket.emit('stop_streaming', {
-                        commercial_id: user?.id
-                    });
-                    console.log('📡 COMMERCIAL - Notification arrêt envoyée au serveur Node.js');
-                }
-                
-                toast.success("Streaming audio arrêté - Session sauvegardée");
-            } else {
-                console.log('🎤 COMMERCIAL PAGE - Démarrage du streaming...');
-                
-                // Réinitialiser la transcription avant de démarrer le NOUVEAU cycle
-                console.log('🔄 COMMERCIAL - Réinitialisation transcription pour NOUVELLE session');
-                deepgramTranscription.clearTranscription();
-                
-                // Générer un ID unique pour cette nouvelle session
-                const newSessionId = crypto.randomUUID();
-                console.log('🆕 COMMERCIAL - Démarrage NOUVELLE session:', newSessionId);
-                
-                await audioStreaming.startStreaming();
-                
-                // Démarrer aussi la transcription avec l'ID utilisateur et le socket
-                console.log('🎙️ COMMERCIAL PAGE - Démarrage transcription...');
-                console.log('🎙️ COMMERCIAL PAGE - User ID:', user?.id);
-                console.log('🎙️ COMMERCIAL PAGE - Socket disponible:', !!socket);
-                console.log('🎙️ COMMERCIAL PAGE - Socket connecté:', socket?.connected);
-                
-                // Utiliser la même connexion Socket.IO que pour le streaming audio
-                await deepgramTranscription.startTranscription(user?.id, socket);
-                
-                // S'assurer que nous sommes bien dans la room dédiée aux transcriptions
-                if (socket?.connected) {
-                    socket.emit('joinRoom', 'transcriptions');
-                    console.log('🎙️ COMMERCIAL PAGE - Joint la room transcriptions');
-                } else {
-                    console.warn('⚠️ COMMERCIAL PAGE - Socket non connecté, impossible de rejoindre la room');
-                }
-                
-                console.log('🎙️ COMMERCIAL PAGE - Transcription démarrée!');
-                
-                // Aussi notifier le serveur Node.js pour les admins
-                if (socket) {
-                    socket.emit('start_streaming', {
-                        commercial_id: user?.id,
-                        commercial_info: {
-                            name: user?.nom || '',
-                            role: 'commercial'
-                        }
-                    });
-                    console.log('📡 COMMERCIAL - Notification démarrage envoyée au serveur Node.js');
-                }
-                
-                toast.success("Streaming audio démarré - Vos supérieurs peuvent maintenant vous écouter");
-            }
-        } catch (error) {
-            console.error('❌ COMMERCIAL PAGE - Erreur streaming:', error);
-            toast.error("Erreur lors du basculement du streaming");
-        }
-    };
-
-    const renderAudioStreamingPanel = () => {
-        return (
-            <div className="fixed bottom-6 right-6 z-50">
-                {/* Bulle d'informations flottante */}
-                {(audioStreaming.isStreaming || audioStreaming.error || !audioStreaming.isConnected) && (
-                    <div className="mb-3 mr-2">
-                        <div className="relative bg-white rounded-lg shadow-lg border border-gray-200 p-3 max-w-xs">
-                            {/* Triangle pointer vers le bouton */}
-                            <div className="absolute bottom-[-6px] right-4 w-3 h-3 bg-white border-r border-b border-gray-200 transform rotate-45"></div>
-                            
-                            {audioStreaming.isStreaming && (
-                                <div className="text-xs text-green-700 flex items-center gap-2">
-                                    <div className="w-2 h-2 bg-red-500 rounded-full animate-pulse"></div>
-                                    <span className="font-medium">LIVE - Conversations partagées</span>
-                                </div>
-                            )}
-                            
-                            {!audioStreaming.isConnected && (
-                                <div className="text-xs text-gray-600 flex items-center gap-2">
-                                    <div className="w-2 h-2 bg-gray-400 rounded-full"></div>
-                                    <span>Connexion en cours...</span>
-                                </div>
-                            )}
-                            
-                            {audioStreaming.error && (
-                                <div className="text-xs text-red-600 flex items-center gap-2">
-                                    <div className="w-2 h-2 bg-red-500 rounded-full"></div>
-                                    <span>Erreur de connexion</span>
-                                </div>
-                            )}
-                        </div>
-                    </div>
-                )}
-                
-                {/* Bouton microphone flottant */}
-                <button
-                    onClick={handleToggleStreaming}
-                    disabled={!audioStreaming.isConnected}
-                    className={`
-                        relative w-16 h-16 rounded-full shadow-lg transition-all duration-300 
-                        flex items-center justify-center group
-                        ${audioStreaming.isStreaming 
-                            ? 'bg-red-500 hover:bg-red-600 shadow-red-200' 
-                            : 'bg-blue-500 hover:bg-blue-600 shadow-blue-200'
-                        }
-                        ${!audioStreaming.isConnected ? 'opacity-50 cursor-not-allowed' : 'hover:scale-110'}
-                        ${audioStreaming.isStreaming ? 'animate-pulse' : ''}
-                    `}
-                >
-                    {audioStreaming.isStreaming ? (
-                        <MicOff className="h-7 w-7 text-white" />
-                    ) : (
-                        <Mic className="h-7 w-7 text-white" />
-                    )}
-                    
-                    {/* Badge LIVE */}
-                    {audioStreaming.isStreaming && (
-                        <div className="absolute -top-1 -right-1 bg-red-600 text-white text-xs font-bold px-2 py-0.5 rounded-full">
-                            LIVE
-                        </div>
-                    )}
-                    
-                    {/* Indicateur de connexion */}
-                    <div className={`
-                        absolute -bottom-1 -right-1 w-4 h-4 rounded-full border-2 border-gray-800
-                        ${audioStreaming.isConnected ? 'bg-green-500' : 'bg-gray-400'}
-                    `}></div>
-                </button>
-            </div>
-        );
-    };
-
     if (isLoading) return <PageSkeleton />;
 
     if (!building) {
@@ -538,7 +295,6 @@ const ProspectingDoorsPage = () => {
 
     return (
         <div className="bg-slate-50 text-slate-800 min-h-screen relative">
-            {renderAudioStreamingPanel()}
             <div className="max-w-screen-2xl mx-auto p-4 sm:p-6 lg:p-8 space-y-8">
                 <motion.div initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }}>
                     <Button variant="outline" onClick={() => navigate('/commercial/prospecting')} className="mb-6 bg-white">

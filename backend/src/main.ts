@@ -19,28 +19,35 @@ async function bootstrap() {
 
     const app = await NestFactory.create(AppModule, {
       httpsOptions,
+      cors: {
+        origin: [
+          `https://${process.env.LOCALHOST_DEV}:${process.env.FRONTEND_PORT}`, 
+          `https://${process.env.LOCALHOST_IP}:${process.env.FRONTEND_PORT}`,
+          `https://${process.env.CLIENT_HOST}:${process.env.FRONTEND_PORT}`,
+          `http://${process.env.LOCALHOST_DEV}:${process.env.FRONTEND_PORT}`, 
+          `http://${process.env.LOCALHOST_IP}:${process.env.FRONTEND_PORT}`,
+          `http://${process.env.CLIENT_HOST}:${process.env.FRONTEND_PORT}`,
+          `https://${process.env.PRODUCTION_IP}`,
+          `http://${process.env.PRODUCTION_IP}`,
+          'http://192.168.1.50:5173',
+          'https://192.168.1.50:5173',
+          'http://192.168.1.50:3000',
+          'https://192.168.1.50:3000',
+          'http://192.168.1.120:5173',
+          'https://192.168.1.120:5173',
+          'http://192.168.1.120:3000',
+          'https://192.168.1.120:3000'
+        ],
+        methods: 'GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS',
+        credentials: true,
+      },
     });
 
     app.useGlobalPipes(new ValidationPipe());
 
-    app.enableCors({
-      origin: [
-        `https://${process.env.LOCALHOST_DEV}:${process.env.FRONTEND_PORT}`, 
-        `https://${process.env.LOCALHOST_IP}:${process.env.FRONTEND_PORT}`,
-        `https://${process.env.CLIENT_HOST}:${process.env.FRONTEND_PORT}`,
-        `http://${process.env.LOCALHOST_DEV}:${process.env.FRONTEND_PORT}`, 
-        `http://${process.env.LOCALHOST_IP}:${process.env.FRONTEND_PORT}`,
-        `http://${process.env.CLIENT_HOST}:${process.env.FRONTEND_PORT}`,
-        `https://${process.env.PRODUCTION_IP}`,
-        `http://${process.env.PRODUCTION_IP}`,
-        'http://192.168.1.50:5173',
-        'https://192.168.1.50:5173',
-        'http://192.168.1.50:3000',
-        'https://192.168.1.50:3000'
-      ],
-      methods: 'GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS',
-      credentials: true,
-    });
+    // Activer explicitement les WebSockets
+    const server = app.getHttpServer();
+    server.setTimeout(0); // Désactiver le timeout pour les WebSockets
 
     const port = process.env.API_PORT ?? 3000;
     await app.listen(port, '0.0.0.0');

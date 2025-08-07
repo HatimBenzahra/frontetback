@@ -229,19 +229,6 @@ export interface Zone {
   totalRdvPris?: number;
 }
 
-export interface AudioStreamingState {
-  isConnected: boolean;
-  isListening: boolean;
-  currentListeningTo: string | null;
-  error: string | null;
-  audioVolume: number;
-  setVolume: (volume: number) => void;
-  connect: () => void;
-  disconnect: () => void;
-  startListening: (commercialId: string) => Promise<void>;
-  stopListening: () => Promise<void>;
-}
-
 export interface SuiviPageState {
   commercials: CommercialGPS[];
   selectedCommercial: CommercialGPS | null;
@@ -284,14 +271,12 @@ export interface TranscriptionSession {
 
 export interface SuiviStatsProps {
   commercials: CommercialGPS[];
-  audioStreaming: AudioStreamingState;
 }
 
 export interface ListeningModalProps {
   isOpen: boolean;
   onClose: () => void;
   commercial: CommercialGPS | null;
-  audioStreaming: AudioStreamingState;
   transcription: string;
   onStopListening: () => Promise<void>;
 }
@@ -316,7 +301,6 @@ export interface MapModalProps {
 
 export interface SuiviTableProps {
   commercials: CommercialGPS[];
-  audioStreaming: AudioStreamingState;
   onShowOnMap: (commercial: CommercialGPS) => void;
   onShowHistory: (commercial: CommercialGPS) => Promise<void>;
   onStartListening: (commercialId: string) => Promise<void>;

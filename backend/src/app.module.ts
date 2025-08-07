@@ -13,7 +13,6 @@ import { AssignmentGoalsModule } from './assignment-goals/assignment-goals.modul
 import { ProspectionModule } from './prospection/prospection.module';
 import { EventsModule } from './events/events.module';
 import { TranscriptionHistoryModule } from './transcription-history/transcription-history.module';
-import { AudioStreamingModule } from './audio-streaming/audio-streaming.module';
 
 @Module({
   imports: [
@@ -29,7 +28,6 @@ import { AudioStreamingModule } from './audio-streaming/audio-streaming.module';
     ProspectionModule,
     EventsModule,
     TranscriptionHistoryModule,
-    AudioStreamingModule,
   ],
   controllers: [AppController],
   providers: [AppService],
