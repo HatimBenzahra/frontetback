@@ -43,6 +43,13 @@ export class ManagerService {
     });
   }
 
+  findByEmail(email: string) {
+    return this.prisma.manager.findFirst({
+      where: { email },
+      select: { id: true, email: true, nom: true, prenom: true },
+    });
+  }
+
   update(id: string, updateManagerDto: UpdateManagerDto) {
     return this.prisma.manager.update({
       where: { id },

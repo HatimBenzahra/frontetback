@@ -1,10 +1,12 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateCommercialDto } from './dto/create-commercial.dto';
 import { UpdateCommercialDto } from './dto/update-commercial.dto';
 
 @Injectable()
 export class CommercialService {
+  private readonly logger = new Logger(CommercialService.name);
+
   constructor(private prisma: PrismaService) {}
 
   create(createCommercialDto: CreateCommercialDto) {
@@ -36,6 +38,13 @@ export class CommercialService {
     return this.prisma.commercial.findUnique({
       where: { id },
       include: { equipe: { include: { manager: true } } },
+    });
+  }
+
+  findByEmail(email: string) {
+    return this.prisma.commercial.findFirst({
+      where: { email },
+      select: { id: true, email: true, nom: true, prenom: true },
     });
   }
 

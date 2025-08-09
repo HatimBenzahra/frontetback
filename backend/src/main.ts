@@ -33,10 +33,7 @@ async function bootstrap() {
           'https://192.168.1.50:5173',
           'http://192.168.1.50:3000',
           'https://192.168.1.50:3000',
-          'http://192.168.1.120:5173',
-          'https://192.168.1.120:5173',
-          'http://192.168.1.120:3000',
-          'https://192.168.1.120:3000'
+
         ],
         methods: 'GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS',
         credentials: true,
@@ -73,7 +70,8 @@ async function bootstrap() {
         'http://192.168.1.50:5173',
         'https://192.168.1.50:5173',
         'http://192.168.1.50:3000',
-        'https://192.168.1.50:3000'
+        'https://192.168.1.50:3000',
+
       ],
       methods: 'GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS',
       credentials: true,
