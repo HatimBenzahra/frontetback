@@ -7,6 +7,7 @@ import { DataTable } from "@/components/data-table/DataTable";
 import { Button } from "@/components/ui-admin/button";
 import { Input } from "@/components/ui-admin/input";
 import { Label } from "@/components/ui-admin/label";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui-admin/card";
 import { type RowSelectionState } from "@tanstack/react-table";
 import { Modal } from "@/components/ui-admin/Modal";
 import { managerService } from "@/services/manager.service";
@@ -25,6 +26,7 @@ const ManagersPage = () => {
 
   const initialFormState = { nom: '', prenom: '', email: '', telephone: '' };
   const [newManagerData, setNewManagerData] = useState(initialFormState);
+  const [addFormErrors, setAddFormErrors] = useState<{ [k: string]: string }>({});
   const [editingManager, setEditingManager] = useState<ManagerWithEquipes | null>(null);
 
   useEffect(() => {
@@ -102,19 +104,32 @@ const ManagersPage = () => {
   };
 
   // --- LOGIQUE D'AJOUT ---
+  const validateAddForm = (data: typeof initialFormState) => {
+    const errors: { [k: string]: string } = {};
+    if (!data.nom.trim()) errors.nom = "Le nom est obligatoire.";
+    if (!data.prenom.trim()) errors.prenom = "Le prénom est obligatoire.";
+    if (!data.email.trim()) errors.email = "L'email est obligatoire.";
+    return errors;
+  };
+
   const handleAddInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setNewManagerData(prev => ({ ...prev, [e.target.id]: e.target.value }));
+    const { id, value } = e.target;
+    setNewManagerData(prev => {
+      const next = { ...prev, [id]: value } as typeof initialFormState;
+      setAddFormErrors(validateAddForm(next));
+      return next;
+    });
   };
 
   const handleAddManager = async () => {
-    if (!newManagerData.nom || !newManagerData.prenom || !newManagerData.email) {
-        alert("Les champs Nom, Prénom et Email sont obligatoires.");
-        return;
-    }
+    const errors = validateAddForm(newManagerData);
+    setAddFormErrors(errors);
+    if (Object.keys(errors).length > 0) return;
     try {
       await managerService.createManager(newManagerData);
       setIsAddModalOpen(false);
       setNewManagerData(initialFormState);
+      setAddFormErrors({});
       fetchManagers();
     } catch (error) {
       console.error("Erreur lors de l'ajout du manager:", error);
@@ -183,18 +198,57 @@ const ManagersPage = () => {
 
       <Modal
         isOpen={isAddModalOpen}
-        onClose={() => setIsAddModalOpen(false)}
+        onClose={() => {
+          setIsAddModalOpen(false);
+          setAddFormErrors({});
+        }}
         title="Ajouter un nouveau manager"
+        maxWidth="max-w-3xl"
       >
-        <div className="grid gap-4">
-          <div className="space-y-1"><Label htmlFor="nom">Nom</Label><Input id="nom" placeholder="Dupont" value={newManagerData.nom} onChange={handleAddInputChange} /></div>
-          <div className="space-y-1"><Label htmlFor="prenom">Prénom</Label><Input id="prenom" placeholder="Jean" value={newManagerData.prenom} onChange={handleAddInputChange} /></div>
-          <div className="space-y-1"><Label htmlFor="email">Email</Label><Input id="email" type="email" placeholder="jean.dupont@example.com" value={newManagerData.email} onChange={handleAddInputChange} /></div>
-          <div className="space-y-1"><Label htmlFor="telephone">Téléphone</Label><Input id="telephone" type="tel" placeholder="0612345678" value={newManagerData.telephone} onChange={handleAddInputChange} /></div>
+        <div className="mb-4 text-sm text-muted-foreground">
+          Saisissez les informations du manager. Les champs marqués d’un astérisque sont obligatoires.
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base">Identité</CardTitle>
+              <CardDescription>Nom et prénom du manager.</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              <div className="space-y-1">
+                <Label htmlFor="nom">Nom <span className="text-red-500">*</span></Label>
+                <Input id="nom" placeholder="Dupont" value={newManagerData.nom} onChange={handleAddInputChange} aria-invalid={!!addFormErrors.nom} aria-describedby="m-nom-error" />
+                {addFormErrors.nom && <p id="m-nom-error" className="text-xs text-red-600">{addFormErrors.nom}</p>}
+              </div>
+              <div className="space-y-1">
+                <Label htmlFor="prenom">Prénom <span className="text-red-500">*</span></Label>
+                <Input id="prenom" placeholder="Jean" value={newManagerData.prenom} onChange={handleAddInputChange} aria-invalid={!!addFormErrors.prenom} aria-describedby="m-prenom-error" />
+                {addFormErrors.prenom && <p id="m-prenom-error" className="text-xs text-red-600">{addFormErrors.prenom}</p>}
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base">Contact</CardTitle>
+              <CardDescription>Email obligatoire; téléphone optionnel.</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              <div className="space-y-1">
+                <Label htmlFor="email">Email <span className="text-red-500">*</span></Label>
+                <Input id="email" type="email" placeholder="jean.dupont@example.com" value={newManagerData.email} onChange={handleAddInputChange} aria-invalid={!!addFormErrors.email} aria-describedby="m-email-error" />
+                {addFormErrors.email && <p id="m-email-error" className="text-xs text-red-600">{addFormErrors.email}</p>}
+              </div>
+              <div className="space-y-1">
+                <Label htmlFor="telephone">Téléphone</Label>
+                <Input id="telephone" type="tel" placeholder="0612345678" value={newManagerData.telephone} onChange={handleAddInputChange} />
+              </div>
+            </CardContent>
+          </Card>
         </div>
         <div className="flex justify-end gap-2 mt-6">
           <Button variant="outline" onClick={() => setIsAddModalOpen(false)}>Annuler</Button>
-          <Button onClick={handleAddManager} className="bg-green-600 text-white hover:bg-green-700">Enregistrer</Button>
+          <Button onClick={handleAddManager} className="bg-green-600 text-white hover:bg-green-700" disabled={Object.keys(validateAddForm(newManagerData)).length > 0}>Créer le manager</Button>
         </div>
       </Modal>
 

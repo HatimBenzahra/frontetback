@@ -7,6 +7,7 @@ import { Button } from "@/components/ui-admin/button";
 import { Input } from "@/components/ui-admin/input";
 import { Label } from "@/components/ui-admin/label";
 import { Modal } from "@/components/ui-admin/Modal";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui-admin/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui-admin/select";
 
 import { commercialService } from "@/services/commercial.service";
@@ -45,6 +46,7 @@ const CommerciauxPage = () => {
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
 
   const [newCommercialData, setNewCommercialData] = useState(initialFormState);
+  const [addFormErrors, setAddFormErrors] = useState<{ [k: string]: string }>({});
   const [editingCommercial, setEditingCommercial] = useState<Commercial | null>(null);
 
   /* ---------------------- Fetch Data ---------------------- */
@@ -113,17 +115,35 @@ const CommerciauxPage = () => {
   );
 
   /* ---------------------- Add Commercial ---------------------- */
+  const validateAddForm = (data: typeof initialFormState) => {
+    const errors: { [k: string]: string } = {};
+    if (!data.nom.trim()) errors.nom = "Le nom est obligatoire.";
+    if (!data.prenom.trim()) errors.prenom = "Le prénom est obligatoire.";
+    if (!data.email.trim()) errors.email = "L'email est obligatoire.";
+    if (!data.managerId) errors.managerId = "Veuillez sélectionner un manager.";
+    if (!data.equipeId) errors.equipeId = "Veuillez sélectionner une équipe.";
+    return errors;
+  };
+
   const handleAddInputChange = useCallback(
     (e: React.ChangeEvent<HTMLInputElement>) => {
       const { id, value } = e.target;
-      setNewCommercialData((prev) => ({ ...prev, [id]: value }));
+      setNewCommercialData((prev) => {
+        const next = { ...prev, [id]: value } as typeof initialFormState;
+        setAddFormErrors(validateAddForm(next));
+        return next;
+      });
     },
     []
   );
 
   const handleSelectManagerAdd = useCallback(
     (managerId: string) => {
-      setNewCommercialData((prev) => ({ ...prev, managerId, equipeId: "" }));
+      setNewCommercialData((prev) => {
+        const next = { ...prev, managerId, equipeId: "" } as typeof initialFormState;
+        setAddFormErrors(validateAddForm(next));
+        return next;
+      });
       const selectedManager = managers.find((m) => m.id === managerId);
       setTeamsOfSelectedManager(selectedManager?.equipes || []);
     },
@@ -132,10 +152,9 @@ const CommerciauxPage = () => {
 
   const handleAddCommercial = useCallback(async () => {
     const { nom, prenom, email, telephone, managerId, equipeId } = newCommercialData;
-    if (!nom || !prenom || !email || !managerId || !equipeId) {
-      alert("Veuillez remplir tous les champs obligatoires.");
-      return;
-    }
+    const errors = validateAddForm(newCommercialData);
+    setAddFormErrors(errors);
+    if (Object.keys(errors).length > 0) return;
     try {
       // Use the admin service which integrates with Keycloak
       const result = await adminService.createCommercial({
@@ -150,6 +169,7 @@ const CommerciauxPage = () => {
       setIsAddModalOpen(false);
       setNewCommercialData(initialFormState);
       setTeamsOfSelectedManager([]);
+      setAddFormErrors({});
       
       // Show success message (handle potential email failure)
       if (result?.setupLink) {
@@ -351,67 +371,104 @@ const CommerciauxPage = () => {
           setIsAddModalOpen(false);
           setNewCommercialData(initialFormState);
           setTeamsOfSelectedManager([]);
+          setAddFormErrors({});
         }}
         title="Ajouter un nouveau commercial"
+        maxWidth="max-w-4xl"
       >
-        <h2 className="text-lg font-semibold mb-4">Ajouter un nouveau commercial</h2>
-        <div className="grid gap-4">
-          <div className="space-y-1">
-            <Label htmlFor="nom">Nom</Label>
-            <Input id="nom" placeholder="Nom de famille" value={newCommercialData.nom} onChange={handleAddInputChange} />
-          </div>
-          <div className="space-y-1">
-            <Label htmlFor="prenom">Prénom</Label>
-            <Input id="prenom" placeholder="Prénom" value={newCommercialData.prenom} onChange={handleAddInputChange} />
-          </div>
-          <div className="space-y-1">
-            <Label htmlFor="email">Email</Label>
-            <Input id="email" type="email" placeholder="adresse@email.com" value={newCommercialData.email} onChange={handleAddInputChange}/>
-          </div>
-          <div className="space-y-1">
-            <Label htmlFor="telephone">Téléphone (optionnel)</Label>
-            <Input id="telephone" type="tel" placeholder="0612345678" value={newCommercialData.telephone} onChange={handleAddInputChange}/>
-          </div>
-          <div className="space-y-1">
-            <Label htmlFor="managerId">Manager</Label>
-            <Select
-              onValueChange={handleSelectManagerAdd}
-              value={newCommercialData.managerId}
-            >
-              <SelectTrigger id="managerId">
-                <SelectValue placeholder="Sélectionner un manager" />
-              </SelectTrigger>
-              <SelectContent>
-                {managers.map((manager) => (
-                  <SelectItem key={manager.id} value={manager.id}>
-                    {manager.prenom} {manager.nom}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-          <div className="space-y-1">
-            <Label htmlFor="equipeId">Équipe</Label>
-            <Select
-              onValueChange={(value) =>
-                setNewCommercialData((prev) => ({ ...prev, equipeId: value }))
-              }
-              value={newCommercialData.equipeId}
-              disabled={!newCommercialData.managerId}
-            >
-              <SelectTrigger id="equipeId">
-                <SelectValue placeholder="Sélectionner une équipe" />
-              </SelectTrigger>
-              <SelectContent>
-                {teamsOfSelectedManager.map((equipe) => (
-                  <SelectItem key={equipe.id} value={equipe.id}>
-                    {equipe.nom}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
+        <div className="mb-4 text-sm text-muted-foreground">
+          Renseignez les informations du commercial. Les champs marqués d’un astérisque sont obligatoires.
         </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base">Identité</CardTitle>
+              <CardDescription>Nom et prénom du commercial.</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              <div className="space-y-1">
+                <Label htmlFor="nom">Nom <span className="text-red-500">*</span></Label>
+                <Input id="nom" placeholder="Nom de famille" value={newCommercialData.nom} onChange={handleAddInputChange} aria-invalid={!!addFormErrors.nom} aria-describedby="nom-error" />
+                {addFormErrors.nom && <p id="nom-error" className="text-xs text-red-600">{addFormErrors.nom}</p>}
+              </div>
+              <div className="space-y-1">
+                <Label htmlFor="prenom">Prénom <span className="text-red-500">*</span></Label>
+                <Input id="prenom" placeholder="Prénom" value={newCommercialData.prenom} onChange={handleAddInputChange} aria-invalid={!!addFormErrors.prenom} aria-describedby="prenom-error" />
+                {addFormErrors.prenom && <p id="prenom-error" className="text-xs text-red-600">{addFormErrors.prenom}</p>}
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base">Contact</CardTitle>
+              <CardDescription>Email obligatoire; téléphone optionnel.</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              <div className="space-y-1">
+                <Label htmlFor="email">Email <span className="text-red-500">*</span></Label>
+                <Input id="email" type="email" placeholder="adresse@email.com" value={newCommercialData.email} onChange={handleAddInputChange} aria-invalid={!!addFormErrors.email} aria-describedby="email-error" />
+                {addFormErrors.email && <p id="email-error" className="text-xs text-red-600">{addFormErrors.email}</p>}
+              </div>
+              <div className="space-y-1">
+                <Label htmlFor="telephone">Téléphone</Label>
+                <Input id="telephone" type="tel" placeholder="0612345678" value={newCommercialData.telephone} onChange={handleAddInputChange} />
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card className="md:col-span-2">
+            <CardHeader>
+              <CardTitle className="text-base">Affectation</CardTitle>
+              <CardDescription>Sélectionnez le manager et l’équipe du commercial.</CardDescription>
+            </CardHeader>
+            <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="space-y-1">
+                <Label htmlFor="managerId">Manager <span className="text-red-500">*</span></Label>
+                <Select onValueChange={handleSelectManagerAdd} value={newCommercialData.managerId}>
+                  <SelectTrigger id="managerId">
+                    <SelectValue placeholder="Sélectionner un manager" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {managers.map((manager) => (
+                      <SelectItem key={manager.id} value={manager.id}>
+                        {manager.prenom} {manager.nom}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                {addFormErrors.managerId && <p className="text-xs text-red-600">{addFormErrors.managerId}</p>}
+              </div>
+              <div className="space-y-1">
+                <Label htmlFor="equipeId">Équipe <span className="text-red-500">*</span></Label>
+                <Select
+                  onValueChange={(value) =>
+                    setNewCommercialData((prev) => {
+                      const next = { ...prev, equipeId: value } as typeof initialFormState;
+                      setAddFormErrors(validateAddForm(next));
+                      return next;
+                    })
+                  }
+                  value={newCommercialData.equipeId}
+                  disabled={!newCommercialData.managerId}
+                >
+                  <SelectTrigger id="equipeId">
+                    <SelectValue placeholder="Sélectionner une équipe" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {teamsOfSelectedManager.map((equipe) => (
+                      <SelectItem key={equipe.id} value={equipe.id}>
+                        {equipe.nom}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                {addFormErrors.equipeId && <p className="text-xs text-red-600">{addFormErrors.equipeId}</p>}
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+
         <div className="flex justify-end gap-2 mt-6">
           <Button
             variant="outline"
@@ -419,6 +476,7 @@ const CommerciauxPage = () => {
               setIsAddModalOpen(false);
               setNewCommercialData(initialFormState);
               setTeamsOfSelectedManager([]);
+              setAddFormErrors({});
             }}
           >
             Annuler
@@ -426,8 +484,9 @@ const CommerciauxPage = () => {
           <Button
             onClick={handleAddCommercial}
             className="bg-green-600 text-white hover:bg-green-700"
+            disabled={Object.keys(validateAddForm(newCommercialData)).length > 0}
           >
-            Enregistrer
+            Créer le commercial
           </Button>
         </div>
       </Modal>
