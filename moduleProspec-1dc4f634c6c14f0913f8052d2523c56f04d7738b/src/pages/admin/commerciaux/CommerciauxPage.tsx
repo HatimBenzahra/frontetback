@@ -375,7 +375,7 @@ const CommerciauxPage = () => {
         </div>
         <div className="flex justify-end gap-2 mt-6">
           <Button variant="outline" onClick={() => setItemsToDelete([])}>Annuler</Button>
-          <Button variant="destructive" onClick={handleDelete}>Supprimer</Button>
+          <Button className="bg-green-600 text-white hover:bg-green-700" onClick={handleDelete}>Supprimer</Button>
         </div>
       </Modal>
 
