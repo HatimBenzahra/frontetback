@@ -15,6 +15,9 @@ import { Skeleton } from "@/components/ui-admin/skeleton";
 const ImmeublesPage = () => {
     const [view, setView] = useState<'table' | 'map'>('table');
     const [immeubles, setImmeubles] = useState<Immeuble[]>([]);
+    const [pageIndex, setPageIndex] = useState(0);
+    const [pageSize, setPageSize] = useState(10);
+    const [totalCount, setTotalCount] = useState(0);
     const [zones, setZones] = useState<Zone[]>([]);
     const [loading, setLoading] = useState(true);
     const [immeubleToFocusId, setImmeubleToFocusId] = useState<string | null>(null);
@@ -23,16 +26,17 @@ const ImmeublesPage = () => {
     const [rowSelection, setRowSelection] = useState<RowSelectionState>({});
 
     useEffect(() => {
-        fetchData();
-    }, []);
+        fetchData(pageIndex, pageSize);
+    }, [pageIndex, pageSize]);
 
-    const fetchData = async () => {
+    const fetchData = async (pi = pageIndex, ps = pageSize) => {
         setLoading(true);
         try {
-            const [immeublesFromApi, zonesFromApi] = await Promise.all([
-                immeubleService.getImmeubles(),
+            const [{ items: immeublesFromApi, total }, zonesFromApi] = await Promise.all([
+                immeubleService.getImmeublesPaged(pi, ps),
                 zoneService.getZones()
             ]);
+            setTotalCount(total);
             
             const formattedImmeubles: Immeuble[] = immeublesFromApi.map(imm => {
                 let statusText: Immeuble['status'] = 'À visiter';
@@ -146,6 +150,17 @@ const ImmeublesPage = () => {
             setRowSelection={setRowSelection}
             onConfirmDelete={handleConfirmDelete}
             onRowClick={handleSelectAndFocusImmeuble}
+            manualPagination
+            pageCount={Math.max(1, Math.ceil(totalCount / pageSize))}
+            pagination={{ pageIndex, pageSize }}
+            onPaginationChange={({ pageIndex: idx, pageSize: size }) => {
+                if (size !== pageSize) {
+                    setPageSize(size);
+                    setPageIndex(0);
+                } else {
+                    setPageIndex(idx);
+                }
+            }}
         />
     );
     

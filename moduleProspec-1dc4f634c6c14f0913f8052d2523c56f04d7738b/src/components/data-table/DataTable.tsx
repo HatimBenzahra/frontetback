@@ -31,6 +31,11 @@ interface DataTableProps<TData extends { id: string }, TValue> {
   setRowSelection?: React.Dispatch<React.SetStateAction<RowSelectionState>>
   customHeaderContent?: React.ReactNode
   noCardWrapper?: boolean;
+  // Optional manual pagination (for server-side)
+  manualPagination?: boolean;
+  pageCount?: number;
+  pagination?: { pageIndex: number; pageSize: number };
+  onPaginationChange?: (pagination: { pageIndex: number; pageSize: number }) => void;
 }
 
 export function DataTable<TData extends { id: string }, TValue>({
@@ -41,6 +46,10 @@ export function DataTable<TData extends { id: string }, TValue>({
   rowSelection = {}, setRowSelection = () => {},
   customHeaderContent,
   noCardWrapper = false,
+  manualPagination = false,
+  pageCount,
+  pagination,
+  onPaginationChange,
 }: DataTableProps<TData, TValue>) {
   const [sorting, setSorting] = React.useState<SortingState>([])
   const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>([])
@@ -66,16 +75,24 @@ export function DataTable<TData extends { id: string }, TValue>({
     onSortingChange: setSorting,
     onColumnFiltersChange: setColumnFilters,
     onRowSelectionChange: setRowSelection,
+    onPaginationChange: updater => {
+      if (!manualPagination) return; // internal controls if not manual
+      const next = typeof updater === 'function' ? updater((pagination ?? { pageIndex: 0, pageSize: 10 })) : updater;
+      onPaginationChange?.(next as { pageIndex: number; pageSize: number });
+    },
     getCoreRowModel: getCoreRowModel(),
-    getPaginationRowModel: getPaginationRowModel(),
+    getPaginationRowModel: manualPagination ? undefined : getPaginationRowModel(),
     getSortedRowModel: getSortedRowModel(),
     getFilteredRowModel: getFilteredRowModel(),
     state: {
       sorting,
       columnFilters,
       rowSelection,
+      pagination: manualPagination ? pagination : undefined,
     },
     manualFiltering: !!fullData,
+    manualPagination,
+    pageCount: manualPagination ? pageCount : undefined,
   });
 
   const selectedRowsData = table.getFilteredSelectedRowModel().rows.map(row => row.original)
@@ -93,7 +110,7 @@ export function DataTable<TData extends { id: string }, TValue>({
 
   const tableElement = (
     <div className="w-full overflow-x-auto">
-      <Table className="whitespace-nowrap">
+      <Table>
         <TableHeader>
           {table.getHeaderGroups().map(headerGroup => (
             <TableRow key={headerGroup.id} className="border-b-[#EFEDED] hover:bg-transparent">
@@ -128,7 +145,7 @@ export function DataTable<TData extends { id: string }, TValue>({
                 <TableCell
                   key={cell.id}
                   className={cn(
-                    "group-hover:bg-zinc-100 transition-colors duration-150 py-4 px-4",
+                    "align-top group-hover:bg-zinc-100 transition-colors duration-150 py-4 px-4",
                     (cell.column.columnDef.meta as { className?: string })?.className
                   )}
                 >
@@ -151,95 +168,102 @@ export function DataTable<TData extends { id: string }, TValue>({
     </div>
   );
 
-  const tableContent = (
+  const innerContent = (
+    <>
+      <div className="flex flex-wrap items-center justify-between gap-4 mb-4">
+        <div className={cn(
+          "relative w-full md:w-auto transition-all",
+          searchFocused ? "ring-2 ring-primary/30 rounded-md" : "",
+        )}>
+          <Search className={cn(
+            "absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 transition-all",
+            searchFocused ? "text-primary" : "text-muted-foreground"
+          )} />
+          <Input
+            placeholder={filterPlaceholder}
+            value={filterValue}
+            onChange={e => setColumnFilters(prev => {
+              const newFilters = prev.filter(f => f.id !== filterColumnId);
+              return [...newFilters, { id: filterColumnId, value: e.target.value }];
+            })}
+            className="pl-10 w-full min-w-[280px] md:min-w-[320px]"
+            onFocus={() => setSearchFocused(true)}
+            onBlur={() => setSearchFocused(false)}
+            aria-label="Rechercher"
+          />
+        </div>
+
+        <div className="flex flex-wrap items-center gap-2">
+          {customHeaderContent}
+          {!isDeleteMode ? (
+            <>
+              {addEntityButtonText && (
+                <Button onClick={onAddEntity} className="bg-black text-white hover:bg-zinc-800 focus:ring-2 focus:ring-black/40 focus:outline-none">
+                  <PlusCircle className="mr-2 h-4 w-4" />{addEntityButtonText}
+                </Button>
+              )}
+              {onToggleDeleteMode && (
+                <Button variant="outline" onClick={onToggleDeleteMode} className="focus:ring-2 focus:ring-destructive/30 focus:outline-none">
+                  <Trash2 className="mr-2 h-4 w-4" />Supprimer
+                </Button>
+              )}
+            </>
+          ) : (
+            <>
+              <Button
+                variant="destructive"
+                disabled={selectedRowsData.length === 0}
+                onClick={() => onConfirmDelete && onConfirmDelete(selectedRowsData)}
+                className="bg-red-600 text-white hover:bg-red-700 border border-red-600 focus:ring-2 focus:ring-red-400 focus:outline-none"
+              >
+                <Trash2 className="mr-2 h-4 w-4" />Supprimer ({selectedRowsData.length})
+              </Button>
+              <Button variant="outline" onClick={onToggleDeleteMode} className="focus:ring-2 focus:ring-muted/30 focus:outline-none">
+                <XCircle className="mr-2 h-4 w-4" />Annuler
+              </Button>
+            </>
+          )}
+        </div>
+      </div>
+
+      {tableElement}
+
+      <div className="flex flex-col-reverse sm:flex-row items-center justify-between gap-4 pt-4">
+        <div className="text-sm text-muted-foreground">
+          {isDeleteMode
+            ? `${table.getFilteredSelectedRowModel().rows.length} sélectionné(s) sur ${table.getFilteredRowModel().rows.length} visible(s)`
+            : `${table.getFilteredRowModel().rows.length} ligne(s) affichée(s)`}
+        </div>
+        <div className="flex items-center justify-center sm:justify-end flex-wrap gap-4">
+          <Select value={`${table.getState().pagination.pageSize}`} onValueChange={v => table.setPageSize(Number(v))}>
+            <SelectTrigger className="w-[140px] md:w-[160px] min-w-[140px]">
+              <SelectValue placeholder={`${table.getState().pagination.pageSize} par page`} />
+            </SelectTrigger>
+            <SelectContent>
+              {[10, 20, 30, 40, 50].map(ps => <SelectItem key={ps} value={`${ps}`}>{ps} par page</SelectItem>)}
+            </SelectContent>
+          </Select>
+          <div className="flex items-center space-x-2 rounded-lg px-3 py-1 bg-gray-50 min-w-[180px]">
+            <div className="text-sm font-medium">Page {table.getState().pagination.pageIndex + 1} sur {table.getPageCount()}</div>
+            <Button variant="outline" size="sm" onClick={() => table.previousPage()} disabled={!table.getCanPreviousPage()}>Précédent</Button>
+            <Button variant="outline" size="sm" onClick={() => table.nextPage()} disabled={!table.getCanNextPage()}>Suivant</Button>
+          </div>
+        </div>
+      </div>
+    </>
+  );
+
+  const tableContent = noCardWrapper ? (
+    <div className={!title ? "pt-0" : "pt-6"}>{innerContent}</div>
+  ) : (
     <>
       {title && (
         <CardHeader>
           <CardTitle>{title}</CardTitle>
         </CardHeader>
       )}
-
       <CardContent className={!title ? "pt-6" : ""}>
-        <div className="flex flex-wrap items-center justify-between gap-4 mb-4">
-          <div className={cn(
-            "relative w-full md:w-auto transition-all",
-            searchFocused ? "ring-2 ring-primary/30 rounded-md" : "",
-          )}>
-            <Search className={cn(
-              "absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 transition-all",
-              searchFocused ? "text-primary" : "text-muted-foreground"
-            )} />
-            <Input
-              placeholder={filterPlaceholder}
-              value={filterValue}
-              onChange={e => setColumnFilters(prev => {
-                const newFilters = prev.filter(f => f.id !== filterColumnId);
-                return [...newFilters, { id: filterColumnId, value: e.target.value }];
-              })}
-              className="pl-10 w-full min-w-[280px] md:min-w-[320px]"
-              onFocus={() => setSearchFocused(true)}
-              onBlur={() => setSearchFocused(false)}
-              aria-label="Rechercher"
-            />
-          </div>
-
-          <div className="flex flex-wrap items-center gap-2">
-            {customHeaderContent}
-            {!isDeleteMode ? (
-              <>
-                {addEntityButtonText && (
-                  <Button onClick={onAddEntity} className="bg-black text-white hover:bg-zinc-800 focus:ring-2 focus:ring-black/40 focus:outline-none">
-                    <PlusCircle className="mr-2 h-4 w-4" />{addEntityButtonText}
-                  </Button>
-                )}
-                {onToggleDeleteMode && (
-                  <Button variant="outline" onClick={onToggleDeleteMode} className="focus:ring-2 focus:ring-destructive/30 focus:outline-none">
-                    <Trash2 className="mr-2 h-4 w-4" />Supprimer
-                  </Button>
-                )}
-              </>
-            ) : (
-              <>
-                <Button
-                  variant="destructive"
-                  disabled={selectedRowsData.length === 0}
-                  onClick={() => onConfirmDelete && onConfirmDelete(selectedRowsData)}
-                  className="bg-red-600 text-white hover:bg-red-700 border border-red-600 focus:ring-2 focus:ring-red-400 focus:outline-none"
-                >
-                  <Trash2 className="mr-2 h-4 w-4" />Supprimer ({selectedRowsData.length})
-                </Button>
-                <Button variant="outline" onClick={onToggleDeleteMode} className="focus:ring-2 focus:ring-muted/30 focus:outline-none">
-                  <XCircle className="mr-2 h-4 w-4" />Annuler
-                </Button>
-              </>
-            )}
-          </div>
-        </div>
-
-        {tableElement}
-
-        <div className="flex flex-col-reverse sm:flex-row items-center justify-between gap-4 pt-4">
-          <div className="text-sm text-muted-foreground">
-            {isDeleteMode
-              ? `${table.getFilteredSelectedRowModel().rows.length} sélectionné(s) sur ${table.getFilteredRowModel().rows.length} visible(s)`
-              : `${table.getFilteredRowModel().rows.length} ligne(s) affichée(s)`}
-          </div>
-          <div className="flex items-center justify-center sm:justify-end flex-wrap gap-4">
-            <Select value={`${table.getState().pagination.pageSize}`} onValueChange={v => table.setPageSize(Number(v))}>
-              <SelectTrigger className="w-[140px] md:w-[160px] min-w-[140px]">
-                <SelectValue placeholder={`${table.getState().pagination.pageSize} par page`} />
-              </SelectTrigger>
-              <SelectContent>
-                {[10, 20, 30, 40, 50].map(ps => <SelectItem key={ps} value={`${ps}`}>{ps} par page</SelectItem>)}
-              </SelectContent>
-            </Select>
-            <div className="flex items-center space-x-2 rounded-lg px-3 py-1 bg-gray-50 min-w-[180px]">
-              <div className="text-sm font-medium">Page {table.getState().pagination.pageIndex + 1} sur {table.getPageCount()}</div>
-              <Button variant="outline" size="sm" onClick={() => table.previousPage()} disabled={!table.getCanPreviousPage()}>Précédent</Button>
-              <Button variant="outline" size="sm" onClick={() => table.nextPage()} disabled={!table.getCanNextPage()}>Suivant</Button>
-            </div>
-          </div>
-        </div>
+        {innerContent}
       </CardContent>
     </>
   );

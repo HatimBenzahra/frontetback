@@ -43,6 +43,40 @@ const getImmeubles = async (): Promise<ImmeubleFromApi[]> => {
   return response.data;
 };
 
+/**
+ * Paginated fetch for immeubles.
+ * If backend supports pagination, it should return { items: ImmeubleFromApi[], total: number }.
+ * Fallback: if it returns an array, we slice client-side (still returns total).
+ */
+const getImmeublesPaged = async (pageIndex: number, pageSize: number): Promise<{ items: ImmeubleFromApi[]; total: number }> => {
+  try {
+    const response = await axios.get(API_URL, { params: { page: pageIndex + 1, pageSize } });
+    const data = response.data;
+    if (Array.isArray(data)) {
+      const total = data.length;
+      const start = pageIndex * pageSize;
+      const end = start + pageSize;
+      return { items: data.slice(start, end), total };
+    }
+    if (data && Array.isArray(data.items) && typeof data.total === 'number') {
+      return { items: data.items, total: data.total };
+    }
+    // Unknown shape: fallback to non-paginated
+    const all = await getImmeubles();
+    const total = all.length;
+    const start = pageIndex * pageSize;
+    const end = start + pageSize;
+    return { items: all.slice(start, end), total };
+  } catch (e) {
+    // Fallback on error
+    const all = await getImmeubles();
+    const total = all.length;
+    const start = pageIndex * pageSize;
+    const end = start + pageSize;
+    return { items: all.slice(start, end), total };
+  }
+};
+
 const getImmeubleDetails = async (id: string): Promise<ImmeubleDetailsFromApi> => {
   const response = await axios.get(`${API_URL}/${id}/details`);
   return response.data;
@@ -92,6 +126,7 @@ const deleteImmeubleForCommercial = async (id: string, commercialId: string) => 
 export const immeubleService = {
   // Admin
   getImmeubles,
+  getImmeublesPaged,
   getImmeubleDetails,
   createImmeuble,
   updateImmeuble,

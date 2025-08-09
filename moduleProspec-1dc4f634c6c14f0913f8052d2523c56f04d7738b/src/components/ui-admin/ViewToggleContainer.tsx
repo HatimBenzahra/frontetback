@@ -23,7 +23,7 @@ export const ViewToggleContainer = ({
   mapComponent
 }: ViewToggleContainerProps) => {
   return (
-    <Card className="h-full flex flex-col">
+    <Card className="flex flex-col">
       <CardHeader>
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div>
