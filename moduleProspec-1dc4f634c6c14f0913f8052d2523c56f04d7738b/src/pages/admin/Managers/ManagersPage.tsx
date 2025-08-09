@@ -204,6 +204,7 @@ const ManagersPage = () => {
         }}
         title="Ajouter un nouveau manager"
         maxWidth="max-w-3xl"
+        overlayClassName="backdrop-blur-sm bg-black/10"
       >
         <div className="mb-4 text-sm text-muted-foreground">
           Saisissez les informations du manager. Les champs marqués d’un astérisque sont obligatoires.

@@ -375,6 +375,7 @@ const CommerciauxPage = () => {
         }}
         title="Ajouter un nouveau commercial"
         maxWidth="max-w-4xl"
+        overlayClassName="backdrop-blur-sm bg-black/10"
       >
         <div className="mb-4 text-sm text-muted-foreground">
           Renseignez les informations du commercial. Les champs marqués d’un astérisque sont obligatoires.

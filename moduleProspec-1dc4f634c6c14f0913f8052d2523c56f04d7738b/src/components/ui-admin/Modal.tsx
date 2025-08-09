@@ -8,16 +8,17 @@ interface ModalProps {
   title: string;
   children: ReactNode;
   maxWidth?: string; // New prop for max-width
+  overlayClassName?: string; // Customize backdrop appearance
 }
 
-export const Modal = ({ isOpen, onClose, title, children, maxWidth = "max-w-6xl" }: ModalProps) => {
+export const Modal = ({ isOpen, onClose, title, children, maxWidth = "max-w-6xl", overlayClassName }: ModalProps) => {
   if (!isOpen) {
     return null;
   }
 
   return (
     <div 
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 animate-in fade-in-0"
+      className={`fixed inset-0 z-50 flex items-center justify-center ${overlayClassName ?? "bg-black/80"} animate-in fade-in-0`}
       onClick={onClose}
     >
       <div
