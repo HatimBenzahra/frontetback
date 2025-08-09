@@ -1,6 +1,7 @@
 // frontend-shadcn/src/pages/admin/Managers/ManagersPage.tsx
 
 import React, { useState, useEffect, useMemo } from "react";
+import { AlertTriangle } from "lucide-react";
 import type { Manager } from "./managers-table/columns";
 import { getColumns } from "./managers-table/columns";
 import { DataTable } from "@/components/data-table/DataTable";
@@ -11,6 +12,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { type RowSelectionState } from "@tanstack/react-table";
 import { Modal } from "@/components/ui-admin/Modal";
 import { managerService } from "@/services/manager.service";
+import { adminService } from "@/services/admin.service";
+import { toast } from "sonner";
 
 type ManagerWithEquipes = Manager & { equipes: any[] };
 
@@ -98,8 +101,10 @@ const ManagersPage = () => {
       setIsEditModalOpen(false);
       setEditingManager(null);
       fetchManagers();
+      toast.success("Manager mis à jour", { description: `${prenom} ${nom}` });
     } catch (error) {
       console.error("Erreur de mise à jour du manager:", error);
+      toast.error("Échec de la mise à jour");
     }
   };
 
@@ -126,26 +131,65 @@ const ManagersPage = () => {
     setAddFormErrors(errors);
     if (Object.keys(errors).length > 0) return;
     try {
-      await managerService.createManager(newManagerData);
+      // Utilise l'API admin (Keycloak + email comme pour les commerciaux)
+      const result = await adminService.createManager(newManagerData);
       setIsAddModalOpen(false);
       setNewManagerData(initialFormState);
       setAddFormErrors({});
       fetchManagers();
-    } catch (error) {
-      console.error("Erreur lors de l'ajout du manager:", error);
+
+      if (result?.setupLink) {
+        toast.warning("Manager créé, email non envoyé", {
+          description: `Lien de configuration: ${result.setupLink}`,
+        });
+      } else {
+        toast.success("Manager créé", {
+          description: result?.message || `${newManagerData.prenom} ${newManagerData.nom}`,
+        });
+      }
+    } catch (err: any) {
+      console.error("Erreur lors de l'ajout du manager:", err);
+      const errorMessage = err?.response?.data?.message || "Échec de la création du manager";
+      toast.error("Échec de la création", { description: errorMessage });
     }
   };
 
   // --- LOGIQUE DE SUPPRESSION ---
   const handleDelete = async () => {
     try {
-      await Promise.all(managersToDelete.map(m => managerService.deleteManager(m.id)));
+      // Bloquer la suppression si le manager possède encore des équipes
+      const blocked = managersToDelete.filter(m => (m.equipes?.length ?? 0) > 0);
+      const deletable = managersToDelete.filter(m => (m.equipes?.length ?? 0) === 0);
+
+      if (blocked.length > 0) {
+        toast.error("Suppression impossible", {
+          description: (
+            <div>
+              <div>Certains managers ont encore des équipes&nbsp;:</div>
+              <ul className="mt-1 list-disc list-inside">
+                {blocked.map(b => (
+                  <li key={b.id}>{b.prenom} {b.nom} ({b.equipes.length} équipe{b.equipes.length>1?'s':''})</li>
+                ))}
+              </ul>
+            </div>
+          )
+        });
+      }
+
+      if (deletable.length === 0) return;
+
+      // Utilise l'API admin pour gérer suppression côté Keycloak + BDD
+      await Promise.all(deletable.map(m => adminService.deleteManager(m.id)));
       setManagersToDelete([]);
       setIsDeleteMode(false);
       setRowSelection({});
+      // Feedback utilisateur similaire aux commerciaux
+      toast.success("Suppression réussie", { description: `${deletable.length} manager(s) supprimé(s).` });
       fetchManagers();
-    } catch (error) {
-      console.error("Erreur lors de la suppression:", error);
+    } catch (err: any) {
+      console.error("Erreur lors de la suppression:", err);
+      const errorMessage = err?.response?.data?.message || "Erreur lors de la suppression du manager";
+      toast.error("Échec de la suppression", { description: errorMessage });
     }
   };
   
@@ -185,14 +229,30 @@ const ManagersPage = () => {
         isOpen={managersToDelete.length > 0}
         onClose={() => setManagersToDelete([])}
         title="Confirmer la suppression"
+        maxWidth="max-w-lg"
+        overlayClassName="backdrop-blur-sm bg-black/10"
       >
-        <p className="text-sm text-muted-foreground mt-2">Êtes-vous sûr de vouloir supprimer les {managersToDelete.length} manager(s) suivant(s) ?</p>
-        <ul className="my-4 list-disc list-inside max-h-40 overflow-y-auto bg-slate-50 p-3 rounded-md">
-          {managersToDelete.map(m => <li key={m.id}>{m.prenom} {m.nom}</li>)}
-        </ul>
+        <div className="flex items-start gap-3">
+          <div className="mt-0.5 rounded-full bg-red-50 text-red-600 p-2">
+            <AlertTriangle className="h-5 w-5" />
+          </div>
+          <div>
+            <h2 className="text-base font-semibold">Confirmer la suppression</h2>
+            <p className="text-sm text-muted-foreground mt-1">
+              {`Vous êtes sur le point de supprimer ${managersToDelete.length} manager(s). Cette action est irréversible.`}
+            </p>
+          </div>
+        </div>
+        <div className="mt-4 border rounded-md bg-slate-50">
+          <ul className="max-h-44 overflow-y-auto p-3 text-sm">
+            {managersToDelete.map(m => (
+              <li key={m.id} className="list-disc list-inside">{m.prenom} {m.nom}</li>
+            ))}
+          </ul>
+        </div>
         <div className="flex justify-end gap-2 mt-6">
           <Button variant="outline" onClick={() => setManagersToDelete([])}>Annuler</Button>
-          <Button className="bg-green-600 text-white hover:bg-green-700" onClick={handleDelete}>Valider</Button>
+          <Button variant="destructive" onClick={handleDelete}>Supprimer</Button>
         </div>
       </Modal>
 

@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo, useCallback } from "react";
+import { AlertTriangle } from "lucide-react";
 import type { RowSelectionState } from "@tanstack/react-table";
 
 import { createColumns } from "./commerciaux-table/columns";
@@ -14,6 +15,7 @@ import { commercialService } from "@/services/commercial.service";
 import { equipeService } from "@/services/equipe.service";
 import { managerService } from "@/services/manager.service";
 import { adminService } from "@/services/admin.service";
+import { toast } from "sonner";
 
 import type { Commercial, Manager, EnrichedCommercial } from "@/types/types";
 
@@ -173,9 +175,13 @@ const CommerciauxPage = () => {
       
       // Show success message (handle potential email failure)
       if (result?.setupLink) {
-        alert(`Commercial créé avec succès, mais l'envoi de l'email a échoué. Lien de configuration: ${result.setupLink}`);
+        toast.warning("Commercial créé, email non envoyé", {
+          description: `Lien de configuration: ${result.setupLink}`,
+        });
       } else {
-        alert(result?.message || `Commercial créé avec succès ! Un email de configuration a été envoyé à ${email}`);
+        toast.success("Commercial créé avec succès", {
+          description: result?.message || `Un email de configuration a été envoyé à ${email}`,
+        });
       }
       
       // Reload data
@@ -185,7 +191,7 @@ const CommerciauxPage = () => {
       
       // Show specific error message
       const errorMessage = err.response?.data?.message || "Erreur lors de la création du commercial";
-      alert(errorMessage);
+      toast.error("Échec de la création", { description: errorMessage });
     }
   }, [newCommercialData]);
 
@@ -300,14 +306,16 @@ const CommerciauxPage = () => {
       setIsDeleteMode(false);
       setRowSelection({});
       
-      alert(`${itemsToDelete.length} commercial(ux) supprimé(s) avec succès de Keycloak et de la base de données.`);
+      toast.success("Suppression réussie", {
+        description: `${itemsToDelete.length} commercial(ux) supprimé(s).`,
+      });
       
       fetchDataWrapper();
     } catch (err: any) {
       console.error("Erreur lors de la suppression:", err);
       
       const errorMessage = err.response?.data?.message || "Erreur lors de la suppression";
-      alert(errorMessage);
+      toast.error("Échec de la suppression", { description: errorMessage });
     }
   }, [itemsToDelete, fetchDataWrapper]);
 
@@ -342,25 +350,32 @@ const CommerciauxPage = () => {
         isOpen={itemsToDelete.length > 0}
         onClose={() => setItemsToDelete([])}
         title="Confirmer la suppression"
+        maxWidth="max-w-lg"
+        overlayClassName="backdrop-blur-sm bg-black/10"
       >
-        <h2 className="text-lg font-semibold">Confirmer la suppression</h2>
-        <p className="text-sm text-muted-foreground mt-2">
-          Êtes-vous sûr de vouloir supprimer les {itemsToDelete.length} commercial(ux) suivant(s) ?
-        </p>
-        <ul className="my-4 list-disc list-inside max-h-40 overflow-y-auto bg-slate-50 p-3 rounded-md">
-          {itemsToDelete.map((item) => (
-            <li key={item.id}>
-              {item.prenom} {item.nom}
-            </li>
-          ))}
-        </ul>
+        <div className="flex items-start gap-3">
+          <div className="mt-0.5 rounded-full bg-red-50 text-red-600 p-2">
+            <AlertTriangle className="h-5 w-5" />
+          </div>
+          <div>
+            <h2 className="text-base font-semibold">Confirmer la suppression</h2>
+            <p className="text-sm text-muted-foreground mt-1">
+              {`Vous êtes sur le point de supprimer ${itemsToDelete.length} commercial(ux). Cette action est irréversible.`}
+            </p>
+          </div>
+        </div>
+        <div className="mt-4 border rounded-md bg-slate-50">
+          <ul className="max-h-44 overflow-y-auto p-3 text-sm">
+            {itemsToDelete.map((item) => (
+              <li key={item.id} className="list-disc list-inside">
+                {item.prenom} {item.nom}
+              </li>
+            ))}
+          </ul>
+        </div>
         <div className="flex justify-end gap-2 mt-6">
-            <Button variant="outline" onClick={() => setItemsToDelete([])}>
-              Annuler
-            </Button>
-            <Button className="bg-green-600 text-white hover:bg-green-700" onClick={handleDelete}>
-              Valider
-            </Button>
+          <Button variant="outline" onClick={() => setItemsToDelete([])}>Annuler</Button>
+          <Button variant="destructive" onClick={handleDelete}>Supprimer</Button>
         </div>
       </Modal>
 
