@@ -1,0 +1,111 @@
+import React, { useEffect, useState } from 'react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
+import { authService } from '@/services/auth.service';
+import { Button } from '@/components/ui-admin/button';
+import { Input } from '@/components/ui-admin/input';
+import { Label } from '@/components/ui-admin/label';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui-admin/card';
+
+const ResetPassword: React.FC = () => {
+  const [searchParams] = useSearchParams();
+  const navigate = useNavigate();
+  const token = searchParams.get('token') ?? '';
+
+  const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState(false);
+
+  useEffect(() => {
+    if (!token) setError('Token manquant ou invalide');
+  }, [token]);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError(null);
+
+    if (!password || password.length < 8) {
+      setError('Le mot de passe doit contenir au moins 8 caractères');
+      return;
+    }
+    if (password !== confirmPassword) {
+      setError('Les mots de passe ne correspondent pas');
+      return;
+    }
+    if (!token) {
+      setError('Token manquant ou invalide');
+      return;
+    }
+
+    setIsLoading(true);
+    try {
+      await authService.resetPassword(token, password);
+      setSuccess(true);
+      setTimeout(() => {
+        navigate('/login', { state: { message: 'Mot de passe réinitialisé. Vous pouvez maintenant vous connecter.' } });
+      }, 3000);
+    } catch (err: any) {
+      if (err.response?.status === 400) {
+        setError('Token invalide ou expiré. Veuillez redemander un nouveau lien.');
+      } else if (err.response?.data?.message) {
+        setError(err.response.data.message);
+      } else {
+        setError('Erreur lors de la réinitialisation. Veuillez réessayer.');
+      }
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  if (success) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8">
+        <Card className="w-full max-w-md">
+          <CardHeader className="text-center">
+            <CardTitle className="text-2xl font-bold text-green-600">✅ Mot de passe réinitialisé !</CardTitle>
+            <CardDescription>Redirection vers la page de connexion...</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="text-center">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-green-600 mx-auto"></div>
+              <p className="mt-2 text-sm text-gray-600">Redirection en cours...</p>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  return (
+    <div className="min-h-screen bg-gray-50 flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8">
+      <Card className="w-full max-w-md">
+        <CardHeader className="text-center">
+          <CardTitle className="text-2xl font-bold text-gray-900">Réinitialiser votre mot de passe</CardTitle>
+          <CardDescription>Créez un nouveau mot de passe pour votre compte.</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <form onSubmit={handleSubmit} className="space-y-4">
+            {error && (
+              <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-md text-sm">{error}</div>
+            )}
+            <div className="space-y-2">
+              <Label htmlFor="password">Nouveau mot de passe</Label>
+              <Input id="password" type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="Minimum 8 caractères" required disabled={isLoading} />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="confirmPassword">Confirmer le mot de passe</Label>
+              <Input id="confirmPassword" type="password" value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} placeholder="Retapez votre mot de passe" required disabled={isLoading} />
+            </div>
+            <Button type="submit" className="w-full bg-green-600 text-white hover:bg-green-700" disabled={isLoading || !token}>
+              {isLoading ? 'Réinitialisation...' : 'Réinitialiser le mot de passe'}
+            </Button>
+          </form>
+        </CardContent>
+      </Card>
+    </div>
+  );
+};
+
+export default ResetPassword;
+

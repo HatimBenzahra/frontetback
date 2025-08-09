@@ -12,6 +12,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { commercialService } from "@/services/commercial.service";
 import { equipeService } from "@/services/equipe.service";
 import { managerService } from "@/services/manager.service";
+import { adminService } from "@/services/admin.service";
 
 import type { Commercial, Manager, EnrichedCommercial } from "@/types/types";
 
@@ -136,7 +137,8 @@ const CommerciauxPage = () => {
       return;
     }
     try {
-      await commercialService.createCommercial({
+      // Use the admin service which integrates with Keycloak
+      const result = await adminService.createCommercial({
         nom,
         prenom,
         email,
@@ -144,13 +146,26 @@ const CommerciauxPage = () => {
         managerId,
         equipeId,
       });
+      
       setIsAddModalOpen(false);
       setNewCommercialData(initialFormState);
-      // Rechargement
-      // Pas besoin de remettre les équipes du manager, modal fermée
+      setTeamsOfSelectedManager([]);
+      
+      // Show success message (handle potential email failure)
+      if (result?.setupLink) {
+        alert(`Commercial créé avec succès, mais l'envoi de l'email a échoué. Lien de configuration: ${result.setupLink}`);
+      } else {
+        alert(result?.message || `Commercial créé avec succès ! Un email de configuration a été envoyé à ${email}`);
+      }
+      
+      // Reload data
       fetchDataWrapper();
-    } catch (err) {
+    } catch (err: any) {
       console.error("Erreur lors de l'ajout du commercial:", err);
+      
+      // Show specific error message
+      const errorMessage = err.response?.data?.message || "Erreur lors de la création du commercial";
+      alert(errorMessage);
     }
   }, [newCommercialData]);
 
@@ -259,13 +274,20 @@ const CommerciauxPage = () => {
 
   const handleDelete = useCallback(async () => {
     try {
-      await Promise.all(itemsToDelete.map((c) => commercialService.deleteCommercial(c.id)));
+      // Use admin service which also removes from Keycloak
+      await Promise.all(itemsToDelete.map((c) => adminService.deleteCommercial(c.id)));
       setItemsToDelete([]);
       setIsDeleteMode(false);
       setRowSelection({});
+      
+      alert(`${itemsToDelete.length} commercial(ux) supprimé(s) avec succès de Keycloak et de la base de données.`);
+      
       fetchDataWrapper();
-    } catch (err) {
+    } catch (err: any) {
       console.error("Erreur lors de la suppression:", err);
+      
+      const errorMessage = err.response?.data?.message || "Erreur lors de la suppression";
+      alert(errorMessage);
     }
   }, [itemsToDelete, fetchDataWrapper]);
 

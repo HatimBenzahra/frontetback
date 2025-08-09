@@ -9,7 +9,10 @@ import RoleBasedRedirect from './routes/RoleBasedRedirect';
 import AdminLayout from './layout/AdminLayout';
 import CommercialLayout from './layout/CommercialLayout';
 import Login from './pages/auth/Login';
-import SelectCommercialPage from './pages/auth/CommercialSelectionPage'; // <-- IMPORT NOUVEAU
+import SetupPassword from './pages/auth/SetupPassword';
+import ForgotPassword from './pages/auth/ForgotPassword';
+import ResetPassword from './pages/auth/ResetPassword';
+import SelectCommercialPage from './pages/auth/CommercialSelectionPage';
 import HistoriquePage from './pages/commercial/Historique';
 // --- Pages Admin ---
 // ... (imports admin inchangés) ...
@@ -50,6 +53,9 @@ function App() {
       <Routes>
         {/* --- Routes Publiques --- */}
         <Route path="/login" element={<Login />} />
+        <Route path="/forgot-password" element={<ForgotPassword />} />
+        <Route path="/reset-password" element={<ResetPassword />} />
+        <Route path="/setup-password" element={<SetupPassword />} />
         {/* NOUVELLE ROUTE PUBLIQUE POUR LA SÉLECTION */}
         <Route path="/select-commercial" element={<SelectCommercialPage />} />
 
@@ -109,4 +115,3 @@ function App() {
 }
 
 export default App;
-
