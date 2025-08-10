@@ -59,19 +59,27 @@ export function DataTable<TData extends { id: string }, TValue>({
   const filterValue = (columnFilters.find(f => f.id === filterColumnId)?.value as string) ?? "";
 
   const tableData = React.useMemo(() => {
-    if (fullData && filterValue) {
-      return fullData.filter(row =>
+    const base = Array.isArray(fullData) && filterValue
+      ? fullData
+      : Array.isArray(data)
+        ? data
+        : [];
+
+    if (Array.isArray(fullData) && filterValue) {
+      return base.filter(row =>
         String(row[filterColumnId as keyof TData])
           .toLowerCase()
           .includes(filterValue.toLowerCase())
       );
     }
-    return data;
+    return base;
   }, [data, fullData, filterValue, filterColumnId]);
+
+  const safeColumns = React.useMemo(() => Array.isArray(columns) ? columns : [], [columns]);
 
   const table = useReactTable({
     data: tableData,
-    columns,
+    columns: safeColumns,
     onSortingChange: setSorting,
     onColumnFiltersChange: setColumnFilters,
     onRowSelectionChange: setRowSelection,
@@ -88,7 +96,8 @@ export function DataTable<TData extends { id: string }, TValue>({
       sorting,
       columnFilters,
       rowSelection,
-      pagination: manualPagination ? pagination : undefined,
+      // Always provide a pagination object to avoid destructuring undefined
+      pagination: (pagination ?? { pageIndex: 0, pageSize: 10 }),
     },
     manualFiltering: !!fullData,
     manualPagination,
@@ -155,7 +164,7 @@ export function DataTable<TData extends { id: string }, TValue>({
             </TableRow>
           )) : (
             <TableRow>
-              <TableCell colSpan={columns.length} className="h-24 text-center text-gray-400">
+              <TableCell colSpan={safeColumns.length} className="h-24 text-center text-gray-400">
                 <span className="flex flex-col items-center justify-center gap-2">
                   <Search className="mx-auto h-8 w-8 opacity-30" />
                   <span>Aucun résultat trouvé.</span>
