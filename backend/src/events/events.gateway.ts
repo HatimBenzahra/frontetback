@@ -49,7 +49,7 @@ export class EventsGateway implements OnGatewayConnection, OnGatewayDisconnect {
   // Stocker les positions des commerciaux en mémoire
   private commercialLocations = new Map<string, LocationUpdateData>();
   private commercialSockets = new Map<string, string>(); // commercialId -> socketId
-  private activeStreams = new Map<string, { commercial_id: string; commercial_info: any }>(); // commercialId -> stream info
+  private activeStreams = new Map<string, { commercial_id: string; commercial_info: any; socket_id: string }>(); // commercialId -> stream info + socket id
   
   // Gestion des sessions de transcription
   private activeTranscriptionSessions = new Map<string, TranscriptionSession>(); // commercialId -> session en cours
@@ -144,7 +144,8 @@ export class EventsGateway implements OnGatewayConnection, OnGatewayDisconnect {
     // Stocker l'état du stream actif
     this.activeStreams.set(data.commercial_id, {
       commercial_id: data.commercial_id,
-      commercial_info: data.commercial_info || {}
+      commercial_info: data.commercial_info || {},
+      socket_id: client.id,
     });
     
     // Créer une nouvelle session de transcription
@@ -162,8 +163,12 @@ export class EventsGateway implements OnGatewayConnection, OnGatewayDisconnect {
     this.activeTranscriptionSessions.set(data.commercial_id, session);
     console.log(`📝 Session de transcription créée pour ${data.commercial_id}:`, sessionId);
     
-    // Diffuser aux admins dans la room audio-streaming
-    this.server.to('audio-streaming').emit('start_streaming', data);
+    // Diffuser aux admins dans la room audio-streaming avec socket_id
+    this.server.to('audio-streaming').emit('start_streaming', {
+      commercial_id: data.commercial_id,
+      commercial_info: data.commercial_info || {},
+      socket_id: client.id,
+    });
   }
 
   @SubscribeMessage('stop_streaming')
@@ -210,6 +215,44 @@ export class EventsGateway implements OnGatewayConnection, OnGatewayDisconnect {
     // Envoyer l'état actuel des streams au client qui demande
     client.emit('streaming_status_response', {
       active_streams: activeStreamsArray
+    });
+  }
+
+  // --- WebRTC signaling relay for listen-only ---
+  @SubscribeMessage('suivi:webrtc_offer')
+  handleSuiviOffer(client: Socket, data: { to_socket_id: string; sdp: string; type: string }) {
+    console.log(`📨 Offer from ${client.id} to ${data.to_socket_id}`);
+    this.server.to(data.to_socket_id).emit('suivi:webrtc_offer', {
+      from_socket_id: client.id,
+      sdp: data.sdp,
+      type: data.type,
+    });
+  }
+
+  @SubscribeMessage('suivi:webrtc_answer')
+  handleSuiviAnswer(client: Socket, data: { to_socket_id: string; sdp: string; type: string }) {
+    console.log(`📨 Answer from ${client.id} to ${data.to_socket_id}`);
+    this.server.to(data.to_socket_id).emit('suivi:webrtc_answer', {
+      from_socket_id: client.id,
+      sdp: data.sdp,
+      type: data.type,
+    });
+  }
+
+  @SubscribeMessage('suivi:webrtc_ice_candidate')
+  handleSuiviIce(client: Socket, data: { to_socket_id: string; candidate: any }) {
+    // Note: candidate can be null (end of candidates)
+    this.server.to(data.to_socket_id).emit('suivi:webrtc_ice_candidate', {
+      from_socket_id: client.id,
+      candidate: data.candidate,
+    });
+  }
+
+  @SubscribeMessage('suivi:leave')
+  handleSuiviLeave(client: Socket, data: { to_socket_id: string }) {
+    // Notify the commercial that a listener left so it can close the peer connection
+    this.server.to(data.to_socket_id).emit('suivi:leave', {
+      from_socket_id: client.id,
     });
   }
 

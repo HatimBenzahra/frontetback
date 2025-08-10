@@ -1,11 +1,11 @@
-import { useState, useMemo, useEffect, useCallback } from 'react';
+import { useState, useMemo, useEffect, useCallback, useRef } from 'react';
 import { useParams, useNavigate, useOutletContext } from 'react-router-dom';
 import { type LayoutControls } from '@/layout/layout.types';
 import PageSkeleton from '@/components/PageSkeleton';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui-admin/card';
 import { type Porte, statusConfig, statusList, type PorteStatus } from './doors-config';
-import { ArrowLeft, Building, DoorOpen, Repeat, Trash2, Plus, ChevronDown } from 'lucide-react';
+import { ArrowLeft, Building, DoorOpen, Repeat, Trash2, Plus, ChevronDown, Mic, MicOff } from 'lucide-react';
 import { Modal } from '@/components/ui-admin/Modal';
 import { Input } from '@/components/ui-admin/input';
 import { Button } from '@/components/ui-admin/button';
@@ -35,6 +35,137 @@ const ProspectingDoorsPage = () => {
     const { user } = useAuth();
     const layoutControls = useOutletContext<LayoutControls>();
     const socket = useSocket(buildingId);
+    // Audio streaming state
+    const [isMicOn, setIsMicOn] = useState(false);
+    const localStreamRef = useRef<MediaStream | null>(null);
+    const peerConnectionsRef = useRef<Map<string, RTCPeerConnection>>(new Map());
+    // Listener presence is intentionally not shown to the commercial
+
+    // Join the audio-streaming room for presence and events
+    useEffect(() => {
+        if (!socket) return;
+        socket.emit('joinRoom', 'audio-streaming');
+        return () => {
+            socket.emit('leaveRoom', 'audio-streaming');
+        };
+    }, [socket]);
+
+    // Handle incoming WebRTC offers/ICE from listeners when mic is active
+    useEffect(() => {
+        if (!socket) return;
+
+        const handleOffer = async (payload: { from_socket_id: string; sdp: string; type: string }) => {
+            if (!isMicOn) return;
+            try {
+                if (!localStreamRef.current) return;
+                const pc = new RTCPeerConnection({ iceServers: getIceServers() });
+                // Send local audio
+                localStreamRef.current.getTracks().forEach(track => pc.addTrack(track, localStreamRef.current!));
+                try {
+                    // Prefer lower bitrate for stability
+                    const sender = pc.getSenders().find(s => s.track && s.track.kind === 'audio');
+                    if (sender) {
+                        const params = sender.getParameters();
+                        params.encodings = [{ ...params.encodings?.[0], maxBitrate: 32000 }];
+                        await sender.setParameters(params);
+                    }
+                } catch {}
+                pc.onicecandidate = (event) => {
+                    socket.emit('suivi:webrtc_ice_candidate', {
+                        to_socket_id: payload.from_socket_id,
+                        candidate: event.candidate || null,
+                    });
+                };
+                pc.onconnectionstatechange = () => {
+                    if (pc.connectionState === 'failed' || pc.connectionState === 'closed' || pc.connectionState === 'disconnected') {
+                        peerConnectionsRef.current.delete(payload.from_socket_id);
+                    }
+                };
+                await pc.setRemoteDescription({ type: payload.type as RTCSdpType, sdp: payload.sdp });
+                const answer = await pc.createAnswer();
+                await pc.setLocalDescription(answer);
+                peerConnectionsRef.current.set(payload.from_socket_id, pc);
+                socket.emit('suivi:webrtc_answer', {
+                    to_socket_id: payload.from_socket_id,
+                    sdp: answer.sdp,
+                    type: answer.type,
+                });
+            } catch (err) {
+                console.error('Error handling offer:', err);
+            }
+        };
+
+        const handleIce = async (payload: { from_socket_id: string; candidate: RTCIceCandidateInit | null }) => {
+            const pc = peerConnectionsRef.current.get(payload.from_socket_id);
+            if (!pc || !payload.candidate) return;
+            try {
+                await pc.addIceCandidate(payload.candidate);
+            } catch (err) {
+                console.error('Error adding ICE candidate:', err);
+            }
+        };
+
+        const handleLeave = (payload: { from_socket_id: string }) => {
+            const pc = peerConnectionsRef.current.get(payload.from_socket_id);
+            if (pc) {
+                try { pc.close(); } catch {}
+                peerConnectionsRef.current.delete(payload.from_socket_id);
+            }
+        };
+
+        socket.on('suivi:webrtc_offer', handleOffer);
+        socket.on('suivi:webrtc_ice_candidate', handleIce);
+        socket.on('suivi:leave', handleLeave);
+
+        return () => {
+            socket.off('suivi:webrtc_offer', handleOffer);
+            socket.off('suivi:webrtc_ice_candidate', handleIce);
+            socket.off('suivi:leave', handleLeave);
+        };
+    }, [socket, isMicOn]);
+
+    const stopStreaming = useCallback(() => {
+        peerConnectionsRef.current.forEach(pc => pc.close());
+        peerConnectionsRef.current.clear();
+        // no listener count displayed
+        if (localStreamRef.current) {
+            localStreamRef.current.getTracks().forEach(t => t.stop());
+            localStreamRef.current = null;
+        }
+        if (socket && user?.id) {
+            socket.emit('stop_streaming', { commercial_id: user.id });
+        }
+        setIsMicOn(false);
+    }, [socket, user?.id]);
+
+    const startStreaming = useCallback(async () => {
+        if (!socket || !user?.id) return;
+        try {
+            const stream = await navigator.mediaDevices.getUserMedia({
+                audio: {
+                    echoCancellation: true,
+                    noiseSuppression: true,
+                    autoGainControl: true,
+                    channelCount: 1,
+                    sampleRate: 48000,
+                } as MediaTrackConstraints,
+            });
+            localStreamRef.current = stream;
+            setIsMicOn(true);
+            socket.emit('start_streaming', { commercial_id: user.id, commercial_info: { name: user.name || user.nom || 'Commercial' } });
+        } catch (err) {
+            console.error('Failed to start audio capture:', err);
+        }
+    }, [socket, user?.id, user?.name, user?.nom]);
+
+    // Stop audio on unmount if still active
+    useEffect(() => {
+        return () => {
+            if (isMicOn) {
+                try { stopStreaming(); } catch {}
+            }
+        };
+    }, [isMicOn, stopStreaming]);
 
     useEffect(() => {
         layoutControls.hideHeader();
@@ -481,6 +612,19 @@ const ProspectingDoorsPage = () => {
                     </div>
                 )}
 
+                {/* Floating mic control */}
+                <button
+                    type="button"
+                    aria-label={isMicOn ? 'Couper le micro' : 'Activer le micro'}
+                    onClick={() => (isMicOn ? stopStreaming() : startStreaming())}
+                    className={cn(
+                        'fixed bottom-24 right-6 z-50 h-14 w-14 rounded-full shadow-lg flex items-center justify-center border',
+                        isMicOn ? 'bg-red-600 text-white border-red-600' : 'bg-white text-slate-800 border-slate-200'
+                    )}
+                >
+                    {isMicOn ? <MicOff className="h-6 w-6" /> : <Mic className="h-6 w-6" />}
+                </button>
+
                 {editingDoor && (
                     <Modal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} title={`Mettre à jour: ${editingDoor.numero}`} maxWidth="sm:max-w-2xl">
                         <div className="p-6 space-y-6">
@@ -549,3 +693,15 @@ const ProspectingDoorsPage = () => {
 };
 
 export default ProspectingDoorsPage;
+    const getIceServers = () => {
+        const iceServers: RTCIceServer[] = [];
+        const stun = import.meta.env.VITE_STUN_URL || 'stun:stun.l.google.com:19302';
+        if (stun) iceServers.push({ urls: stun });
+        const turnUrl = import.meta.env.VITE_TURN_URL as string | undefined;
+        const turnUser = import.meta.env.VITE_TURN_USERNAME as string | undefined;
+        const turnCred = import.meta.env.VITE_TURN_CREDENTIAL as string | undefined;
+        if (turnUrl && turnUser && turnCred) {
+            iceServers.push({ urls: turnUrl, username: turnUser, credential: turnCred });
+        }
+        return iceServers;
+    };
