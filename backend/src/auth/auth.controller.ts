@@ -183,7 +183,7 @@ export class AuthController {
         const token = this.jwtUtil.signReset(user.id);
         const link = `${this.configService.get('FRONTEND_URL')}/reset-password?token=${token}`;
         try {
-          await this.mailerService.sendSetupPasswordEmail(email, link);
+          await this.mailerService.sendForgotPasswordEmail(email, link);
         } catch (emailError) {
           this.logger.warn('Could not send reset email; link generated');
         }

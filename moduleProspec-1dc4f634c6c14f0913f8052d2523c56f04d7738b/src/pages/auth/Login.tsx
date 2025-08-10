@@ -218,9 +218,13 @@ const Login = () => {
 
         {/* Security notice */}
         <div className="mt-6 text-center">
-          <p className="text-sm text-gray-500 font-medium bg-white/60 backdrop-blur-sm rounded-full px-6 py-3 inline-block shadow-sm">
-            🔐 Connexion sécurisée - Vos données sont protégées
-          </p>
+          <div className="inline-flex items-center text-sm text-gray-500 font-medium bg-white/60 backdrop-blur-sm rounded-full px-6 py-3 shadow-sm">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" className="mr-2">
+              <path d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+              <path d="M9 12l2 2 4-4" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+            </svg>
+            Connexion sécurisée - Vos données sont protégées
+          </div>
         </div>
       </div>
     </div>
