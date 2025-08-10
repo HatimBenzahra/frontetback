@@ -310,4 +310,11 @@ export class EventsGateway implements OnGatewayConnection, OnGatewayDisconnect {
   getCommercialLocation(commercialId: string): LocationUpdateData | undefined {
     return this.commercialLocations.get(commercialId);
   }
+
+  // Gestion du ping pour mesurer la latence
+  @SubscribeMessage('ping')
+  handlePing(client: Socket, startTime: number) {
+    // Renvoyer immédiatement le timestamp pour calculer la latence
+    client.emit('pong', startTime);
+  }
 }
