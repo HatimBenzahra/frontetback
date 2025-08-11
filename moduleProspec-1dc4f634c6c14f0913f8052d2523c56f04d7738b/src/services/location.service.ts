@@ -14,7 +14,7 @@ class LocationService {
   private watchId: number | null = null;
   private commercialId: string | null = null;
   private isTracking = false;
-  private heartbeatInterval: NodeJS.Timeout | null = null;
+  private heartbeatInterval: number | null = null;
   private lastPosition: LocationData | null = null;
 
   constructor() {
