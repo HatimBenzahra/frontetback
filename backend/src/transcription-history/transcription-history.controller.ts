@@ -22,6 +22,13 @@ export class TranscriptionHistoryController {
     return { history };
   }
 
+  @Get('commercials')
+  async getAllCommercials() {
+    console.log('👥 Récupération de tous les commerciaux');
+    const commercials = await this.transcriptionHistoryService.getAllCommercials();
+    return { commercials };
+  }
+
   @Delete(':id')
   async deleteTranscriptionSession(@Param('id') id: string) {
     console.log('📚 Suppression session transcription:', id);

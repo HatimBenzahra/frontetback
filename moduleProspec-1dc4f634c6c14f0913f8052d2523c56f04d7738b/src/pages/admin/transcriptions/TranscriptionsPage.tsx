@@ -17,6 +17,10 @@ type CommercialItem = {
   name: string;
   sessionsCount: number;
   lastTime: number;
+  isOnline?: boolean;
+  isTranscribing?: boolean;
+  lastSeen?: number;
+  currentSession?: string;
 };
 
 const TranscriptionsPage = () => {
@@ -25,6 +29,8 @@ const TranscriptionsPage = () => {
   const [doorByCommercial, setDoorByCommercial] = useState<Record<string, string | undefined>>({});
   const [allHistory, setAllHistory] = useState<TranscriptionSession[]>([]);
   const [loadingHistory, setLoadingHistory] = useState(false);
+  const [allCommercials, setAllCommercials] = useState<CommercialItem[]>([]);
+  const [commercialStatus, setCommercialStatus] = useState<Record<string, any>>({});
   const [query, setQuery] = useState('');
   const [selectedCommercialId, setSelectedCommercialId] = useState<string | null>(null);
   const [sessions, setSessions] = useState<TranscriptionSession[]>([]);
@@ -42,6 +48,12 @@ const TranscriptionsPage = () => {
     
     // Charger TOUT l'historique depuis la base de données
     loadHistoryFromDatabase();
+    
+    // Charger tous les commerciaux depuis la base de données
+    loadAllCommercials();
+
+    // Demander les statuts en temps réel
+    socket.emit('request_commercials_status');
 
     // Rechargement automatique toutes les 60 secondes pour capturer les sauvegardes automatiques
     const intervalId = setInterval(() => {
@@ -69,15 +81,29 @@ const TranscriptionsPage = () => {
       // Recharger depuis la DB pour avoir la version la plus à jour
       setTimeout(() => {
         loadHistoryFromDatabase();
+        socket?.emit('request_commercials_status'); // Rafraîchir les statuts aussi
       }, 1000); // Délai pour laisser le backend sauvegarder
     };
+
+    const onCommercialsStatus = (data: { status: any[] }) => {
+      const statusMap: Record<string, any> = {};
+      data.status.forEach(item => {
+        statusMap[item.commercial_id] = item;
+      });
+      setCommercialStatus(statusMap);
+      console.log('👥 Statuts commerciaux mis à jour:', Object.keys(statusMap).length);
+    };
+
     socket.on('transcription_update', onUpdate);
     socket.on('transcription_history_response', onHistory);
     socket.on('transcription_session_completed', onCompleted);
+    socket.on('commercials_status_response', onCommercialsStatus);
+    
     return () => {
       socket.off('transcription_update', onUpdate);
       socket.off('transcription_history_response', onHistory);
       socket.off('transcription_session_completed', onCompleted);
+      socket.off('commercials_status_response', onCommercialsStatus);
       socket.emit('leaveRoom', 'audio-streaming');
       clearInterval(intervalId); // Nettoyer l'interval
     };
@@ -86,29 +112,41 @@ const TranscriptionsPage = () => {
   const commercials: CommercialItem[] = useMemo(() => {
     const map = new Map<string, CommercialItem>();
     
-    // D'abord, traiter TOUT l'historique de la base de données
+    // D'abord, charger TOUS les commerciaux de la base de données avec leurs statistiques
+    for (const commercial of allCommercials) {
+      map.set(commercial.id, {
+        id: commercial.id,
+        name: commercial.name,
+        sessionsCount: commercial.sessionsCount,
+        lastTime: commercial.lastTime
+      });
+    }
+    
+    // Ensuite, traiter TOUT l'historique de la base de données pour compléter les données manquantes
     for (const s of allHistory) {
-      // Améliorer l'affichage du nom (prénom nom ou nom complet)
-      let displayName = s.commercial_name || s.commercial_id;
-      if (s.commercial_name && s.commercial_name !== s.commercial_id && !s.commercial_name.startsWith('Commercial ')) {
-        // Si le nom contient des espaces, c'est probablement "Prénom Nom"
-        const nameParts = s.commercial_name.split(' ');
-        if (nameParts.length >= 2) {
-          displayName = `${nameParts[0]} ${nameParts[nameParts.length - 1]}`;
-        } else {
-          displayName = s.commercial_name;
+      if (!map.has(s.commercial_id)) {
+        // Améliorer l'affichage du nom (prénom nom ou nom complet)
+        let displayName = s.commercial_name || s.commercial_id;
+        if (s.commercial_name && s.commercial_name !== s.commercial_id && !s.commercial_name.startsWith('Commercial ')) {
+          // Si le nom contient des espaces, c'est probablement "Prénom Nom"
+          const nameParts = s.commercial_name.split(' ');
+          if (nameParts.length >= 2) {
+            displayName = `${nameParts[0]} ${nameParts[nameParts.length - 1]}`;
+          } else {
+            displayName = s.commercial_name;
+          }
         }
+        
+        const item = map.get(s.commercial_id) || { 
+          id: s.commercial_id, 
+          name: displayName, 
+          sessionsCount: 0, 
+          lastTime: 0 
+        };
+        item.sessionsCount += 1;
+        item.lastTime = Math.max(item.lastTime, new Date(s.start_time).getTime());
+        map.set(s.commercial_id, item);
       }
-      
-      const item = map.get(s.commercial_id) || { 
-        id: s.commercial_id, 
-        name: displayName, 
-        sessionsCount: 0, 
-        lastTime: 0 
-      };
-      item.sessionsCount += 1;
-      item.lastTime = Math.max(item.lastTime, new Date(s.start_time).getTime());
-      map.set(s.commercial_id, item);
     }
     
     // Ensuite, ajouter les commerciaux actuellement en live (s'ils ne sont pas déjà dans la DB)
@@ -126,12 +164,23 @@ const TranscriptionsPage = () => {
         item.lastTime = Math.max(item.lastTime, Date.now());
       }
     });
+
+    // Ajouter les informations de statut en temps réel
+    map.forEach((item, commercialId) => {
+      const status = commercialStatus[commercialId];
+      if (status) {
+        item.isOnline = status.isOnline;
+        item.isTranscribing = status.isTranscribing;
+        item.lastSeen = status.lastSeen;
+        item.currentSession = status.currentSession;
+      }
+    });
     
     let items = Array.from(map.values());
     if (query) items = items.filter(i => i.name.toLowerCase().includes(query.toLowerCase()) || i.id.includes(query));
     items.sort((a, b) => b.lastTime - a.lastTime);
     return items;
-  }, [allHistory, liveByCommercial, query]);
+  }, [allCommercials, allHistory, liveByCommercial, commercialStatus, query]);
 
   // Derive sessions for the selected commercial from the database history
   useEffect(() => {
@@ -263,6 +312,26 @@ const TranscriptionsPage = () => {
     }
   };
 
+  // Charger tous les commerciaux depuis la base de données
+  const loadAllCommercials = async () => {
+    try {
+      const SERVER_HOST = import.meta.env.VITE_SERVER_HOST || window.location.hostname;
+      const API_PORT = import.meta.env.VITE_API_PORT || '3000';
+      const response = await fetch(`https://${SERVER_HOST}:${API_PORT}/api/transcription-history/commercials`);
+      
+      if (response.ok) {
+        const data = await response.json();
+        const commercials = data.commercials || [];
+        console.log('👥 Commerciaux chargés depuis la DB:', commercials.length, 'commerciaux');
+        setAllCommercials(commercials);
+      } else {
+        console.error('❌ Erreur chargement commerciaux DB:', response.status);
+      }
+    } catch (error) {
+      console.error('❌ Erreur chargement commerciaux DB:', error);
+    }
+  };
+
   return (
     <div className="flex flex-col h-full p-6 space-y-6 bg-gradient-to-br from-slate-50 to-white">
       {/* En-tête avec titre et actions */}
@@ -299,6 +368,21 @@ const TranscriptionsPage = () => {
                   <div className="space-y-1">
                     {commercials.map(c => {
                       const isLive = liveByCommercial[c.id];
+                      const isOnline = c.isOnline || false;
+                      const isTranscribing = c.isTranscribing || false;
+                      
+                      // Déterminer le statut principal
+                      let statusColor = 'bg-gray-400'; // Hors ligne par défaut
+                      let statusText = 'Hors ligne';
+                      
+                      if (isTranscribing) {
+                        statusColor = 'bg-red-500'; // Rouge pour transcription en cours
+                        statusText = 'Transcription';
+                      } else if (isLive || isOnline) {
+                        statusColor = 'bg-green-500'; // Vert pour en ligne
+                        statusText = 'En ligne';
+                      }
+                      
                       return (
                         <button
                           key={c.id}
@@ -311,13 +395,34 @@ const TranscriptionsPage = () => {
                         >
                           <div className="flex items-center justify-between">
                             <div className="flex items-center gap-2 min-w-0 flex-1">
-                              {isLive && <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse flex-shrink-0" />}
+                              <div className={`w-2 h-2 ${statusColor} rounded-full flex-shrink-0 ${isTranscribing || isLive ? 'animate-pulse' : ''}`} />
                               <div className="min-w-0 flex-1">
                                 <div className="font-medium text-sm text-slate-900 truncate">{c.name}</div>
                                 <div className="text-xs text-slate-500">{c.sessionsCount} sessions</div>
                               </div>
                             </div>
-                            {isLive && <Badge variant="secondary" className="bg-green-100 text-green-800 text-xs">Live</Badge>}
+                            <div className="flex items-center gap-1">
+                              {isTranscribing && (
+                                <Badge variant="secondary" className="bg-red-100 text-red-800 text-xs">
+                                  Transcription
+                                </Badge>
+                              )}
+                              {isLive && !isTranscribing && (
+                                <Badge variant="secondary" className="bg-green-100 text-green-800 text-xs">
+                                  Live
+                                </Badge>
+                              )}
+                              {!isLive && !isTranscribing && isOnline && (
+                                <Badge variant="secondary" className="bg-blue-100 text-blue-800 text-xs">
+                                  En ligne
+                                </Badge>
+                              )}
+                              {!isOnline && !isLive && !isTranscribing && (
+                                <Badge variant="secondary" className="bg-gray-100 text-gray-600 text-xs">
+                                  Hors ligne
+                                </Badge>
+                              )}
+                            </div>
                           </div>
                         </button>
                       );

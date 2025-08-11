@@ -650,6 +650,47 @@ export class EventsGateway implements OnGatewayConnection, OnGatewayDisconnect {
     console.log(`📍 État GPS envoyé: ${this.commercialLocations.size} commerciaux`);
   }
 
+  // Demande de l'état des commerciaux avec leurs statuts
+  @SubscribeMessage('request_commercials_status')
+  handleRequestCommercialsStatus(client: Socket) {
+    console.log(`👥 Demande de statut des commerciaux de ${client.id}`);
+    
+    const commercialStatus = new Map<string, {
+      isOnline: boolean;
+      isTranscribing: boolean;
+      lastSeen?: number;
+      currentSession?: string;
+    }>();
+
+    // Parcourir tous les commerciaux connectés
+    this.commercialSockets.forEach((socketId, commercialId) => {
+      commercialStatus.set(commercialId, {
+        isOnline: true,
+        isTranscribing: this.activeTranscriptionSessions.has(commercialId),
+        lastSeen: this.commercialLastSeen.get(commercialId),
+        currentSession: this.activeTranscriptionSessions.get(commercialId)?.id
+      });
+    });
+
+    // Ajouter les commerciaux en transcription mais pas forcément en ligne
+    this.activeTranscriptionSessions.forEach((session, commercialId) => {
+      if (!commercialStatus.has(commercialId)) {
+        commercialStatus.set(commercialId, {
+          isOnline: false,
+          isTranscribing: true,
+          currentSession: session.id
+        });
+      }
+    });
+
+    client.emit('commercials_status_response', {
+      status: Array.from(commercialStatus.entries()).map(([id, status]) => ({
+        commercial_id: id,
+        ...status
+      }))
+    });
+  }
+
   // Gestion du ping pour mesurer la latence
   @SubscribeMessage('ping')
   handlePing(client: Socket, startTime: number) {

@@ -119,5 +119,47 @@ export class TranscriptionHistoryService {
     }
   }
 
+  async getAllCommercials(): Promise<Array<{id: string, name: string, sessionsCount: number, lastTime: number}>> {
+    try {
+      console.log('👥 Récupération de tous les commerciaux');
+      
+      // Récupérer tous les commerciaux de la base de données
+      const commercials = await this.prisma.commercial.findMany({
+        select: {
+          id: true,
+          prenom: true,
+          nom: true
+        }
+      });
+
+      // Récupérer les statistiques de sessions pour chaque commercial
+      const commercialsWithStats = await Promise.all(
+        commercials.map(async (commercial) => {
+          const sessionsCount = await this.prisma.transcriptionSession.count({
+            where: { commercial_id: commercial.id }
+          });
+
+          const lastSession = await this.prisma.transcriptionSession.findFirst({
+            where: { commercial_id: commercial.id },
+            orderBy: { start_time: 'desc' }
+          });
+
+          return {
+            id: commercial.id,
+            name: `${commercial.prenom} ${commercial.nom}`,
+            sessionsCount,
+            lastTime: lastSession ? new Date(lastSession.start_time).getTime() : 0
+          };
+        })
+      );
+
+      console.log(`✅ ${commercialsWithStats.length} commerciaux récupérés`);
+      return commercialsWithStats;
+    } catch (error) {
+      console.error('❌ Erreur récupération commerciaux:', error);
+      return [];
+    }
+  }
+
 
 } 
