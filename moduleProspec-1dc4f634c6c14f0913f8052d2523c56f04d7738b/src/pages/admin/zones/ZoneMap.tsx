@@ -7,7 +7,7 @@ import MapboxGeocoder from '@mapbox/mapbox-gl-geocoder';
 import 'mapbox-gl/dist/mapbox-gl.css';
 import '@mapbox/mapbox-gl-geocoder/dist/mapbox-gl-geocoder.css';
 import { cn } from '@/lib/utils';
-import mapboxgl from 'mapbox-gl';
+import mapboxgl from '@/lib/mapbox';
 
 
 // --- Helper to create a GeoJSON Polygon circle ---
@@ -237,8 +237,10 @@ export const ZoneMap = ({ existingZones, immeubles = [], zoneToFocus }: ZoneMapP
         }
     };
 
+    const mapboxToken = import.meta.env.VITE_MAPBOX_ACCESS_TOKEN;
+
     return (
-        <div className={cn('relative h-full w-full')}>
+        <div className={cn('relative h-[70vh] w-full')}>
             <div className={cn('relative h-full w-full rounded-lg')}>
                 <Map
                     ref={mapRef}
@@ -248,6 +250,7 @@ export const ZoneMap = ({ existingZones, immeubles = [], zoneToFocus }: ZoneMapP
                         zoom: 10
                     }}
                     style={{ width: '100%', height: '100%' }}
+                    mapboxAccessToken={mapboxToken}
                     mapStyle="mapbox://styles/mapbox/streets-v12"
                 >
                     <GeocoderControl position="top-left" />

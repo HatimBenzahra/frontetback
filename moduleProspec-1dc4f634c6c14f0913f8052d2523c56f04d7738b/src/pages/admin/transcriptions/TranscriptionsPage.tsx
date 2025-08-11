@@ -346,11 +346,11 @@ const TranscriptionsPage = () => {
         </Button>
       </div>
 
-      <div className="grid grid-cols-12 gap-6">
+      <div className="grid grid-cols-12 gap-6 ">
         {/* Colonne des commerciaux - plus compacte */}
-        <div className="col-span-12 lg:col-span-4 xl:col-span-3">
-          <Card className="shadow-sm border-0 bg-white">
-            <CardHeader className="pb-3">
+        <div className="col-span-12 lg:col-span-4 xl:col-span-4">
+          <Card className="shadow-sm border-0 bg-white h-[calc(100vh-220px)] flex flex-col">
+            <CardHeader className="pb-3 bg-white" >
               <CardTitle className="flex items-center gap-2 text-lg">
                 <User className="h-5 w-5 text-slate-600" />
                 Commerciaux
@@ -360,12 +360,12 @@ const TranscriptionsPage = () => {
                 <Input className="pl-9" placeholder="Rechercher un commercial..." value={query} onChange={(e) => setQuery(e.target.value)} />
               </div>
             </CardHeader>
-            <CardContent>
-              <ScrollArea className="h-[70vh]">
+            <CardContent className="flex-1" >
+              <ScrollArea className="h-full">
                 {commercials.length === 0 ? (
                   <div className="text-slate-500 text-sm text-center py-8">Aucun commercial trouvé</div>
                 ) : (
-                  <div className="space-y-1">
+                  <div className="space-y-3 ">
                     {commercials.map(c => {
                       const isLive = liveByCommercial[c.id];
                       const isOnline = c.isOnline || false;
@@ -384,7 +384,7 @@ const TranscriptionsPage = () => {
                         <button
                           key={c.id}
                           onClick={() => setSelectedCommercialId(c.id)}
-                          className={`w-full text-left rounded-lg p-3 transition-all ${
+                          className={`w-full text-left rounded-lg p-2.5 transition-all ${
                             selectedCommercialId === c.id 
                               ? 'bg-blue-50 border-2 border-blue-200 shadow-sm' 
                               : 'hover:bg-slate-50 border-2 border-transparent'
@@ -432,7 +432,7 @@ const TranscriptionsPage = () => {
         </div>
 
         {/* Contenu principal */}
-        <div className="col-span-12 lg:col-span-8 xl:col-span-9 space-y-6">
+        <div className="col-span-12 lg:col-span-8 xl:col-span-8 space-y-6">
           {/* Section Live */}
           <Card className="shadow-sm border-0 bg-white">
             <CardHeader className="pb-4">
