@@ -75,7 +75,58 @@ export class CommercialService {
     return updatedCommercial;
   }
 
-  remove(id: string) {
+  async remove(id: string) {
+    // Delete all related data first to avoid foreign key constraints
+    
+    // 1. Delete historiques
+    await this.prisma.historiqueProspection.deleteMany({
+      where: { commercialId: id }
+    });
+
+    // 2. Delete transcription sessions
+    await this.prisma.transcriptionSession.deleteMany({
+      where: { commercial_id: id }
+    });
+
+    // 3. Remove from zones (set commercialId to null)
+    await this.prisma.zone.updateMany({
+      where: { commercialId: id },
+      data: { commercialId: null }
+    });
+
+    // 4. Remove from portes (set assigneeId to null)
+    await this.prisma.porte.updateMany({
+      where: { assigneeId: id },
+      data: { assigneeId: null }
+    });
+
+    // 5. Remove from immeubles prospectors relation
+    const immeubles = await this.prisma.immeuble.findMany({
+      where: { prospectors: { some: { id } } }
+    });
+    
+    for (const immeuble of immeubles) {
+      await this.prisma.immeuble.update({
+        where: { id: immeuble.id },
+        data: {
+          prospectors: {
+            disconnect: { id }
+          }
+        }
+      });
+    }
+
+    // 6. Delete prospection requests
+    await this.prisma.prospectionRequest.deleteMany({
+      where: { 
+        OR: [
+          { requesterId: id },
+          { partnerId: id }
+        ]
+      }
+    });
+
+    // Finally delete the commercial
     return this.prisma.commercial.delete({ where: { id } });
   }
 }
