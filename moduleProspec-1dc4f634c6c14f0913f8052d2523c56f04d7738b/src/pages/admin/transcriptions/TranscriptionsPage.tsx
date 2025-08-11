@@ -373,14 +373,11 @@ const TranscriptionsPage = () => {
                       
                       // Déterminer le statut principal
                       let statusColor = 'bg-gray-400'; // Hors ligne par défaut
-                      let statusText = 'Hors ligne';
                       
                       if (isTranscribing) {
                         statusColor = 'bg-red-500'; // Rouge pour transcription en cours
-                        statusText = 'Transcription';
                       } else if (isLive || isOnline) {
                         statusColor = 'bg-green-500'; // Vert pour en ligne
-                        statusText = 'En ligne';
                       }
                       
                       return (
