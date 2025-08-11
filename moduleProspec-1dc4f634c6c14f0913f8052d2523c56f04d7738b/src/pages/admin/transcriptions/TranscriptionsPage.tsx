@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState, useCallback } from 'react';
 import { useSocket } from '@/hooks/useSocket';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui-admin/card';
 import { Button } from '@/components/ui-admin/button';
@@ -25,257 +25,45 @@ type CommercialItem = {
 
 const TranscriptionsPage = () => {
   const socket = useSocket('audio-streaming');
+
+  // Live & statuts
   const [liveByCommercial, setLiveByCommercial] = useState<Record<string, string>>({});
   const [doorByCommercial, setDoorByCommercial] = useState<Record<string, string | undefined>>({});
-  const [allHistory, setAllHistory] = useState<TranscriptionSession[]>([]);
-  const [loadingHistory, setLoadingHistory] = useState(false);
-  const [allCommercials, setAllCommercials] = useState<CommercialItem[]>([]);
   const [commercialStatus, setCommercialStatus] = useState<Record<string, any>>({});
+
+  // DB
+  const [allCommercials, setAllCommercials] = useState<CommercialItem[]>([]);
+
+  // Sélection & sessions ciblées
   const [query, setQuery] = useState('');
   const [selectedCommercialId, setSelectedCommercialId] = useState<string | null>(null);
   const [sessions, setSessions] = useState<TranscriptionSession[]>([]);
+  const [loadingHistory, setLoadingHistory] = useState(false);
   const [openSession, setOpenSession] = useState<TranscriptionSession | null>(null);
-  
+
   // Filtres pour l'historique
-  const [buildingFilter, setBuildingFilter] = useState<string>('');
-  const [dateFilter, setDateFilter] = useState<string>('');
-  const [durationFilter, setDurationFilter] = useState<string>('');
+  const [buildingFilter, setBuildingFilter] = useState<string>('all');
+  const [dateFilter, setDateFilter] = useState<string>('all');       // 'all' | '24h' | '7d' | '30d'
+  const [durationFilter, setDurationFilter] = useState<string>('all'); // 'all' | 'short' | 'medium' | 'long'
 
-  useEffect(() => {
-    if (!socket) return;
-    socket.emit('joinRoom', 'audio-streaming');
-    socket.emit('request_streaming_status');
-    
-    // Charger TOUT l'historique depuis la base de données
-    loadHistoryFromDatabase();
-    
-    // Charger tous les commerciaux depuis la base de données
-    loadAllCommercials();
+  const SERVER_HOST = import.meta.env.VITE_SERVER_HOST || window.location.hostname;
+  const API_PORT = import.meta.env.VITE_API_PORT || '3000';
+  const BASE = `https://${SERVER_HOST}:${API_PORT}`;
 
-    // Demander les statuts en temps réel
-    socket.emit('request_commercials_status');
-
-    // Rechargement automatique toutes les 60 secondes pour capturer les sauvegardes automatiques
-    const intervalId = setInterval(() => {
-      console.log('🔄 Rechargement automatique de l\'historique');
-      loadHistoryFromDatabase();
-    }, 60000); // 60 secondes
-
-    const onUpdate = (data: LiveUpdate) => {
-      setLiveByCommercial(prev => ({ ...prev, [data.commercial_id]: (prev[data.commercial_id] || '') + data.transcript }));
-      if (data.door_label) {
-        setDoorByCommercial(prev => ({ ...prev, [data.commercial_id]: data.door_label }));
-      } else if (data.door_id) {
-        setDoorByCommercial(prev => ({ ...prev, [data.commercial_id]: data.door_id }));
-      }
-    };
-    const onHistory = (payload: { history: TranscriptionSession[] }) => {
-      setAllHistory(payload.history || []);
-    };
-    const onCompleted = (session: TranscriptionSession) => {
-      console.log('🎯 Session terminée reçue:', session.id);
-      
-      // Ajouter à l'historique local temporairement
-      setAllHistory(prev => [session, ...prev]);
-      
-      // Recharger depuis la DB pour avoir la version la plus à jour
-      setTimeout(() => {
-        loadHistoryFromDatabase();
-        socket?.emit('request_commercials_status'); // Rafraîchir les statuts aussi
-      }, 1000); // Délai pour laisser le backend sauvegarder
-    };
-
-    const onCommercialsStatus = (data: { status: any[] }) => {
-      const statusMap: Record<string, any> = {};
-      data.status.forEach(item => {
-        statusMap[item.commercial_id] = item;
-      });
-      setCommercialStatus(statusMap);
-      console.log('👥 Statuts commerciaux mis à jour:', Object.keys(statusMap).length);
-    };
-
-    socket.on('transcription_update', onUpdate);
-    socket.on('transcription_history_response', onHistory);
-    socket.on('transcription_session_completed', onCompleted);
-    socket.on('commercials_status_response', onCommercialsStatus);
-    
-    return () => {
-      socket.off('transcription_update', onUpdate);
-      socket.off('transcription_history_response', onHistory);
-      socket.off('transcription_session_completed', onCompleted);
-      socket.off('commercials_status_response', onCommercialsStatus);
-      socket.emit('leaveRoom', 'audio-streaming');
-      clearInterval(intervalId); // Nettoyer l'interval
-    };
-  }, [socket, selectedCommercialId]);
-
-  const commercials: CommercialItem[] = useMemo(() => {
-    const map = new Map<string, CommercialItem>();
-    
-    // D'abord, charger TOUS les commerciaux de la base de données avec leurs statistiques
-    for (const commercial of allCommercials) {
-      map.set(commercial.id, {
-        id: commercial.id,
-        name: commercial.name,
-        sessionsCount: commercial.sessionsCount,
-        lastTime: commercial.lastTime
-      });
-    }
-    
-    // Ensuite, traiter TOUT l'historique de la base de données pour compléter les données manquantes
-    for (const s of allHistory) {
-      if (!map.has(s.commercial_id)) {
-        // Améliorer l'affichage du nom (prénom nom ou nom complet)
-        let displayName = s.commercial_name || s.commercial_id;
-        if (s.commercial_name && s.commercial_name !== s.commercial_id && !s.commercial_name.startsWith('Commercial ')) {
-          // Si le nom contient des espaces, c'est probablement "Prénom Nom"
-          const nameParts = s.commercial_name.split(' ');
-          if (nameParts.length >= 2) {
-            displayName = `${nameParts[0]} ${nameParts[nameParts.length - 1]}`;
-          } else {
-            displayName = s.commercial_name;
-          }
-        }
-        
-        const item = map.get(s.commercial_id) || { 
-          id: s.commercial_id, 
-          name: displayName, 
-          sessionsCount: 0, 
-          lastTime: 0 
-        };
-        item.sessionsCount += 1;
-        item.lastTime = Math.max(item.lastTime, new Date(s.start_time).getTime());
-        map.set(s.commercial_id, item);
-      }
-    }
-    
-    // Ensuite, ajouter les commerciaux actuellement en live (s'ils ne sont pas déjà dans la DB)
-    Object.keys(liveByCommercial).forEach(cid => {
-      if (!map.has(cid)) {
-        map.set(cid, { 
-          id: cid, 
-          name: `Commercial ${cid}`, 
-          sessionsCount: 0, 
-          lastTime: Date.now() 
-        });
-      } else {
-        // Mettre à jour le lastTime pour montrer qu'il est actif maintenant
-        const item = map.get(cid)!;
-        item.lastTime = Math.max(item.lastTime, Date.now());
-      }
-    });
-
-    // Ajouter les informations de statut en temps réel
-    map.forEach((item, commercialId) => {
-      const status = commercialStatus[commercialId];
-      if (status) {
-        item.isOnline = status.isOnline;
-        item.isTranscribing = status.isTranscribing;
-        item.lastSeen = status.lastSeen;
-        item.currentSession = status.currentSession;
-      }
-    });
-    
-    let items = Array.from(map.values());
-    if (query) items = items.filter(i => i.name.toLowerCase().includes(query.toLowerCase()) || i.id.includes(query));
-    items.sort((a, b) => b.lastTime - a.lastTime);
-    return items;
-  }, [allCommercials, allHistory, liveByCommercial, commercialStatus, query]);
-
-  // Derive sessions for the selected commercial from the database history
-  useEffect(() => {
-    if (!selectedCommercialId) {
-      setSessions([]);
-      return;
-    }
-    setLoadingHistory(true);
-    
-    // Filtrer toutes les sessions de ce commercial depuis l'historique DB
-    const list = allHistory.filter(s => s.commercial_id === selectedCommercialId);
-    
-    // Trier par date de début (plus récent en premier)
-    const sortedList = list.sort((a, b) => new Date(b.start_time).getTime() - new Date(a.start_time).getTime());
-    
-    setSessions(sortedList);
-    setLoadingHistory(false);
-    
-    console.log(`📊 Sessions pour ${selectedCommercialId}:`, sortedList.length, 'sessions trouvées');
-  }, [selectedCommercialId, allHistory]);
-
-  const filteredSessions = useMemo(() => {
-    let filtered = [...sessions];
-    
-    // Filtre par immeuble
-    if (buildingFilter && buildingFilter !== 'all') {
-      filtered = filtered.filter(s => s.building_name === buildingFilter);
-    }
-    
-    // Filtre par date (dernières 24h, 7 jours, 30 jours)
-    if (dateFilter && dateFilter !== 'all') {
-      const now = new Date();
-      const cutoff = new Date();
-      
-      switch (dateFilter) {
-        case '24h':
-          cutoff.setHours(now.getHours() - 24);
-          break;
-        case '7d':
-          cutoff.setDate(now.getDate() - 7);
-          break;
-        case '30d':
-          cutoff.setDate(now.getDate() - 30);
-          break;
-      }
-      
-      filtered = filtered.filter(s => new Date(s.start_time) >= cutoff);
-    }
-    
-    // Filtre par durée
-    if (durationFilter && durationFilter !== 'all') {
-      switch (durationFilter) {
-        case 'short':
-          filtered = filtered.filter(s => s.duration_seconds < 60);
-          break;
-        case 'medium':
-          filtered = filtered.filter(s => s.duration_seconds >= 60 && s.duration_seconds < 300);
-          break;
-        case 'long':
-          filtered = filtered.filter(s => s.duration_seconds >= 300);
-          break;
-      }
-    }
-    
-    return filtered.sort((a,b) => new Date(b.start_time).getTime() - new Date(a.start_time).getTime());
-  }, [sessions, buildingFilter, dateFilter, durationFilter]);
-
-  // Options uniques pour les filtres
-  const uniqueBuildings = useMemo(() => {
-    const buildings = new Set<string>();
-    sessions.forEach(s => {
-      if (s.building_name) buildings.add(s.building_name);
-    });
-    return Array.from(buildings).sort();
-  }, [sessions]);
-
+  // -------- Utils --------
   const formatDuration = (seconds: number) => {
     const mins = Math.floor(seconds / 60);
     const secs = seconds % 60;
     return mins > 0 ? `${mins}min ${secs}s` : `${secs}s`;
   };
-
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleString('fr-FR', {
+  const formatDate = (dateString: string) =>
+    new Date(dateString).toLocaleString('fr-FR', {
       day: '2-digit',
       month: '2-digit',
       year: 'numeric',
       hour: '2-digit',
-      minute: '2-digit'
+      minute: '2-digit',
     });
-  };
-
-
-  const selectedLive = selectedCommercialId ? liveByCommercial[selectedCommercialId] : '';
-  const selectedDoor = selectedCommercialId ? doorByCommercial[selectedCommercialId] : undefined;
 
   const copyText = (text: string) => navigator.clipboard.writeText(text).catch(() => {});
   const downloadText = (filename: string, text: string) => {
@@ -285,44 +73,13 @@ const TranscriptionsPage = () => {
     a.href = url; a.download = filename; a.click(); URL.revokeObjectURL(url);
   };
 
-  // Charger l'historique complet depuis la base de données
-  const loadHistoryFromDatabase = async () => {
-    setLoadingHistory(true);
+  // -------- DB: charger tous les commerciaux (une fois) --------
+  const loadAllCommercials = useCallback(async () => {
     try {
-      const SERVER_HOST = import.meta.env.VITE_SERVER_HOST || window.location.hostname;
-      const API_PORT = import.meta.env.VITE_API_PORT || '3000';
-      const response = await fetch(`https://${SERVER_HOST}:${API_PORT}/api/transcription-history?limit=1000`);
-      
-      if (response.ok) {
-        const data = await response.json();
-        const history = data.history || [];
-        console.log('📚 Historique chargé depuis la DB:', history.length, 'sessions');
-        setAllHistory(history);
-      } else {
-        console.error('❌ Erreur chargement historique DB:', response.status);
-        // Fallback sur WebSocket
-        socket?.emit('request_transcription_history');
-      }
-    } catch (error) {
-      console.error('❌ Erreur chargement historique DB:', error);
-      // Fallback sur WebSocket
-      socket?.emit('request_transcription_history');
-    } finally {
-      setLoadingHistory(false);
-    }
-  };
-
-  // Charger tous les commerciaux depuis la base de données
-  const loadAllCommercials = async () => {
-    try {
-      const SERVER_HOST = import.meta.env.VITE_SERVER_HOST || window.location.hostname;
-      const API_PORT = import.meta.env.VITE_API_PORT || '3000';
-      const response = await fetch(`https://${SERVER_HOST}:${API_PORT}/api/transcription-history/commercials`);
-      
+      const response = await fetch(`${BASE}/api/transcription-history/commercials`);
       if (response.ok) {
         const data = await response.json();
         const commercials = data.commercials || [];
-        console.log('👥 Commerciaux chargés depuis la DB:', commercials.length, 'commerciaux');
         setAllCommercials(commercials);
       } else {
         console.error('❌ Erreur chargement commerciaux DB:', response.status);
@@ -330,27 +87,169 @@ const TranscriptionsPage = () => {
     } catch (error) {
       console.error('❌ Erreur chargement commerciaux DB:', error);
     }
+  }, [BASE]);
+
+  useEffect(() => {
+    loadAllCommercials();
+  }, [loadAllCommercials]);
+
+  // -------- DB: charger l’historique UNIQUEMENT du commercial sélectionné --------
+  const loadHistoryForSelected = useCallback(async () => {
+    if (!selectedCommercialId) { setSessions([]); return; }
+    setLoadingHistory(true);
+    try {
+      const params = new URLSearchParams({ commercial_id: selectedCommercialId });
+      if (buildingFilter !== 'all') params.set('building', buildingFilter);
+      if (dateFilter !== 'all') params.set('since', dateFilter);        // à interpréter côté backend
+      if (durationFilter !== 'all') params.set('duration', durationFilter);
+
+      const response = await fetch(`${BASE}/api/transcription-history?` + params.toString());
+      if (response.ok) {
+        const data = await response.json();
+        const list: TranscriptionSession[] = (data.history || []).sort(
+          (a: TranscriptionSession, b: TranscriptionSession) => new Date(b.start_time).getTime() - new Date(a.start_time).getTime()
+        );
+        setSessions(list);
+      } else {
+        setSessions([]);
+        console.error('Erreur chargement historique DB:', response.status);
+      }
+    } catch (error) {
+      console.error('Erreur chargement historique DB:', error);
+      setSessions([]);
+    } finally {
+      setLoadingHistory(false);
+    }
+  }, [BASE, selectedCommercialId, buildingFilter, dateFilter, durationFilter]);
+
+  useEffect(() => {
+    loadHistoryForSelected();
+  }, [loadHistoryForSelected]);
+
+  // -------- WebSocket: installer une seule fois les listeners --------
+  useEffect(() => {
+    if (!socket) return;
+
+    socket.emit('joinRoom', 'audio-streaming');
+    socket.emit('request_commercials_status');
+
+    const onUpdate = (data: LiveUpdate) => {
+      setLiveByCommercial(prev => ({ ...prev, [data.commercial_id]: (prev[data.commercial_id] || '') + data.transcript }));
+      if (data.door_label || data.door_id) {
+        setDoorByCommercial(prev => ({ ...prev, [data.commercial_id]: data.door_label ?? data.door_id }));
+      }
+    };
+
+    const onCommercialsStatus = (data: { status: any[] }) => {
+      const statusMap: Record<string, any> = {};
+      data.status.forEach(item => { statusMap[item.commercial_id] = item; });
+      setCommercialStatus(statusMap);
+    };
+
+    // Si une session se termine pour le commercial sélectionné, recharger uniquement son historique
+    const onCompleted = (session: TranscriptionSession) => {
+      if (session.commercial_id === selectedCommercialId) {
+        setTimeout(() => {
+          loadHistoryForSelected();
+          socket.emit('request_commercials_status');
+        }, 800);
+      } else {
+        // Sinon, mettre juste à jour les statuts
+        socket.emit('request_commercials_status');
+      }
+    };
+
+    socket.on('transcription_update', onUpdate);
+    socket.on('commercials_status_response', onCommercialsStatus);
+    socket.on('transcription_session_completed', onCompleted);
+
+    return () => {
+      socket.off('transcription_update', onUpdate);
+      socket.off('commercials_status_response', onCommercialsStatus);
+      socket.off('transcription_session_completed', onCompleted);
+      socket.emit('leaveRoom', 'audio-streaming');
+    };
+  }, [socket, selectedCommercialId, loadHistoryForSelected]);
+
+  // -------- Liste fusionnée des commerciaux (DB + live/status) --------
+  const commercials: CommercialItem[] = useMemo(() => {
+    const map = new Map<string, CommercialItem>();
+
+    // DB
+    for (const c of allCommercials) {
+      map.set(c.id, { ...c });
+    }
+
+    // Marquer ceux qui émettent du live
+    Object.keys(liveByCommercial).forEach(cid => {
+      if (!map.has(cid)) {
+        map.set(cid, {
+          id: cid,
+          name: `Commercial ${cid}`,
+          sessionsCount: 0,
+          lastTime: Date.now(),
+        });
+      } else {
+        const item = map.get(cid)!;
+        item.lastTime = Math.max(item.lastTime ?? 0, Date.now());
+      }
+    });
+
+    // Statuts temps réel
+    map.forEach((item, cid) => {
+      const st = commercialStatus[cid];
+      if (st) {
+        item.isOnline = st.isOnline;
+        item.isTranscribing = st.isTranscribing;
+        item.lastSeen = st.lastSeen;
+        item.currentSession = st.currentSession;
+      }
+    });
+
+    let items = Array.from(map.values());
+    if (query) {
+      const q = query.toLowerCase();
+      items = items.filter(i => i.name?.toLowerCase().includes(q) || i.id.includes(query));
+    }
+    items.sort((a, b) => (b.lastTime ?? 0) - (a.lastTime ?? 0));
+    return items;
+  }, [allCommercials, liveByCommercial, commercialStatus, query]);
+
+  // -------- Filtres locaux dérivés --------
+  const uniqueBuildings = useMemo(() => {
+    const buildings = new Set<string>();
+    sessions.forEach(s => { if (s.building_name) buildings.add(s.building_name); });
+    return Array.from(buildings).sort();
+  }, [sessions]);
+
+  const selectedLive = selectedCommercialId ? liveByCommercial[selectedCommercialId] : '';
+  const selectedDoor = selectedCommercialId ? doorByCommercial[selectedCommercialId] : undefined;
+
+  // Reset du live visible à la sélection (optionnel)
+  const handleSelectCommercial = (id: string) => {
+    setSelectedCommercialId(id);
+    setLiveByCommercial(prev => ({ ...prev, [id]: '' }));
   };
 
   return (
     <div className="flex flex-col h-full p-6 space-y-6 bg-gradient-to-br from-slate-50 to-white">
-      {/* En-tête avec titre et actions */}
+      {/* En-tête */}
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold text-slate-900">Transcriptions</h1>
           <p className="text-slate-600 mt-1">Suivi en temps réel et historique des sessions commerciales</p>
         </div>
-        <Button variant="outline" onClick={loadHistoryFromDatabase} className="gap-2">
+        <Button variant="outline" onClick={() => { loadAllCommercials(); loadHistoryForSelected(); }} className="gap-2">
           <RefreshCw className="h-4 w-4" />
           Actualiser
         </Button>
       </div>
 
       <div className="grid grid-cols-12 gap-6 ">
-        {/* Colonne des commerciaux - plus compacte */}
+        {/* Colonne des commerciaux */}
         <div className="col-span-12 lg:col-span-4 xl:col-span-4">
           <Card className="shadow-sm border-0 bg-white h-[calc(100vh-220px)] flex flex-col">
-            <CardHeader className="pb-3 bg-white" >
+            <CardHeader className="pb-3 bg-white">
               <CardTitle className="flex items-center gap-2 text-lg">
                 <User className="h-5 w-5 text-slate-600" />
                 Commerciaux
@@ -360,33 +259,28 @@ const TranscriptionsPage = () => {
                 <Input className="pl-9" placeholder="Rechercher un commercial..." value={query} onChange={(e) => setQuery(e.target.value)} />
               </div>
             </CardHeader>
-            <CardContent className="flex-1" >
+            <CardContent className="flex-1">
               <ScrollArea className="h-full">
                 {commercials.length === 0 ? (
                   <div className="text-slate-500 text-sm text-center py-8">Aucun commercial trouvé</div>
                 ) : (
-                  <div className="space-y-3 ">
+                  <div className="space-y-3">
                     {commercials.map(c => {
-                      const isLive = liveByCommercial[c.id];
+                      const isLive = !!liveByCommercial[c.id];
                       const isOnline = c.isOnline || false;
                       const isTranscribing = c.isTranscribing || false;
-                      
-                      // Déterminer le statut principal
-                      let statusColor = 'bg-gray-400'; // Hors ligne par défaut
-                      
-                      if (isTranscribing) {
-                        statusColor = 'bg-red-500'; // Rouge pour transcription en cours
-                      } else if (isLive || isOnline) {
-                        statusColor = 'bg-green-500'; // Vert pour en ligne
-                      }
-                      
+
+                      let statusColor = 'bg-gray-400';
+                      if (isTranscribing) statusColor = 'bg-red-500';
+                      else if (isLive || isOnline) statusColor = 'bg-green-500';
+
                       return (
                         <button
                           key={c.id}
-                          onClick={() => setSelectedCommercialId(c.id)}
+                          onClick={() => handleSelectCommercial(c.id)}
                           className={`w-full text-left rounded-lg p-2.5 transition-all ${
-                            selectedCommercialId === c.id 
-                              ? 'bg-blue-50 border-2 border-blue-200 shadow-sm' 
+                            selectedCommercialId === c.id
+                              ? 'bg-blue-50 border-2 border-blue-200 shadow-sm'
                               : 'hover:bg-slate-50 border-2 border-transparent'
                           }`}
                         >
@@ -395,7 +289,7 @@ const TranscriptionsPage = () => {
                               <div className={`w-2 h-2 ${statusColor} rounded-full flex-shrink-0 ${isTranscribing || isLive ? 'animate-pulse' : ''}`} />
                               <div className="min-w-0 flex-1">
                                 <div className="font-medium text-sm text-slate-900 truncate">{c.name}</div>
-                                <div className="text-xs text-slate-500">{c.sessionsCount} sessions</div>
+                                <div className="text-xs text-slate-500">{c.sessionsCount ?? 0} sessions</div>
                               </div>
                             </div>
                             <div className="flex items-center gap-1">
@@ -479,17 +373,17 @@ const TranscriptionsPage = () => {
                   Historique des sessions
                 </CardTitle>
                 <div className="text-sm text-slate-500">
-                  {filteredSessions.length} session{filteredSessions.length !== 1 ? 's' : ''}
+                  {sessions.length} session{sessions.length !== 1 ? 's' : ''}
                 </div>
               </div>
-              
+
               {selectedCommercialId && (
                 <div className="flex flex-wrap gap-3 pt-4 border-t">
                   <div className="flex items-center gap-2">
                     <Filter className="h-4 w-4 text-slate-500" />
                     <span className="text-sm font-medium text-slate-700">Filtres:</span>
                   </div>
-                  
+
                   <Select value={buildingFilter} onValueChange={setBuildingFilter}>
                     <SelectTrigger className="w-48">
                       <SelectValue placeholder="Tous les immeubles" />
@@ -501,7 +395,7 @@ const TranscriptionsPage = () => {
                       ))}
                     </SelectContent>
                   </Select>
-                  
+
                   <Select value={dateFilter} onValueChange={setDateFilter}>
                     <SelectTrigger className="w-40">
                       <SelectValue placeholder="Toutes les dates" />
@@ -513,7 +407,7 @@ const TranscriptionsPage = () => {
                       <SelectItem value="30d">30 derniers jours</SelectItem>
                     </SelectContent>
                   </Select>
-                  
+
                   <Select value={durationFilter} onValueChange={setDurationFilter}>
                     <SelectTrigger className="w-40">
                       <SelectValue placeholder="Toute durée" />
@@ -528,7 +422,7 @@ const TranscriptionsPage = () => {
                 </div>
               )}
             </CardHeader>
-            
+
             <CardContent>
               {!selectedCommercialId ? (
                 <div className="text-center py-12">
@@ -540,13 +434,12 @@ const TranscriptionsPage = () => {
                   <div className="animate-spin w-8 h-8 border-2 border-blue-500 border-t-transparent rounded-full mx-auto mb-4"></div>
                   <div className="text-slate-500">Chargement de l'historique...</div>
                 </div>
-              ) : filteredSessions.length === 0 ? (
+              ) : sessions.length === 0 ? (
                 <div className="text-center py-12">
                   <div className="text-slate-500">Aucune session trouvée avec les filtres actuels</div>
                 </div>
               ) : (
                 <div className="space-y-2">
-                  {/* En-tête de la liste */}
                   <div className="grid grid-cols-12 gap-4 px-4 py-2 bg-slate-50 rounded-lg text-xs font-medium text-slate-600 uppercase tracking-wide">
                     <div className="col-span-2">Date & Heure</div>
                     <div className="col-span-3">Immeuble</div>
@@ -554,11 +447,10 @@ const TranscriptionsPage = () => {
                     <div className="col-span-2">Porte</div>
                     <div className="col-span-4">Transcription</div>
                   </div>
-                  
-                  {/* Liste des sessions */}
+
                   <ScrollArea className="h-[60vh]">
                     <div className="space-y-1">
-                      {filteredSessions.map(session => (
+                      {sessions.map(session => (
                         <div
                           key={session.id}
                           className="grid grid-cols-12 gap-4 px-4 py-3 hover:bg-slate-50 rounded-lg cursor-pointer transition-colors group border border-transparent hover:border-slate-200"
@@ -572,30 +464,30 @@ const TranscriptionsPage = () => {
                               </div>
                             </div>
                           </div>
-                          
+
                           <div className="col-span-3 flex items-center min-w-0">
                             <div className="min-w-0 flex-1">
-                              <div 
-                                className="text-sm text-slate-700 truncate" 
+                              <div
+                                className="text-sm text-slate-700 truncate"
                                 title={session.building_name || 'Non défini'}
                               >
                                 {session.building_name || 'Non défini'}
                               </div>
                             </div>
                           </div>
-                          
+
                           <div className="col-span-1 flex items-center">
                             <Badge variant="secondary" className="text-xs">
                               {formatDuration(session.duration_seconds)}
                             </Badge>
                           </div>
-                          
+
                           <div className="col-span-2 flex items-center min-w-0">
                             <span className="text-sm text-slate-600 truncate" title={session.last_door_label || 'Non définie'}>
                               {session.last_door_label || 'Non définie'}
                             </span>
                           </div>
-                          
+
                           <div className="col-span-4 flex items-center min-w-0">
                             <p className="text-sm text-slate-700 line-clamp-2 group-hover:text-slate-900">
                               {session.full_transcript || 'Aucune transcription'}
@@ -612,16 +504,15 @@ const TranscriptionsPage = () => {
         </div>
       </div>
 
-      {/* Modal améliorée pour les détails de session */}
-      <Modal 
-        isOpen={!!openSession} 
-        onClose={() => setOpenSession(null)} 
-        title="Détails de la session" 
+      {/* Modal détails */}
+      <Modal
+        isOpen={!!openSession}
+        onClose={() => setOpenSession(null)}
+        title="Détails de la session"
         maxWidth="sm:max-w-4xl"
       >
         {openSession && (
           <div className="space-y-6 p-6">
-            {/* Informations de la session */}
             <div className="grid grid-cols-2 gap-6 p-4 bg-slate-50 rounded-lg">
               <div className="space-y-3">
                 <div className="flex items-center gap-2">
@@ -632,7 +523,7 @@ const TranscriptionsPage = () => {
                   {openSession.commercial_name || openSession.commercial_id}
                 </p>
               </div>
-              
+
               <div className="space-y-3">
                 <div className="flex items-center gap-2">
                   <Building2 className="h-4 w-4 text-slate-500" />
@@ -642,7 +533,7 @@ const TranscriptionsPage = () => {
                   {openSession.building_name || 'Non défini'}
                 </p>
               </div>
-              
+
               <div className="space-y-3">
                 <div className="flex items-center gap-2">
                   <Calendar className="h-4 w-4 text-slate-500" />
@@ -653,7 +544,7 @@ const TranscriptionsPage = () => {
                   <div>→ {formatDate(openSession.end_time)}</div>
                 </div>
               </div>
-              
+
               <div className="space-y-3">
                 <div className="flex items-center gap-2">
                   <Clock className="h-4 w-4 text-slate-500" />
@@ -663,7 +554,7 @@ const TranscriptionsPage = () => {
                   {formatDuration(openSession.duration_seconds)}
                 </Badge>
               </div>
-              
+
               {openSession.last_door_label && (
                 <div className="space-y-3 col-span-2">
                   <div className="flex items-center gap-2">
@@ -676,33 +567,33 @@ const TranscriptionsPage = () => {
                 </div>
               )}
             </div>
-            
-            {/* Actions */}
+
             <div className="flex items-center gap-3 pb-4 border-b">
-              <Button 
-                size="sm" 
-                variant="outline" 
+              <Button
+                size="sm"
+                variant="outline"
                 onClick={() => copyText(openSession.full_transcript)}
                 className="gap-2"
               >
-                <Copy className="h-4 w-4" /> 
+                <Copy className="h-4 w-4" />
                 Copier la transcription
               </Button>
-              <Button 
-                size="sm" 
-                variant="outline" 
-                onClick={() => downloadText(
-                  `transcription_${openSession.commercial_name || openSession.commercial_id}_${new Date(openSession.start_time).toISOString().split('T')[0]}.txt`, 
-                  openSession.full_transcript
-                )}
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() =>
+                  downloadText(
+                    `transcription_${openSession.commercial_name || openSession.commercial_id}_${new Date(openSession.start_time).toISOString().split('T')[0]}.txt`,
+                    openSession.full_transcript
+                  )
+                }
                 className="gap-2"
               >
-                <Download className="h-4 w-4" /> 
+                <Download className="h-4 w-4" />
                 Télécharger
               </Button>
             </div>
-            
-            {/* Transcription */}
+
             <div className="space-y-3">
               <h4 className="font-semibold text-slate-900">Transcription complète</h4>
               <div className="max-h-[60vh] overflow-y-auto border rounded-lg bg-white">
