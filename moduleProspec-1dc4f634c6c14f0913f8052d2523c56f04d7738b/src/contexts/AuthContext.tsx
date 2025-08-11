@@ -1,7 +1,8 @@
 // src/contexts/AuthContext.tsx
 
-import { createContext, useContext, useState } from 'react';
+import { createContext, useContext, useState, useEffect } from 'react';
 import type { ReactNode } from 'react';
+import { authService } from '../services/auth.service';
 
 // Définir les types pour plus de sécurité
 type Role = 'admin' | 'manager' | 'directeur' | 'backoffice' | 'commercial';
@@ -25,17 +26,47 @@ export const AuthContext = createContext<AuthContextType | null>(null);
 
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [user, setUser] = useState<User | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+
+  // Restaurer l'état utilisateur depuis localStorage au démarrage
+  useEffect(() => {
+    const initializeAuth = () => {
+      const token = authService.getToken();
+      const savedUser = authService.getUser();
+      
+      if (token && savedUser) {
+        setUser(savedUser);
+        
+        // Auto-logout après 15 minutes
+        setTimeout(() => {
+          console.log('Auto logout après 15 minutes');
+          logout();
+        }, 900000); // 15 minutes
+      }
+      
+      setIsLoading(false);
+    };
+
+    initializeAuth();
+  }, []);
 
   // MODIFIÉ: La fonction de login met à jour avec l'objet utilisateur complet
   const login = (userData: User) => {
     setUser(userData);
+    authService.storeUser(userData);
   };
 
   const logout = () => {
     setUser(null);
+    authService.removeToken();
   };
 
   const value = { user, isAuthenticated: !!user, login, logout };
+
+  // Afficher un loading pendant l'initialisation
+  if (isLoading) {
+    return <div>Loading...</div>;
+  }
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 };
