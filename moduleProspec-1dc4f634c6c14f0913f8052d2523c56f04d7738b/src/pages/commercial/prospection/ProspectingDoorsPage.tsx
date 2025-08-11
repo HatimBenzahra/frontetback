@@ -38,6 +38,12 @@ const ProspectingDoorsPage = () => {
     // Audio streaming state
     const [isMicOn, setIsMicOn] = useState(false);
     const localStreamRef = useRef<MediaStream | null>(null);
+    const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+    const deepgramWsRef = useRef<WebSocket | null>(null);
+    const [isDgLive, setIsDgLive] = useState(false);
+    const activeDoorIdRef = useRef<string | null>(null);
+    const activeDoorLabelRef = useRef<string | null>(null);
+    // const [activeDoorId, setActiveDoorId] = useState<string | null>(null);
     const peerConnectionsRef = useRef<Map<string, RTCPeerConnection>>(new Map());
     // Listener presence is intentionally not shown to the commercial
 
@@ -132,6 +138,15 @@ const ProspectingDoorsPage = () => {
             localStreamRef.current.getTracks().forEach(t => t.stop());
             localStreamRef.current = null;
         }
+        // Stop media recorder and server-side transcription / Deepgram WS
+        try { mediaRecorderRef.current?.stop(); } catch {}
+        mediaRecorderRef.current = null;
+        try { deepgramWsRef.current?.close(); } catch {}
+        deepgramWsRef.current = null;
+        setIsDgLive(false);
+        if (socket && user?.id) {
+            socket.emit('transcription_stop', { commercial_id: user.id });
+        }
         if (socket && user?.id) {
             socket.emit('stop_streaming', { commercial_id: user.id });
         }
@@ -152,20 +167,133 @@ const ProspectingDoorsPage = () => {
             });
             localStreamRef.current = stream;
             setIsMicOn(true);
-            socket.emit('start_streaming', { commercial_id: user.id, commercial_info: { name: user.name || user.nom || 'Commercial' } });
+            socket.emit('start_streaming', { 
+                commercial_id: user.id, 
+                commercial_info: { name: user.name || user.nom || 'Commercial' },
+                building_id: buildingId,
+                building_name: building ? `${building.adresse}, ${building.ville}` : `Immeuble ${buildingId}`
+            });
+
+            // Essayer Deepgram WebSocket côté navigateur pour obtenir du live
+            const dgKey = import.meta.env.VITE_DEEPGRAM_API_KEY as string | undefined;
+            const dgUrl = 'wss://api.deepgram.com/v1/listen?language=fr&interim_results=true&punctuate=true';
+            let useProxy = true;
+            if (dgKey && typeof WebSocket !== 'undefined') {
+                try {
+                    const ws = new WebSocket(dgUrl, ['token', dgKey]);
+                    deepgramWsRef.current = ws;
+                    ws.onopen = () => {
+                        setIsDgLive(true);
+                        // Start recorder and send chunks to Deepgram directly
+                        const mimeType = 'audio/webm;codecs=opus';
+                        const recorder = new MediaRecorder(stream, { mimeType });
+                        mediaRecorderRef.current = recorder;
+                        recorder.addEventListener('dataavailable', async (e: BlobEvent) => {
+                            if (!e.data || e.data.size === 0 || ws.readyState !== ws.OPEN) return;
+                            try { ws.send(await e.data.arrayBuffer()); } catch {}
+                        });
+                        recorder.start(500);
+                    };
+                    ws.onmessage = (event) => {
+                        try {
+                            const msg = JSON.parse(event.data as string);
+                            const alt = msg?.channel?.alternatives?.[0];
+                            const transcript: string = alt?.transcript || '';
+                            const is_final: boolean = !!msg?.is_final;
+                            if (transcript) {
+                                socket.emit('transcription_update', {
+                                    commercial_id: user.id,
+                                    transcript: transcript + (is_final ? '\n' : ''),
+                                    is_final,
+                                    timestamp: new Date().toISOString(),
+                                    door_id: activeDoorIdRef.current || undefined,
+                                    door_label: activeDoorLabelRef.current || undefined,
+                                });
+                            }
+                        } catch {}
+                    };
+                    ws.onerror = () => { /* fallback below on close */ };
+                    ws.onclose = () => {
+                        if (isDgLive) return; // closed after stop
+                        // fallback to proxy if failed to keep open
+                        try { mediaRecorderRef.current?.stop(); } catch {}
+                        mediaRecorderRef.current = null;
+                        setupProxyRecorder(stream);
+                    };
+                    useProxy = false;
+                } catch (e) {
+                    console.warn('Deepgram WS failed, using proxy REST fallback');
+                }
+            }
+
+            // Fallback: proxy mode via backend
+            if (useProxy) {
+                setupProxyRecorder(stream);
+            }
         } catch (err) {
             console.error('Failed to start audio capture:', err);
         }
     }, [socket, user?.id, user?.name, user?.nom]);
 
-    // Stop audio on unmount if still active
+    const setupProxyRecorder = (stream: MediaStream) => {
+        if (!socket || !user?.id) return;
+        setIsDgLive(false);
+        socket.emit('transcription_start', {
+            commercial_id: user.id,
+            building_id: buildingId,
+            building_name: building ? `${building.adresse}, ${building.ville}` : `Immeuble ${buildingId}`,
+            mime_type: 'audio/webm;codecs=opus',
+        });
+        const mimeType = 'audio/webm;codecs=opus';
+        const recorder = new MediaRecorder(stream, { mimeType });
+        mediaRecorderRef.current = recorder;
+        recorder.addEventListener('dataavailable', async (e: BlobEvent) => {
+            if (!e.data || e.data.size === 0) return;
+            try {
+                const buf = await e.data.arrayBuffer();
+                socket.emit('transcription_audio_chunk', {
+                    commercial_id: user.id,
+                    door_id: activeDoorIdRef.current || undefined,
+                    door_label: activeDoorLabelRef.current || undefined,
+                    chunk: buf,
+                });
+            } catch (err) {
+                console.error('Erreur envoi chunk audio:', err);
+            }
+        });
+        recorder.start(500);
+    };
+
+    // Stop audio on unmount if still active + sauvegarde d'urgence
     useEffect(() => {
-        return () => {
-            if (isMicOn) {
-                try { stopStreaming(); } catch {}
+        const handleBeforeUnload = () => {
+            if (isMicOn && socket && user?.id) {
+                // Sauvegarde synchrone avant fermeture
+                socket.emit('emergency_save_session', { commercial_id: user.id });
             }
         };
-    }, [isMicOn, stopStreaming]);
+
+        const handleVisibilityChange = () => {
+            if (document.visibilityState === 'hidden' && isMicOn && socket && user?.id) {
+                // Sauvegarder quand la page devient invisible
+                socket.emit('emergency_save_session', { commercial_id: user.id });
+            }
+        };
+
+        // Écouter les événements de fermeture/changement de page
+        window.addEventListener('beforeunload', handleBeforeUnload);
+        document.addEventListener('visibilitychange', handleVisibilityChange);
+
+        return () => {
+            // Nettoyage final avec sauvegarde
+            if (isMicOn && socket && user?.id) {
+                socket.emit('emergency_save_session', { commercial_id: user.id });
+                try { stopStreaming(); } catch {}
+            }
+            window.removeEventListener('beforeunload', handleBeforeUnload);
+            document.removeEventListener('visibilitychange', handleVisibilityChange);
+        };
+    }, [isMicOn, stopStreaming, socket, user?.id]);
 
     useEffect(() => {
         layoutControls.hideHeader();
@@ -298,6 +426,11 @@ const ProspectingDoorsPage = () => {
         if (doorToEdit) {
             setEditingDoor(doorToEdit);
             setIsModalOpen(true);
+            // setActiveDoorId(doorId);
+            activeDoorIdRef.current = doorId;
+            // Construire le label de la porte (Étage X - porte.numero)
+            const doorLabel = `Étage ${doorToEdit.etage} - ${doorToEdit.numero}`;
+            activeDoorLabelRef.current = doorLabel;
         }
     }, [portes]);
 

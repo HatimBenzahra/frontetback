@@ -31,6 +31,7 @@ import ImmeubleDetailsPage from './pages/admin/immeubles/portes/ImmeubleDetailsP
 import SuiviPage from './pages/admin/suivi/SuiviPage';
 import AssignmentGoalsPage from './pages/admin/assignment-goals/AssignmentGoalsPage';
 import GPSTrackingPage from './pages/admin/gps-tracking/GPSTrackingPage';
+import TranscriptionsPage from './pages/admin/transcriptions/TranscriptionsPage';
 
 // --- Pages Commercial ---
 import CommercialDashboardPage from './pages/commercial/dashboard/DashboardCommercial';
@@ -82,6 +83,7 @@ function App() {
             <Route path="immeubles/:immeubleId" element={<ImmeubleDetailsPage />} />
             <Route path="suivi" element={<SuiviPage />} />
             <Route path="gps-tracking" element={<GPSTrackingPage />} />
+            <Route path="transcriptions" element={<TranscriptionsPage />} />
             <Route path="assignations-objectifs" element={<AssignmentGoalsPage />} />
           </Route>
 

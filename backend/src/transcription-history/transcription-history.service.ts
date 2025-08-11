@@ -11,6 +11,7 @@ export interface TranscriptionSession {
   duration_seconds: number;
   building_id?: string;
   building_name?: string;
+  last_door_label?: string;
 }
 
 @Injectable()
@@ -21,8 +22,19 @@ export class TranscriptionHistoryService {
     try {
       console.log('📚 Sauvegarde session dans la base de données:', session.id);
       
-      const savedSession = await (this.prisma as any).transcriptionSession.create({
-        data: {
+      // Utiliser upsert pour éviter les doublons
+      const savedSession = await this.prisma.transcriptionSession.upsert({
+        where: { id: session.id },
+        update: {
+          commercial_name: session.commercial_name,
+          end_time: new Date(session.end_time),
+          full_transcript: session.full_transcript,
+          duration_seconds: session.duration_seconds,
+          building_id: session.building_id,
+          building_name: session.building_name,
+          last_door_label: session.last_door_label,
+        },
+        create: {
           id: session.id,
           commercial_id: session.commercial_id,
           commercial_name: session.commercial_name,
@@ -32,6 +44,7 @@ export class TranscriptionHistoryService {
           duration_seconds: session.duration_seconds,
           building_id: session.building_id,
           building_name: session.building_name,
+          last_door_label: session.last_door_label,
         },
       });
 
@@ -48,7 +61,7 @@ export class TranscriptionHistoryService {
     try {
       console.log('📚 Récupération historique transcriptions:', { commercialId, limit });
       
-      const sessions = await (this.prisma as any).transcriptionSession.findMany({
+      const sessions = await this.prisma.transcriptionSession.findMany({
         where: commercialId ? { commercial_id: commercialId } : undefined,
         orderBy: { createdAt: 'desc' },
         take: limit,
@@ -64,6 +77,7 @@ export class TranscriptionHistoryService {
         duration_seconds: session.duration_seconds,
         building_id: session.building_id,
         building_name: session.building_name,
+        last_door_label: session.last_door_label,
       }));
       
       console.log('✅ Historique récupéré:', history.length, 'sessions');
@@ -78,7 +92,7 @@ export class TranscriptionHistoryService {
     try {
       console.log('📚 Suppression session transcription:', id);
       
-      await (this.prisma as any).transcriptionSession.delete({
+      await this.prisma.transcriptionSession.delete({
         where: { id },
       });
       
@@ -89,4 +103,21 @@ export class TranscriptionHistoryService {
       throw error;
     }
   }
+
+  async getCommercialName(commercialId: string): Promise<string> {
+    try {
+      const commercial = await this.prisma.commercial.findUnique({
+        where: { id: commercialId }
+      });
+      if (commercial) {
+        return `${commercial.prenom} ${commercial.nom}`;
+      }
+      return `Commercial ${commercialId}`;
+    } catch (error) {
+      console.error('❌ Erreur récupération nom commercial:', error);
+      return `Commercial ${commercialId}`;
+    }
+  }
+
+
 } 

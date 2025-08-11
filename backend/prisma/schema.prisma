@@ -184,3 +184,20 @@ enum AssignmentType {
   MANAGER
   COMMERCIAL
 }
+
+model TranscriptionSession {
+  id                String   @id @default(uuid())
+  commercial_id     String
+  commercial_name   String
+  start_time        DateTime
+  end_time          DateTime
+  full_transcript   String   @db.Text
+  duration_seconds  Int
+  building_id       String?
+  building_name     String?
+  last_door_label   String?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  @@map("transcription_sessions")
+}

@@ -5,7 +5,7 @@ import { Badge } from '../../../components/ui-admin/badge';
 import { Button } from '../../../components/ui-admin/button';
 import { Avatar, AvatarFallback } from '../../../components/ui-admin/avatar';
 import { Separator } from '../../../components/ui-admin/separator';
-import { MapPin, Users, Activity, User, Navigation, Wifi, WifiOff, Signal } from 'lucide-react';
+import { MapPin, Users, Activity, User, Navigation, Wifi, WifiOff, Signal, RefreshCw } from 'lucide-react';
 import { commercialService } from '../../../services/commercial.service';
 import { useSocket } from '../../../hooks/useSocket';
 import { useNavigate } from 'react-router-dom';
@@ -98,14 +98,54 @@ const GPSTrackingPage: React.FC = () => {
     socket.emit('joinRoom', 'gps-tracking');
     console.log('📍 Rejoint la room gps-tracking');
 
+    // Demander l'état actuel des commerciaux connectés
+    const requestCurrentState = () => {
+      console.log('📍 Demande de l\'état actuel des commerciaux');
+      socket.emit('request_gps_state');
+    };
+
+    // Demander l'état actuel après un court délai pour s'assurer que la room est jointe
+    const timeoutId = setTimeout(requestCurrentState, 500);
+
     // Écouter les mises à jour de position
     const handleLocationUpdate = (data: LocationData) => {
       console.log('📍 Mise à jour position reçue:', data);
       
-      setCommerciaux(prev => prev.map(commercial => {
-        if (commercial.id === data.commercialId) {
-          return {
-            ...commercial,
+      setCommerciaux(prev => {
+        // Vérifier si le commercial existe déjà
+        const existingCommercial = prev.find(c => c.id === data.commercialId);
+        
+        if (existingCommercial) {
+          // Mettre à jour le commercial existant
+          return prev.map(commercial => {
+            if (commercial.id === data.commercialId) {
+              return {
+                ...commercial,
+                isOnline: true,
+                lastSeen: new Date(data.timestamp),
+                location: {
+                  lat: data.position[0],
+                  lng: data.position[1],
+                  accuracy: data.accuracy || 0,
+                  speed: data.speed,
+                  heading: data.heading
+                },
+                currentActivity: 'En ligne',
+                hasLocationPermission: true,
+                locationError: undefined
+              };
+            }
+            return commercial;
+          });
+        } else {
+          // Ajouter un nouveau commercial (cas rare, mais possible)
+          console.log('📍 Nouveau commercial détecté:', data.commercialId);
+          return [...prev, {
+            id: data.commercialId,
+            nom: `Commercial ${data.commercialId}`,
+            prenom: '',
+            email: '',
+            telephone: null,
             isOnline: true,
             lastSeen: new Date(data.timestamp),
             location: {
@@ -116,12 +156,10 @@ const GPSTrackingPage: React.FC = () => {
               heading: data.heading
             },
             currentActivity: 'En ligne',
-            hasLocationPermission: true,
-            locationError: undefined
-          };
+            hasLocationPermission: true
+          }];
         }
-        return commercial;
-      }));
+      });
     };
 
     // Écouter les erreurs GPS
@@ -152,7 +190,7 @@ const GPSTrackingPage: React.FC = () => {
           return {
             ...commercial,
             isOnline: false,
-            currentActivity: 'Hors ligne'
+            currentActivity: 'Déconnecté'
             // Ne pas modifier lastSeen pour garder la dernière activité réelle
           };
         }
@@ -166,6 +204,7 @@ const GPSTrackingPage: React.FC = () => {
 
     // Nettoyage
     return () => {
+      clearTimeout(timeoutId);
       socket.off('locationUpdate', handleLocationUpdate);
       socket.off('locationError', handleLocationError);
       socket.off('commercialOffline', handleCommercialOffline);
@@ -173,7 +212,7 @@ const GPSTrackingPage: React.FC = () => {
     };
   }, [socket]);
 
-  // Mesurer le ping vers le serveur
+  // Mesurer le ping vers le serveur et mettre à jour l'état des commerciaux
   useEffect(() => {
     if (!socket) return;
 
@@ -187,15 +226,45 @@ const GPSTrackingPage: React.FC = () => {
       setPing(pingTime);
     };
 
+    const updateCommercialStatus = () => {
+      setCommerciaux(prev => prev.map(commercial => {
+        const timeDiff = Date.now() - commercial.lastSeen.getTime();
+        
+        // Si le commercial a une position récente (moins de 2 minutes), il est considéré comme actif
+        if (timeDiff < 2 * 60 * 1000) {
+          return {
+            ...commercial,
+            isOnline: commercial.isOnline || timeDiff < 30 * 1000, // Considérer comme en ligne si activité récente
+            currentActivity: commercial.isOnline ? 'En ligne' : 'Actif'
+          };
+        }
+        
+        // Si plus de 2 minutes sans activité, marquer comme hors ligne
+        if (timeDiff > 2 * 60 * 1000 && commercial.isOnline) {
+          return {
+            ...commercial,
+            isOnline: false,
+            currentActivity: 'Hors ligne'
+          };
+        }
+        
+        return commercial;
+      }));
+    };
+
     socket.on('pong', handlePong);
 
     // Mesurer le ping initial et puis toutes les 10 secondes
     measurePing();
     const pingInterval = setInterval(measurePing, 10000);
+    
+    // Mettre à jour l'état des commerciaux toutes les 30 secondes
+    const statusInterval = setInterval(updateCommercialStatus, 30000);
 
     return () => {
       socket.off('pong', handlePong);
       clearInterval(pingInterval);
+      clearInterval(statusInterval);
     };
   }, [socket]);
 
@@ -212,14 +281,22 @@ const GPSTrackingPage: React.FC = () => {
 
   const getStatusText = (commercial: Commercial) => {
     if (commercial.locationError) return 'Erreur GPS';
-    if (!commercial.isOnline) return 'Hors ligne';
     if (!commercial.hasLocationPermission) return 'GPS désactivé';
     
     const timeDiff = Date.now() - commercial.lastSeen.getTime();
-    if (timeDiff < 2 * 60 * 1000) return 'En ligne';
-    if (timeDiff < 5 * 60 * 1000) return 'Actif';
-    if (timeDiff < 15 * 60 * 1000) return 'Inactif';
-    return 'En ligne';
+    
+    // Si le commercial a une position récente (moins de 2 minutes), il est considéré comme actif
+    if (timeDiff < 2 * 60 * 1000) {
+      return commercial.isOnline ? 'En ligne' : 'Actif';
+    }
+    
+    // Si le commercial a une position récente mais n'est pas connecté, il est "en pause"
+    if (timeDiff < 5 * 60 * 1000) {
+      return 'En pause';
+    }
+    
+    // Si plus de 5 minutes sans activité, il est hors ligne
+    return 'Hors ligne';
   };
 
   const getActivityIcon = (commercial: Commercial) => {
@@ -238,6 +315,13 @@ const GPSTrackingPage: React.FC = () => {
         duration: 1000
       });
       setSelectedCommercial(commercial);
+    }
+  };
+
+  const refreshGPSState = () => {
+    if (socket) {
+      console.log('🔄 Rafraîchissement manuel de l\'état GPS');
+      socket.emit('request_gps_state');
     }
   };
 
@@ -268,12 +352,23 @@ const GPSTrackingPage: React.FC = () => {
               <div>
                 <h1 className="text-2xl font-bold text-gray-900">Suivi GPS</h1>
                 <p className="text-sm text-gray-600 mt-1">Localisation des commerciaux en temps réel</p>
-                {!socket?.connected && (
-                  <div className="flex items-center mt-2 text-orange-600">
-                    <WifiOff className="h-4 w-4 mr-1" />
-                    <span className="text-xs">Connexion WebSocket...</span>
-                  </div>
-                )}
+                <div className="flex items-center gap-2 mt-2">
+                  {!socket?.connected && (
+                    <div className="flex items-center text-orange-600">
+                      <WifiOff className="h-4 w-4 mr-1" />
+                      <span className="text-xs">Connexion WebSocket...</span>
+                    </div>
+                  )}
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={refreshGPSState}
+                    className="text-xs"
+                  >
+                    <RefreshCw className="h-3 w-3 mr-1" />
+                    Rafraîchir
+                  </Button>
+                </div>
               </div>
             )}
             <Button

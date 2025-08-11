@@ -14,6 +14,8 @@ class LocationService {
   private watchId: number | null = null;
   private commercialId: string | null = null;
   private isTracking = false;
+  private heartbeatInterval: NodeJS.Timeout | null = null;
+  private lastPosition: LocationData | null = null;
 
   constructor() {
     this.initializeSocket();
@@ -68,9 +70,14 @@ class LocationService {
   }
 
   async startTracking(commercialId: string): Promise<boolean> {
-    if (this.isTracking) {
-      console.log('📍 Suivi GPS déjà actif');
+    if (this.isTracking && this.commercialId === commercialId) {
+      console.log('📍 Suivi GPS déjà actif pour ce commercial');
       return true;
+    }
+
+    // Si on change de commercial, arrêter l'ancien suivi
+    if (this.isTracking) {
+      this.stopTracking();
     }
 
     this.commercialId = commercialId;
@@ -90,6 +97,23 @@ class LocationService {
 
     try {
       console.log('📍 Tentative d\'accès à la géolocalisation...');
+      
+      // S'assurer que le socket est connecté
+      if (!this.socket?.connected) {
+        console.log('🔄 Attente de la connexion socket...');
+        await new Promise<void>((resolve) => {
+          if (this.socket?.connected) {
+            resolve();
+          } else {
+            this.socket?.once('connect', () => resolve());
+            // Timeout après 10 secondes
+            setTimeout(() => resolve(), 10000);
+          }
+        });
+      }
+
+      // Rejoindre la room GPS
+      this.socket?.emit('joinRoom', 'gps-tracking');
       
       // Tentative directe d'obtenir la position (cela déclenchera la demande de permission)
       const position = await this.getCurrentPositionWithRetry();
@@ -126,12 +150,16 @@ class LocationService {
         {
           enableHighAccuracy: false, // Moins précis mais plus rapide
           timeout: 60000, // 60 secondes pour watchPosition
-          maximumAge: 120000, // Cache de 2 minutes
+          maximumAge: 30000, // Cache de 30 secondes (plus fréquent)
         }
       );
 
       this.isTracking = true;
-      console.log('📍 Suivi GPS démarré');
+      console.log('📍 Suivi GPS démarré pour commercial:', commercialId);
+      
+      // Démarrer le heartbeat pour maintenir la connexion
+      this.startHeartbeat();
+      
       return true;
 
     } catch (error) {
@@ -146,12 +174,16 @@ class LocationService {
       this.watchId = null;
     }
 
+    // Arrêter le heartbeat
+    this.stopHeartbeat();
+
     if (this.socket && this.commercialId) {
       this.socket.emit('commercialOffline', this.commercialId);
     }
 
     this.isTracking = false;
     this.commercialId = null;
+    this.lastPosition = null;
     console.log('📍 Suivi GPS arrêté');
   }
 
@@ -199,6 +231,9 @@ class LocationService {
   private sendLocationUpdate(locationData: LocationData) {
     if (!this.socket || !this.commercialId) return;
 
+    // Sauvegarder la dernière position pour le heartbeat
+    this.lastPosition = locationData;
+
     const updateData = {
       commercialId: this.commercialId,
       position: [locationData.latitude, locationData.longitude] as [number, number],
@@ -210,6 +245,30 @@ class LocationService {
 
     this.socket.emit('locationUpdate', updateData);
     console.log('📍 Position envoyée:', updateData);
+  }
+
+  private startHeartbeat() {
+    // Arrêter le heartbeat existant s'il y en a un
+    this.stopHeartbeat();
+
+    // Envoyer un heartbeat toutes les 30 secondes pour maintenir la connexion
+    this.heartbeatInterval = setInterval(() => {
+      if (this.socket?.connected && this.commercialId && this.lastPosition) {
+        // Renvoyer la dernière position connue comme heartbeat
+        this.sendLocationUpdate(this.lastPosition);
+        console.log('💓 Heartbeat GPS envoyé');
+      }
+    }, 30000); // 30 secondes
+
+    console.log('💓 Heartbeat GPS démarré');
+  }
+
+  private stopHeartbeat() {
+    if (this.heartbeatInterval) {
+      clearInterval(this.heartbeatInterval);
+      this.heartbeatInterval = null;
+      console.log('💓 Heartbeat GPS arrêté');
+    }
   }
 
   private handleLocationError(error: GeolocationPositionError) {

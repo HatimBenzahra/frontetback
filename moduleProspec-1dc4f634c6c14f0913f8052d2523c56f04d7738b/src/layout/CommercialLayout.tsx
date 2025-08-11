@@ -72,9 +72,25 @@ const CommercialLayout = () => {
 
     initializeGPS();
 
-    // Arrêter le GPS quand le composant est démonté
-    return () => {
+    // Gérer la déconnexion globale
+    const handleBeforeUnload = () => {
       locationService.stopTracking();
+    };
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'hidden') {
+        // L'utilisateur quitte l'onglet/app, mais on garde le GPS actif
+        console.log('📍 Onglet caché, GPS maintenu actif');
+      }
+    };
+
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+
+    return () => {
+      window.removeEventListener('beforeunload', handleBeforeUnload);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      // Ne pas arrêter le GPS ici pour permettre la navigation
     };
   }, [user]);
 

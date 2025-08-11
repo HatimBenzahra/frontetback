@@ -48,9 +48,9 @@ export class CommercialService {
     });
   }
 
-  update(id: string, updateCommercialDto: UpdateCommercialDto) {
+  async update(id: string, updateCommercialDto: UpdateCommercialDto) {
     const { equipeId, ...otherData } = updateCommercialDto;
-    return this.prisma.commercial.update({
+    const updatedCommercial = await this.prisma.commercial.update({
       where: { id },
       data: {
         ...otherData,
@@ -59,6 +59,20 @@ export class CommercialService {
         }),
       },
     });
+
+    // Mettre à jour le nom dans les transcriptions existantes
+    try {
+      const newName = `${updatedCommercial.prenom} ${updatedCommercial.nom}`;
+      await this.prisma.transcriptionSession.updateMany({
+        where: { commercial_id: id },
+        data: { commercial_name: newName }
+      });
+      console.log(`✅ Nom commercial mis à jour dans les transcriptions: ${newName}`);
+    } catch (error) {
+      console.error('❌ Erreur mise à jour nom commercial dans transcriptions:', error);
+    }
+
+    return updatedCommercial;
   }
 
   remove(id: string) {
