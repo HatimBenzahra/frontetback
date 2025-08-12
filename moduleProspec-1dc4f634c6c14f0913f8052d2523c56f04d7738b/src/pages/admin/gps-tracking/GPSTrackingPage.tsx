@@ -5,7 +5,7 @@ import { Badge } from '../../../components/ui-admin/badge';
 import { Button } from '../../../components/ui-admin/button';
 import { Avatar, AvatarFallback } from '../../../components/ui-admin/avatar';
 import { Separator } from '../../../components/ui-admin/separator';
-import { MapPin, Users, Activity, User, Navigation, Wifi, WifiOff, Signal, RefreshCw } from 'lucide-react';
+import { MapPin, Users, Activity, User, Wifi, WifiOff, Signal, RefreshCw, ChevronLeft, ChevronRight, Clock, Target } from 'lucide-react';
 import { commercialService } from '../../../services/commercial.service';
 import { useSocket } from '../../../hooks/useSocket';
 import { useNavigate } from 'react-router-dom';
@@ -164,7 +164,7 @@ const GPSTrackingPage: React.FC = () => {
 
     // Écouter les erreurs GPS
     const handleLocationError = (data: { commercialId: string; error: string; timestamp: string }) => {
-      console.log('❌ Erreur GPS reçue:', data);
+      console.log('Erreur GPS reçue:', data);
       
       setCommerciaux(prev => prev.map(commercial => {
         if (commercial.id === data.commercialId) {
@@ -306,6 +306,18 @@ const GPSTrackingPage: React.FC = () => {
     return WifiOff;
   };
 
+  const formatLastSeen = (lastSeen: Date) => {
+    const now = new Date();
+    const diff = now.getTime() - lastSeen.getTime();
+    const minutes = Math.floor(diff / (1000 * 60));
+    const hours = Math.floor(minutes / 60);
+    const days = Math.floor(hours / 24);
+
+    if (days > 0) return `Il y a ${days}j`;
+    if (hours > 0) return `Il y a ${hours}h`;
+    if (minutes > 0) return `Il y a ${minutes}min`;
+    return 'À l\'instant';
+  };
 
   const centerOnCommercial = (commercial: Commercial) => {
     if (commercial.location && mapRef.current) {
@@ -318,9 +330,20 @@ const GPSTrackingPage: React.FC = () => {
     }
   };
 
+  // Forcer le redimensionnement de la carte quand la sidebar change
+  useEffect(() => {
+    if (mapRef.current) {
+      // Petit délai pour laisser le DOM se mettre à jour
+      const timer = setTimeout(() => {
+        mapRef.current?.resize();
+      }, 100);
+      return () => clearTimeout(timer);
+    }
+  }, [sidebarCollapsed]);
+
   const refreshGPSState = () => {
     if (socket) {
-      console.log('🔄 Rafraîchissement manuel de l\'état GPS');
+      console.log('Rafraîchissement manuel de l\'état GPS');
       socket.emit('request_gps_state');
     }
   };
@@ -330,11 +353,15 @@ const GPSTrackingPage: React.FC = () => {
 
   if (loading) {
     return (
-      <div className="h-[calc(100vh-4rem)] flex items-center justify-center bg-gray-50">
-        <Card className="p-8">
+      <div className="h-[calc(100vh-4rem)] flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-50">
+        <Card className="p-8 shadow-xl border-0 bg-white/80 backdrop-blur-sm">
           <div className="text-center">
-            <Activity className="h-8 w-8 animate-spin mx-auto text-blue-500 mb-4" />
-            <p className="text-gray-600">Chargement des commerciaux...</p>
+            <div className="relative">
+              <Activity className="h-12 w-12 animate-spin mx-auto text-blue-500 mb-4" />
+              <div className="absolute inset-0 h-12 w-12 bg-blue-100 rounded-full animate-ping opacity-30"></div>
+            </div>
+            <p className="text-gray-600 font-medium">Chargement des commerciaux...</p>
+            <p className="text-sm text-gray-500 mt-2">Connexion au système de tracking GPS</p>
           </div>
         </Card>
       </div>
@@ -342,85 +369,115 @@ const GPSTrackingPage: React.FC = () => {
   }
 
   return (
-    <div className="h-[calc(100vh-4rem)] flex bg-gray-50">
-      {/* Sidebar */}
-      <div className={`${sidebarCollapsed ? 'w-16' : 'w-96'} bg-white shadow-lg transition-all duration-300 flex flex-col border-r border-gray-200`}>
-        {/* Header */}
-        <div className="p-6 border-b border-gray-100">
+    <div className="h-[calc(100vh-4rem)] flex bg-gradient-to-br from-gray-50 to-blue-50 overflow-hidden">
+      {/* Sidebar améliorée */}
+      <div className={`${sidebarCollapsed ? 'w-20' : 'w-96'} bg-white/95 backdrop-blur-sm shadow-xl transition-all duration-500 ease-in-out flex flex-col border-r border-gray-200/50 relative flex-shrink-0`}>
+        {/* Header amélioré */}
+        <div className="p-6 border-b border-gray-100/50 bg-gradient-to-r from-blue-50 to-indigo-50">
           <div className="flex items-center justify-between">
             {!sidebarCollapsed && (
-              <div>
-                <h1 className="text-2xl font-bold text-gray-900">Suivi GPS</h1>
-                <p className="text-sm text-gray-600 mt-1">Localisation des commerciaux en temps réel</p>
-                <div className="flex items-center gap-2 mt-2">
-                  {!socket?.connected && (
-                    <div className="flex items-center text-orange-600">
-                      <WifiOff className="h-4 w-4 mr-1" />
-                      <span className="text-xs">Connexion WebSocket...</span>
-                    </div>
-                  )}
+              <div className="space-y-2">
+                <div className="flex items-center gap-2">
+                  <div className="p-2 bg-blue-100 rounded-lg">
+                    <Target className="h-5 w-5 text-blue-600" />
+                  </div>
+                  <div>
+                    <h1 className="text-xl font-bold text-gray-900">Suivi GPS</h1>
+                    <p className="text-sm text-gray-600">Localisation en temps réel</p>
+                  </div>
+                </div>
+                
+                {/* Statut de connexion */}
+                <div className="flex items-center gap-3 pt-2">
+                  <div className={`flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-medium ${
+                    socket?.connected 
+                      ? 'bg-green-100 text-green-700 border border-green-200' 
+                      : 'bg-red-100 text-red-700 border border-red-200'
+                  }`}>
+                    <div className={`w-2 h-2 rounded-full ${socket?.connected ? 'bg-green-500' : 'bg-red-500'}`}></div>
+                    {socket?.connected ? 'Connecté' : 'Déconnecté'}
+                  </div>
+                  
                   <Button
                     size="sm"
                     variant="outline"
                     onClick={refreshGPSState}
-                    className="text-xs"
+                    className="h-7 px-2 text-xs border-gray-200 hover:bg-gray-50"
                   >
                     <RefreshCw className="h-3 w-3 mr-1" />
-                    Rafraîchir
+                    Actualiser
                   </Button>
                 </div>
               </div>
             )}
+            
+            {/* Bouton toggle amélioré */}
             <Button
               variant="ghost"
               size="sm"
               onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
-              className="p-2 hover:bg-gray-100"
+              className={`p-2 rounded-lg transition-all duration-300 hover:bg-white/80 hover:shadow-md ${
+                sidebarCollapsed ? 'bg-blue-50 text-blue-600' : 'bg-gray-50 text-gray-600'
+              }`}
             >
-              <Navigation className={`h-4 w-4 transition-transform ${sidebarCollapsed ? 'rotate-180' : ''}`} />
+              {sidebarCollapsed ? (
+                <ChevronRight className="h-4 w-4" />
+              ) : (
+                <ChevronLeft className="h-4 w-4" />
+              )}
             </Button>
           </div>
         </div>
 
-        {/* Stats rapides */}
+        {/* Stats rapides améliorées */}
         {!sidebarCollapsed && (
-          <div className="p-6 border-b border-gray-100">
+          <div className="p-6 border-b border-gray-100/50 bg-white">
             <div className="grid grid-cols-2 gap-4">
-              <div className="bg-green-50 rounded-lg p-3">
-                <div className="flex items-center">
-                  <Activity className="h-5 w-5 text-green-600" />
-                  <span className="ml-2 text-2xl font-bold text-green-700">{onlineCommerciaux.length}</span>
+              <div className="bg-gradient-to-br from-green-50 to-emerald-50 rounded-xl p-4 border border-green-100">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-2xl font-bold text-green-700">{onlineCommerciaux.length}</p>
+                    <p className="text-xs text-green-600 font-medium">En ligne</p>
+                  </div>
+                  <div className="p-2 bg-green-100 rounded-lg">
+                    <Activity className="h-5 w-5 text-green-600" />
+                  </div>
                 </div>
-                <p className="text-xs text-green-600 mt-1">En ligne</p>
               </div>
-              <div className="bg-gray-50 rounded-lg p-3">
-                <div className="flex items-center">
-                  <Users className="h-5 w-5 text-gray-600" />
-                  <span className="ml-2 text-2xl font-bold text-gray-700">{commerciaux.length}</span>
+              <div className="bg-gradient-to-br from-gray-50 to-slate-50 rounded-xl p-4 border border-gray-100">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-2xl font-bold text-gray-700">{commerciaux.length}</p>
+                    <p className="text-xs text-gray-600 font-medium">Total</p>
+                  </div>
+                  <div className="p-2 bg-gray-100 rounded-lg">
+                    <Users className="h-5 w-5 text-gray-600" />
+                  </div>
                 </div>
-                <p className="text-xs text-gray-600 mt-1">Total</p>
               </div>
             </div>
           </div>
         )}
 
-        {/* Liste des commerciaux */}
-        <div className="flex-1 overflow-y-auto">
+        {/* Liste des commerciaux améliorée */}
+        <div className="flex-1 overflow-y-auto bg-white">
           {!sidebarCollapsed && (
             <>
               {/* Commerciaux en ligne */}
               {onlineCommerciaux.length > 0 && (
                 <div className="p-4">
                   <div className="flex items-center mb-4">
-                    <div className="w-3 h-3 bg-green-500 rounded-full mr-2"></div>
+                    <div className="w-3 h-3 bg-green-500 rounded-full mr-2 shadow-sm"></div>
                     <h3 className="text-sm font-semibold text-gray-700">En ligne ({onlineCommerciaux.length})</h3>
                   </div>
                   <div className="space-y-3">
                     {onlineCommerciaux.map((commercial) => (
                       <Card 
                         key={commercial.id} 
-                        className={`cursor-pointer transition-all duration-200 hover:shadow-md ${
-                          selectedCommercial?.id === commercial.id ? 'ring-2 ring-blue-500' : ''
+                        className={`cursor-pointer transition-all duration-300 hover:shadow-lg hover:scale-[1.02] border-0 shadow-sm ${
+                          selectedCommercial?.id === commercial.id 
+                            ? 'ring-2 ring-blue-500 bg-blue-50/50' 
+                            : 'hover:bg-gray-50/50'
                         }`}
                         onClick={() => centerOnCommercial(commercial)}
                       >
@@ -428,36 +485,42 @@ const GPSTrackingPage: React.FC = () => {
                           <div className="flex items-start justify-between">
                             <div className="flex items-center space-x-3">
                               <div className="relative">
-                                <Avatar className="h-10 w-10">
-                                  <AvatarFallback className="bg-blue-100 text-blue-700">
+                                <Avatar className="h-12 w-12 ring-2 ring-white shadow-md">
+                                  <AvatarFallback className="bg-gradient-to-br from-blue-100 to-blue-200 text-blue-700 font-semibold">
                                     {commercial.prenom.charAt(0)}{commercial.nom.charAt(0)}
                                   </AvatarFallback>
                                 </Avatar>
-                                <div className={`absolute -bottom-1 -right-1 w-4 h-4 ${getStatusColor(commercial)} rounded-full border-2 border-white`}></div>
+                                <div className={`absolute -bottom-1 -right-1 w-4 h-4 ${getStatusColor(commercial)} rounded-full border-2 border-white shadow-sm`}></div>
                               </div>
-                              <div className="flex-1">
-                                <h4 className="text-sm font-semibold text-gray-900">
+                              <div className="flex-1 min-w-0">
+                                <h4 className="text-sm font-semibold text-gray-900 truncate">
                                   {commercial.prenom} {commercial.nom}
                                 </h4>
-                                <p className="text-xs text-gray-600 mt-1">ID: {commercial.id}</p>
+                                <p className="text-xs text-gray-500 mt-1">ID: {commercial.id}</p>
                                 <div className="flex items-center gap-2 mt-2">
                                   <Badge 
                                     variant={commercial.isOnline ? "default" : "secondary"} 
-                                    className="text-xs"
+                                    className="text-xs px-2 py-0.5"
                                   >
                                     {commercial.currentActivity}
                                   </Badge>
                                   {commercial.locationError && (
-                                    <Badge variant="destructive" className="text-xs">
+                                    <Badge variant="destructive" className="text-xs px-2 py-0.5">
                                       {commercial.locationError}
                                     </Badge>
                                   )}
                                 </div>
+                                {commercial.lastSeen && (
+                                  <div className="flex items-center gap-1 mt-1 text-xs text-gray-500">
+                                    <Clock className="h-3 w-3" />
+                                    {formatLastSeen(commercial.lastSeen)}
+                                  </div>
+                                )}
                               </div>
                             </div>
                           </div>
                           {commercial.isOnline && commercial.location?.accuracy && (
-                            <div className="mt-3 flex items-center justify-center text-xs text-gray-500">
+                            <div className="mt-3 flex items-center justify-center text-xs text-gray-500 bg-gray-50 rounded-lg py-1">
                               <div className="flex items-center">
                                 <MapPin className="h-3 w-3 mr-1" />
                                 Précision: {commercial.location.accuracy}m
@@ -471,37 +534,43 @@ const GPSTrackingPage: React.FC = () => {
                 </div>
               )}
 
-              <Separator />
+              <Separator className="mx-4" />
 
               {/* Commerciaux hors ligne */}
               {offlineCommerciaux.length > 0 && (
                 <div className="p-4">
                   <div className="flex items-center mb-4">
-                    <div className="w-3 h-3 bg-gray-400 rounded-full mr-2"></div>
+                    <div className="w-3 h-3 bg-gray-400 rounded-full mr-2 shadow-sm"></div>
                     <h3 className="text-sm font-semibold text-gray-700">Hors ligne ({offlineCommerciaux.length})</h3>
                   </div>
                   <div className="space-y-3">
                     {offlineCommerciaux.map((commercial) => (
                       <Card 
                         key={commercial.id} 
-                        className="cursor-pointer transition-all duration-200 hover:shadow-md opacity-60"
+                        className="cursor-pointer transition-all duration-300 hover:shadow-md opacity-70 hover:opacity-100 border-0 shadow-sm"
                         onClick={() => centerOnCommercial(commercial)}
                       >
                         <CardContent className="p-4">
                           <div className="flex items-center space-x-3">
                             <div className="relative">
-                              <Avatar className="h-8 w-8">
-                                <AvatarFallback className="bg-gray-100 text-gray-600">
+                              <Avatar className="h-10 w-10 ring-2 ring-white shadow-sm">
+                                <AvatarFallback className="bg-gradient-to-br from-gray-100 to-gray-200 text-gray-600">
                                   {commercial.prenom.charAt(0)}{commercial.nom.charAt(0)}
                                 </AvatarFallback>
                               </Avatar>
                               <div className="absolute -bottom-1 -right-1 w-3 h-3 bg-gray-400 rounded-full border-2 border-white"></div>
                             </div>
-                            <div className="flex-1">
-                              <h4 className="text-sm font-medium text-gray-700">
+                            <div className="flex-1 min-w-0">
+                              <h4 className="text-sm font-medium text-gray-700 truncate">
                                 {commercial.prenom} {commercial.nom}
                               </h4>
                               <p className="text-xs text-gray-500">Hors ligne</p>
+                              {commercial.lastSeen && (
+                                <div className="flex items-center gap-1 mt-1 text-xs text-gray-500">
+                                  <Clock className="h-3 w-3" />
+                                  {formatLastSeen(commercial.lastSeen)}
+                                </div>
+                              )}
                             </div>
                           </div>
                         </CardContent>
@@ -513,21 +582,27 @@ const GPSTrackingPage: React.FC = () => {
             </>
           )}
 
-          {/* Vue collapsée */}
+          {/* Vue collapsée améliorée */}
           {sidebarCollapsed && (
-            <div className="p-2 space-y-2">
+            <div className="p-3 space-y-3">
               {onlineCommerciaux.map((commercial) => (
                 <div
                   key={commercial.id}
-                  className="relative cursor-pointer"
+                  className="relative cursor-pointer group"
                   onClick={() => centerOnCommercial(commercial)}
                 >
-                  <Avatar className="h-10 w-10 mx-auto">
-                    <AvatarFallback className="bg-blue-100 text-blue-700 text-xs">
-                      {commercial.prenom.charAt(0)}{commercial.nom.charAt(0)}
-                    </AvatarFallback>
-                  </Avatar>
-                  <div className={`absolute -bottom-1 -right-1 w-3 h-3 ${getStatusColor(commercial)} rounded-full border-2 border-white`}></div>
+                  <div className="relative">
+                    <Avatar className="h-12 w-12 mx-auto ring-2 ring-white shadow-md transition-transform group-hover:scale-110">
+                      <AvatarFallback className="bg-gradient-to-br from-blue-100 to-blue-200 text-blue-700 text-xs font-semibold">
+                        {commercial.prenom.charAt(0)}{commercial.nom.charAt(0)}
+                      </AvatarFallback>
+                    </Avatar>
+                    <div className={`absolute -bottom-1 -right-1 w-4 h-4 ${getStatusColor(commercial)} rounded-full border-2 border-white shadow-sm`}></div>
+                  </div>
+                  {/* Tooltip pour la vue collapsée */}
+                  <div className="absolute left-full ml-2 top-1/2 transform -translate-y-1/2 bg-black text-white text-xs px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity duration-200 whitespace-nowrap z-10">
+                    {commercial.prenom} {commercial.nom}
+                  </div>
                 </div>
               ))}
             </div>
@@ -535,8 +610,8 @@ const GPSTrackingPage: React.FC = () => {
         </div>
       </div>
 
-      {/* Carte */}
-      <div className="flex-1 relative">
+      {/* Carte avec correction du problème de fond blanc */}
+      <div className="flex-1 relative bg-white min-w-0">
         <Map
           ref={mapRef}
           mapboxAccessToken={mapboxToken}
@@ -552,7 +627,7 @@ const GPSTrackingPage: React.FC = () => {
           <GeolocateControl position="top-right" />
           <ScaleControl position="bottom-right" />
 
-          {/* Marqueurs des commerciaux */}
+          {/* Marqueurs des commerciaux améliorés */}
           {commerciaux.map((commercial) => {
             if (!commercial.location) return null;
 
@@ -565,15 +640,16 @@ const GPSTrackingPage: React.FC = () => {
                 latitude={commercial.location.lat}
                 onClick={() => setSelectedCommercial(commercial)}
               >
-                <div className="relative cursor-pointer">
-                  <div className={`w-8 h-8 ${getStatusColor(commercial)} rounded-full border-3 border-white shadow-lg flex items-center justify-center`}>
-                    <ActivityIcon className="h-4 w-4 text-white" />
+                <div className="relative cursor-pointer group">
+                  <div className={`w-10 h-10 ${getStatusColor(commercial)} rounded-full border-3 border-white shadow-lg flex items-center justify-center transition-transform group-hover:scale-110`}>
+                    <ActivityIcon className="h-5 w-5 text-white" />
                   </div>
                   {commercial.isOnline && (
-                    <div className="absolute inset-0 w-8 h-8 bg-green-400 rounded-full animate-ping opacity-30"></div>
+                    <div className="absolute inset-0 w-10 h-10 bg-green-400 rounded-full animate-ping opacity-30"></div>
                   )}
-                  <div className="absolute -bottom-6 left-1/2 transform -translate-x-1/2 bg-black bg-opacity-75 text-white text-xs px-2 py-1 rounded whitespace-nowrap">
+                  <div className="absolute -bottom-8 left-1/2 transform -translate-x-1/2 bg-black/90 backdrop-blur-sm text-white text-xs px-3 py-1.5 rounded-lg whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity duration-200 shadow-lg">
                     {commercial.prenom} {commercial.nom}
+                    <div className="absolute top-full left-1/2 transform -translate-x-1/2 w-0 h-0 border-l-4 border-r-4 border-t-4 border-transparent border-t-black/90"></div>
                   </div>
                 </div>
               </Marker>
@@ -581,10 +657,10 @@ const GPSTrackingPage: React.FC = () => {
           })}
         </Map>
 
-        {/* Panneau d'information du commercial sélectionné */}
+        {/* Panneau d'information du commercial sélectionné amélioré */}
         {selectedCommercial && (
-          <Card className="absolute top-4 left-4 w-80 shadow-xl bg-white/95 backdrop-blur-sm border-0">
-            <CardHeader className="pb-3 bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded-t-lg">
+          <Card className="absolute top-4 left-4 w-80 shadow-2xl bg-white/95 backdrop-blur-md border-0 rounded-xl overflow-hidden">
+            <CardHeader className="pb-3 bg-gradient-to-r from-blue-500 to-blue-600 text-white">
               <CardTitle className="text-lg flex items-center justify-between">
                 <span className="font-semibold">{selectedCommercial.prenom} {selectedCommercial.nom}</span>
                 <Badge 
@@ -629,6 +705,17 @@ const GPSTrackingPage: React.FC = () => {
                     </p>
                   </div>
                 </div>
+                {selectedCommercial.lastSeen && (
+                  <div className="space-y-1 col-span-2">
+                    <p className="text-gray-500 font-medium">Dernière activité</p>
+                    <div className="flex items-center gap-2">
+                      <Clock className="h-4 w-4 text-gray-400" />
+                      <p className="font-semibold text-gray-900">
+                        {formatLastSeen(selectedCommercial.lastSeen)}
+                      </p>
+                    </div>
+                  </div>
+                )}
               </div>
               
               {selectedCommercial.locationError && (
@@ -645,7 +732,7 @@ const GPSTrackingPage: React.FC = () => {
                 <Button 
                   size="sm" 
                   variant="outline" 
-                  className="flex-1 bg-blue-50 border-blue-200 text-blue-700 hover:bg-blue-100"
+                  className="flex-1 bg-blue-50 border-blue-200 text-blue-700 hover:bg-blue-100 transition-colors"
                   onClick={() => centerOnCommercial(selectedCommercial)}
                 >
                   <MapPin className="h-4 w-4 mr-2" />
@@ -654,7 +741,7 @@ const GPSTrackingPage: React.FC = () => {
                 <Button 
                   size="sm" 
                   variant="outline" 
-                  className="flex-1 bg-green-50 border-green-200 text-green-700 hover:bg-green-100"
+                  className="flex-1 bg-green-50 border-green-200 text-green-700 hover:bg-green-100 transition-colors"
                   onClick={() => navigate(`/admin/commerciaux/${selectedCommercial.id}`)}
                 >
                   <User className="h-4 w-4 mr-2" />
