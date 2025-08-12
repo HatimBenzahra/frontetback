@@ -1,11 +1,12 @@
-import React, { useState, useEffect, useRef } from 'react';
+import * as React from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Map, NavigationControl, GeolocateControl, ScaleControl, Marker, FullscreenControl, useControl, Source, Layer } from 'react-map-gl';
-import mapboxgl from 'mapbox-gl';
+import * as mapboxgl from 'mapbox-gl';
 import { Card, CardContent, CardHeader, CardTitle } from '../../../components/ui-admin/card';
 import { Badge } from '../../../components/ui-admin/badge';
 import { Button } from '../../../components/ui-admin/button';
 import { Avatar, AvatarFallback } from '../../../components/ui-admin/avatar';
-import { MapPin, Activity, User, WifiOff, Signal, Search, X, RefreshCw, Target } from 'lucide-react';
+import { MapPin, Activity, User, WifiOff, Signal, Search, X } from 'lucide-react';
 import { commercialService } from '../../../services/commercial.service';
 import { useSocket } from '../../../hooks/useSocket';
 import { useNavigate } from 'react-router-dom';
@@ -192,7 +193,7 @@ const GPSTrackingPage: React.FC = () => {
   const socket = useSocket();
   const navigate = useNavigate();
 
-  const mapboxToken = import.meta.env.VITE_MAPBOX_ACCESS_TOKEN;
+  const mapboxToken = (import.meta as any).env.VITE_MAPBOX_ACCESS_TOKEN;
 
   // Charger la liste des commerciaux depuis l'API
   useEffect(() => {
@@ -469,7 +470,7 @@ const GPSTrackingPage: React.FC = () => {
     return 'Hors ligne';
   };
 
-  const centerOnCommercial = (commercial: Commercial) => {
+  const centerOnCommercial = React.useCallback((commercial: Commercial) => {
     if (commercial.location && mapRef.current) {
       mapRef.current.flyTo({
         center: [commercial.location.lng, commercial.location.lat],
@@ -478,41 +479,9 @@ const GPSTrackingPage: React.FC = () => {
       });
       setSelectedCommercial(commercial);
     }
-  };
+  }, []);
 
-  const centerOnOnlineCommerciaux = () => {
-    if (!mapRef.current || onlineCommerciaux.length === 0) return;
 
-    const locations = onlineCommerciaux
-      .map(c => c.location)
-      .filter(loc => loc !== undefined) as { lat: number; lng: number }[];
-
-    if (locations.length === 0) return;
-
-    if (locations.length === 1) {
-      // Un seul commercial : centrer sur lui
-      mapRef.current.flyTo({
-        center: [locations[0].lng, locations[0].lat],
-        zoom: 15,
-        duration: 1000
-      });
-    } else {
-      // Plusieurs commerciaux : ajuster la vue pour tous les voir
-      const bounds = new mapboxgl.LngLatBounds();
-      locations.forEach(loc => {
-        bounds.extend([loc.lng, loc.lat]);
-      });
-      
-      mapRef.current.fitBounds(bounds, {
-        padding: 50,
-        duration: 1000,
-        maxZoom: 15
-      });
-    }
-    
-    // Désélectionner le commercial actuel
-    setSelectedCommercial(null);
-  };
 
 
 
@@ -545,7 +514,40 @@ const GPSTrackingPage: React.FC = () => {
   });
 
   const onlineCommerciaux = filteredCommerciaux.filter(c => c.isOnline);
-  const offlineCommerciaux = filteredCommerciaux.filter(c => !c.isOnline);
+
+  const centerOnOnlineCommerciaux = React.useCallback(() => {
+    if (!mapRef.current || onlineCommerciaux.length === 0) return;
+
+    const locations = onlineCommerciaux
+      .map(c => c.location)
+      .filter(loc => loc !== undefined) as { lat: number; lng: number }[];
+
+    if (locations.length === 0) return;
+
+    if (locations.length === 1) {
+      // Un seul commercial : centrer sur lui
+      mapRef.current.flyTo({
+        center: [locations[0].lng, locations[0].lat],
+        zoom: 15,
+        duration: 1000
+      });
+    } else {
+      // Plusieurs commerciaux : ajuster la vue pour tous les voir
+      const bounds = new mapboxgl.LngLatBounds();
+      locations.forEach(loc => {
+        bounds.extend([loc.lng, loc.lat]);
+      });
+      
+      mapRef.current.fitBounds(bounds, {
+        padding: 50,
+        duration: 1000,
+        maxZoom: 15
+      });
+    }
+    
+    // Désélectionner le commercial actuel
+    setSelectedCommercial(null);
+  }, [onlineCommerciaux]);
 
   // Focus automatique sur les commerciaux en ligne quand ils se connectent
   useEffect(() => {
@@ -557,7 +559,7 @@ const GPSTrackingPage: React.FC = () => {
       
       return () => clearTimeout(timeoutId);
     }
-  }, [onlineCommerciaux.length, selectedCommercial]);
+  }, [onlineCommerciaux.length, selectedCommercial, centerOnOnlineCommerciaux]);
 
   // Fermer le popup si le commercial sélectionné se déconnecte
   useEffect(() => {
@@ -567,7 +569,7 @@ const GPSTrackingPage: React.FC = () => {
         setSelectedCommercial(null);
       }
     }
-  }, [onlineCommerciaux, selectedCommercial]);
+  }, [onlineCommerciaux, selectedCommercial?.id]);
 
   if (loading) {
     return (
