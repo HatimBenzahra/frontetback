@@ -1,4 +1,4 @@
-import { Controller, Post, Get, Delete, Body, Param, Query } from '@nestjs/common';
+import { Controller, Post, Get, Delete, Body, Param, Query, Patch } from '@nestjs/common';
 import { TranscriptionHistoryService, TranscriptionSession } from './transcription-history.service';
 
 @Controller('api/transcription-history')
@@ -33,5 +33,14 @@ export class TranscriptionHistoryController {
   async deleteTranscriptionSession(@Param('id') id: string) {
     console.log('📚 Suppression session transcription:', id);
     return this.transcriptionHistoryService.deleteSession(id);
+  }
+
+  @Patch(':id/sync')
+  async syncTranscriptionSession(
+    @Param('id') id: string,
+    @Body() data: { full_transcript: string }
+  ) {
+    console.log('📚 Synchronisation session transcription:', id, 'longueur:', data.full_transcript.length);
+    return this.transcriptionHistoryService.syncSessionIfShorter(id, data.full_transcript);
   }
 } 

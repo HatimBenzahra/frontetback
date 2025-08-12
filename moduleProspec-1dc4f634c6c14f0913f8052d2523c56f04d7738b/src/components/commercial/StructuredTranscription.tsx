@@ -43,7 +43,7 @@ export const StructuredTranscription: React.FC<StructuredTranscriptionProps> = (
         </div>
       </div>
 
-      <div className="transcription-content bg-white rounded-lg border p-4 max-h-96 overflow-y-auto">
+      <div className="transcription-content bg-white rounded-lg border p-4 h-96 overflow-y-auto">
         {paragraphs.length === 0 || (paragraphs.length === 1 && !paragraphs[0]) ? (
           <div className="text-gray-500 text-center py-8">
             <div className="text-4xl mb-2">🎙️</div>
@@ -53,7 +53,7 @@ export const StructuredTranscription: React.FC<StructuredTranscriptionProps> = (
           <div className="space-y-4">
             {paragraphs.map((paragraph, index) => (
               <div key={index} className="paragraph">
-                <p className="text-gray-800 leading-relaxed whitespace-pre-wrap">
+                <p className="text-gray-800 leading-relaxed whitespace-pre-wrap break-words">
                   {paragraph}
                 </p>
                 {enableStructuring && index < paragraphs.length - 1 && (

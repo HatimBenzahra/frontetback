@@ -201,9 +201,11 @@ const ProspectingDoorsPage = () => {
                             const transcript: string = alt?.transcript || '';
                             const is_final: boolean = !!msg?.is_final;
                             if (transcript) {
+                                // Éviter les doublons : ne pas ajouter de \n pour les transcriptions finales
+                                // car elles contiennent déjà le texte complet
                                 socket.emit('transcription_update', {
                                     commercial_id: user.id,
-                                    transcript: transcript + (is_final ? '\n' : ''),
+                                    transcript: transcript, // Suppression du \n conditionnel
                                     is_final,
                                     timestamp: new Date().toISOString(),
                                     door_id: activeDoorIdRef.current || undefined,

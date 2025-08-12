@@ -420,6 +420,26 @@ export class EventsGateway implements OnGatewayConnection, OnGatewayDisconnect {
     }
   }
 
+  // Fonction utilitaire pour nettoyer et dédupliquer les transcriptions
+  private cleanAndDeduplicateTranscript(currentText: string, newText: string): string {
+    const cleanNewText = newText.trim();
+    if (!cleanNewText) return currentText;
+    
+    // Si le texte actuel se termine déjà par le nouveau texte, ne pas l'ajouter
+    if (currentText.endsWith(cleanNewText)) {
+      return currentText;
+    }
+    
+    // Si le nouveau texte contient le texte actuel, le remplacer
+    if (cleanNewText.includes(currentText) && currentText.length > 0) {
+      return cleanNewText;
+    }
+    
+    // Sinon, ajouter avec un séparateur approprié
+    const separator = currentText && !currentText.endsWith(' ') ? ' ' : '';
+    return currentText + separator + cleanNewText;
+  }
+
   @SubscribeMessage('transcription_update')
   handleTranscriptionUpdate(client: Socket, data: {
     commercial_id: string;
@@ -436,7 +456,8 @@ export class EventsGateway implements OnGatewayConnection, OnGatewayDisconnect {
     if (data.is_final) {
       const session = this.activeTranscriptionSessions.get(data.commercial_id);
       if (session) {
-        session.full_transcript += data.transcript;
+        // Utiliser la fonction de nettoyage pour éviter les doublons
+        session.full_transcript = this.cleanAndDeduplicateTranscript(session.full_transcript, data.transcript);
 
         // Mettre à jour le label de la dernière porte si fourni
         if (data.door_label) {
@@ -451,7 +472,8 @@ export class EventsGateway implements OnGatewayConnection, OnGatewayDisconnect {
             this.sessionDoorTexts.set(session.id, doorMap);
           }
           const prev = doorMap.get(data.door_id) ?? '';
-          doorMap.set(data.door_id, prev + data.transcript);
+          // Utiliser la même fonction de nettoyage pour les transcriptions par porte
+          doorMap.set(data.door_id, this.cleanAndDeduplicateTranscript(prev, data.transcript));
         }
         console.log(`📝 Session ${session.id} - Texte accumulé: ${session.full_transcript.length} caractères`);
 

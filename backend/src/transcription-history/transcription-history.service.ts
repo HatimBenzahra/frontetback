@@ -161,5 +161,56 @@ export class TranscriptionHistoryService {
     }
   }
 
+  async syncSessionIfShorter(sessionId: string, localTranscript: string) {
+    try {
+      console.log('📚 Synchronisation session transcription:', sessionId);
+      
+      // Récupérer la session actuelle
+      const currentSession = await this.prisma.transcriptionSession.findUnique({
+        where: { id: sessionId }
+      });
+
+      if (!currentSession) {
+        console.log('❌ Session non trouvée:', sessionId);
+        return { success: false, error: 'Session not found' };
+      }
+
+      const currentLength = currentSession.full_transcript?.length || 0;
+      const localLength = localTranscript.length;
+
+      console.log(`📊 Comparaison longueurs - Serveur: ${currentLength}, Local: ${localLength}`);
+
+      // Si la version locale est significativement plus longue, on la sauvegarde
+      if (localLength > currentLength + 10) {
+        console.log('✅ Mise à jour avec la version locale (plus longue)');
+        
+        await this.prisma.transcriptionSession.update({
+          where: { id: sessionId },
+          data: {
+            full_transcript: localTranscript,
+            updatedAt: new Date()
+          }
+        });
+
+        return { 
+          success: true, 
+          updated: true, 
+          previousLength: currentLength, 
+          newLength: localLength 
+        };
+      } else {
+        console.log('ℹ️ Version serveur suffisante, pas de mise à jour');
+        return { 
+          success: true, 
+          updated: false, 
+          serverLength: currentLength, 
+          localLength: localLength 
+        };
+      }
+    } catch (error) {
+      console.error('❌ Erreur synchronisation session:', error);
+      throw error;
+    }
+  }
 
 } 

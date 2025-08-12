@@ -89,6 +89,32 @@ class TranscriptionHistoryService {
       throw error;
     }
   }
+
+  async patchSessionIfShorter(sessionId: string, fullTranscript: string): Promise<boolean> {
+    try {
+      console.log('📚 Synchronisation session transcription:', sessionId, 'longueur:', fullTranscript.length);
+      
+      const response = await fetch(`${this.baseUrl}/api/transcription-history/${sessionId}/sync`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ full_transcript: fullTranscript }),
+      });
+
+      if (!response.ok) {
+        throw new Error(`Erreur HTTP: ${response.status}`);
+      }
+
+      const result = await response.json();
+      console.log('✅ Synchronisation session transcription:', result);
+      
+      return result.success && result.updated;
+    } catch (error) {
+      console.error('❌ Erreur synchronisation session transcription:', error);
+      return false;
+    }
+  }
 }
 
 export const transcriptionHistoryService = new TranscriptionHistoryService(); 

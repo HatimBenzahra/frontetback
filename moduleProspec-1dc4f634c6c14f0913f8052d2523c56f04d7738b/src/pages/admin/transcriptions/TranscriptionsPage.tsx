@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, useCallback } from 'react';
+import { useEffect, useMemo, useState, useCallback, useRef } from 'react';
 import { useSocket } from '@/hooks/useSocket';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui-admin/card';
 import { Button } from '@/components/ui-admin/button';
@@ -7,10 +7,29 @@ import { ScrollArea } from '@/components/ui-admin/scroll-area';
 import { Modal } from '@/components/ui-admin/Modal';
 import { Badge } from '@/components/ui-admin/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui-admin/select';
-import { RefreshCw, Search, Copy, Download, Calendar, Clock, Building2, User, Filter, Mic, MicOff, Activity, Target, FileText } from 'lucide-react';
-import { type TranscriptionSession } from '@/services/transcriptionHistory.service';
+import { RefreshCw, Search, Copy, Download, Calendar, Clock, Building2, User, Filter, Mic, MicOff, Activity, Target, FileText, Sparkles } from 'lucide-react';
+import { type TranscriptionSession, transcriptionHistoryService } from '@/services/transcriptionHistory.service';
 
-type LiveUpdate = { commercial_id: string; transcript: string; is_final: boolean; timestamp: string; door_id?: string; door_label?: string };
+// Styles CSS personnalisés pour améliorer le scroll
+const scrollStyles = `
+  .custom-scroll-area {
+    scrollbar-width: thin;
+    scrollbar-color: #cbd5e1 #f1f5f9;
+  }
+  .custom-scroll-area::-webkit-scrollbar { width: 8px; }
+  .custom-scroll-area::-webkit-scrollbar-track { background: #f1f5f9; border-radius: 4px; }
+  .custom-scroll-area::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
+  .custom-scroll-area::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+`;
+
+type LiveUpdate = {
+  commercial_id: string;
+  transcript: string;
+  is_final: boolean;
+  timestamp: string;
+  door_id?: string;
+  door_label?: string;
+};
 
 type CommercialItem = {
   id: string;
@@ -23,11 +42,81 @@ type CommercialItem = {
   currentSession?: string;
 };
 
+/* --------------------------- Post-traitement gratuit --------------------------- */
+
+const DICTIONARY_ENTRIES: Array<[RegExp, string]> = [
+  [/winvest/gi, 'Winvest'],
+  [/finanss?or/gi, 'FINANSSOR'],
+  [/orly/gi, 'Orly'],
+  [/rdv/gi, 'RDV'],
+  [/idfa/gi, 'IDFA'],
+];
+
+const FRENCH_NUMBER_MAP: Record<string, string> = {
+  'zéro': '0', 'un': '1', 'une': '1', 'deux': '2', 'trois': '3', 'quatre': '4', 'cinq': '5',
+  'six': '6', 'sept': '7', 'huit': '8', 'neuf': '9', 'dix': '10', 'onze': '11', 'douze': '12',
+  'treize': '13', 'quatorze': '14', 'quinze': '15', 'seize': '16', 'vingt': '20', 'trente': '30',
+  'quarante': '40', 'cinquante': '50', 'soixante': '60', 'soixante-dix': '70', 'soixante dix': '70',
+  'quatre-vingt': '80', 'quatre vingt': '80', 'quatre-vingt-dix': '90', 'quatre vingt dix': '90',
+};
+
+function applyDictionary(text: string): string {
+  let out = text;
+  for (const [rx, repl] of DICTIONARY_ENTRIES) out = out.replace(rx, repl);
+  return out;
+}
+
+function smartNormalize(text: string): string {
+  let out = text;
+  out = out.replace(/\b(zéro|une?|deux|trois|quatre|cinq|six|sept|huit|neuf|dix|onze|douze|treize|quatorze|quinze|seize|vingt|trente|quarante|cinquante|soixante(?:[- ]dix)?|quatre(?:[- ]vingt(?:[- ]dix)?)?)\b/gi, (m) => {
+    const key = m.toLowerCase();
+    return FRENCH_NUMBER_MAP[key] ?? m;
+  });
+  out = out.replace(/(\d+)\s*(euros?|€)/gi, (_, n) => `${n} €`);
+  out = out.replace(/(\d+)\s*(pour(?:cents?|centage)?)/gi, (_, n) => `${n} %`);
+  out = out.replace(/\s+([?!:;,.])/g, '$1');
+  return out;
+}
+
+function cleanChunk(text: string): string {
+  return text.replace(/\s+/g, ' ').trim();
+}
+
+function smartAppend(prev: string, next: string): string {
+  if (!prev) return next;
+  if (!next) return prev;
+  if (prev.endsWith(next)) return prev;
+  const maxOverlap = Math.min(prev.length, next.length, 100);
+  for (let k = maxOverlap; k >= 10; k -= 1) {
+    const tail = prev.slice(-k);
+    if (next.startsWith(tail)) {
+      return prev + next.slice(k);
+    }
+  }
+  return prev + (/\s$/.test(prev) ? '' : ' ') + next;
+}
+
+function finalizeSentence(text: string): string {
+  if (!text) return text;
+  if (/[.?!…](?:\s|$)/.test(text.slice(-2))) return text;
+  return text + '.';
+}
+
+function correctTextChunk(raw: string): string {
+  const cleaned = cleanChunk(raw);
+  const dicted = applyDictionary(cleaned);
+  const normalized = smartNormalize(dicted);
+  return normalized;
+}
+
+/* --------------------------------- Composant --------------------------------- */
+
 const TranscriptionsPage = () => {
   const socket = useSocket('audio-streaming');
 
   // Live & statuts
-  const [liveByCommercial, setLiveByCommercial] = useState<Record<string, string>>({});
+  const [liveCommittedByCommercial, setLiveCommittedByCommercial] = useState<Record<string, string>>({});
+  const [livePartialByCommercial, setLivePartialByCommercial] = useState<Record<string, string>>({});
   const [doorByCommercial, setDoorByCommercial] = useState<Record<string, string | undefined>>({});
   const [commercialStatus, setCommercialStatus] = useState<Record<string, any>>({});
 
@@ -43,14 +132,21 @@ const TranscriptionsPage = () => {
 
   // Filtres pour l'historique
   const [buildingFilter, setBuildingFilter] = useState<string>('all');
-  const [dateFilter, setDateFilter] = useState<string>('all');       // 'all' | '24h' | '7d' | '30d'
-  const [durationFilter, setDurationFilter] = useState<string>('all'); // 'all' | 'short' | 'medium' | 'long'
+  const [dateFilter, setDateFilter] = useState<string>('all');
+  const [durationFilter, setDurationFilter] = useState<string>('all');
+
+  // Réglages de correction
+  const [autoCorrectionsEnabled, setAutoCorrectionsEnabled] = useState<boolean>(true);
+  const [liveMaxChars] = useState<number>(8000);
+
+  // Debounce partiels
+  const partialTimerRef = useRef<Record<string, number>>({});
 
   const SERVER_HOST = import.meta.env.VITE_SERVER_HOST || window.location.hostname;
   const API_PORT = import.meta.env.VITE_API_PORT || '3000';
   const BASE = `https://${SERVER_HOST}:${API_PORT}`;
 
-  // -------- Utils --------
+  // Utils
   const formatDuration = (seconds: number) => {
     const mins = Math.floor(seconds / 60);
     const secs = seconds % 60;
@@ -73,7 +169,7 @@ const TranscriptionsPage = () => {
     a.href = url; a.download = filename; a.click(); URL.revokeObjectURL(url);
   };
 
-  // -------- DB: charger tous les commerciaux (une fois) --------
+  // DB: commerciaux
   const loadAllCommercials = useCallback(async () => {
     try {
       const response = await fetch(`${BASE}/api/transcription-history/commercials`);
@@ -93,14 +189,14 @@ const TranscriptionsPage = () => {
     loadAllCommercials();
   }, [loadAllCommercials]);
 
-  // -------- DB: charger l'historique UNIQUEMENT du commercial sélectionné --------
+  // DB: historique du commercial sélectionné
   const loadHistoryForSelected = useCallback(async () => {
     if (!selectedCommercialId) { setSessions([]); return; }
     setLoadingHistory(true);
     try {
       const params = new URLSearchParams({ commercial_id: selectedCommercialId });
       if (buildingFilter !== 'all') params.set('building', buildingFilter);
-      if (dateFilter !== 'all') params.set('since', dateFilter);        // à interpréter côté backend
+      if (dateFilter !== 'all') params.set('since', dateFilter);
       if (durationFilter !== 'all') params.set('duration', durationFilter);
 
       const response = await fetch(`${BASE}/api/transcription-history?` + params.toString());
@@ -126,7 +222,27 @@ const TranscriptionsPage = () => {
     loadHistoryForSelected();
   }, [loadHistoryForSelected]);
 
-  // -------- WebSocket: installer une seule fois les listeners --------
+  // --- helper: obtenir le texte live combiné pour un commercial ---
+  const getLiveCombinedFor = useCallback((cid: string) => {
+    const committed = liveCommittedByCommercial[cid] || '';
+    const partial = livePartialByCommercial[cid] || '';
+    return (committed + (partial ? (committed ? ' ' : '') + partial : '')).trim();
+  }, [liveCommittedByCommercial, livePartialByCommercial]);
+
+  // --- helper: vider le live d'un commercial ---
+  const clearLiveBuffersFor = useCallback((cid: string) => {
+    // purge committed & partial
+    setLiveCommittedByCommercial(prev => ({ ...prev, [cid]: '' }));
+    setLivePartialByCommercial(prev => ({ ...prev, [cid]: '' }));
+    // annule timer partiel éventuel
+    const t = partialTimerRef.current[cid];
+    if (t) {
+      window.clearTimeout(t);
+      delete partialTimerRef.current[cid];
+    }
+  }, []);
+
+  // WebSocket: listeners
   useEffect(() => {
     if (!socket) return;
 
@@ -134,9 +250,42 @@ const TranscriptionsPage = () => {
     socket.emit('request_commercials_status');
 
     const onUpdate = (data: LiveUpdate) => {
-      setLiveByCommercial(prev => ({ ...prev, [data.commercial_id]: (prev[data.commercial_id] || '') + data.transcript }));
+      const cid = data.commercial_id;
+      let chunk = data.transcript || '';
+
+      if (autoCorrectionsEnabled) {
+        chunk = correctTextChunk(chunk);
+      } else {
+        chunk = cleanChunk(chunk);
+      }
+
       if (data.door_label || data.door_id) {
-        setDoorByCommercial(prev => ({ ...prev, [data.commercial_id]: data.door_label ?? data.door_id }));
+        setDoorByCommercial(prev => ({ ...prev, [cid]: data.door_label ?? data.door_id }));
+      }
+
+      if (data.is_final) {
+        const finalized = autoCorrectionsEnabled ? finalizeSentence(chunk) : chunk;
+
+        setLiveCommittedByCommercial(prev => {
+          const merged = smartAppend(prev[cid] || '', finalized);
+          const clipped = merged.length > liveMaxChars ? merged.slice(merged.length - liveMaxChars) : merged;
+          return { ...prev, [cid]: clipped };
+        });
+
+        setLivePartialByCommercial(prev => ({ ...prev, [cid]: '' }));
+
+        const t = partialTimerRef.current[cid];
+        if (t) {
+          window.clearTimeout(t);
+          delete partialTimerRef.current[cid];
+        }
+      } else {
+        const run = () => {
+          setLivePartialByCommercial(prev => ({ ...prev, [cid]: chunk }));
+        };
+        const prevTimer = partialTimerRef.current[cid];
+        if (prevTimer) window.clearTimeout(prevTimer);
+        partialTimerRef.current[cid] = window.setTimeout(run, 150);
       }
     };
 
@@ -146,17 +295,42 @@ const TranscriptionsPage = () => {
       setCommercialStatus(statusMap);
     };
 
-    // Si une session se termine pour le commercial sélectionné, recharger uniquement son historique
-    const onCompleted = (session: TranscriptionSession) => {
-      if (session.commercial_id === selectedCommercialId) {
-        setTimeout(() => {
-          loadHistoryForSelected();
-          socket.emit('request_commercials_status');
-        }, 800);
-      } else {
-        // Sinon, mettre juste à jour les statuts
-        socket.emit('request_commercials_status');
+    // ⬇️ Quand une session se termine: récupérer le texte partiel, synchroniser et vider le live
+    // CORRECTION: Cette fonction récupère maintenant le texte partiel avant de vider les buffers
+    // pour éviter la perte du dernier segment de transcription
+    const onCompleted = async (session: TranscriptionSession) => {
+      const cid = session.commercial_id as unknown as string;
+      
+      // 1. Récupérer le texte live complet (committed + partial) avant de vider
+      const fullLocal = getLiveCombinedFor(cid);
+      console.log('📚 Session terminée, texte local complet:', fullLocal.length, 'caractères');
+
+      // 2. Recharger l'historique pour obtenir la version serveur
+      if (cid === selectedCommercialId) {
+        await loadHistoryForSelected();
       }
+
+      // 3. Retrouver la session côté client après reload
+      const serverSession = sessions.find(s => s.id === session.id);
+      const serverText = serverSession?.full_transcript || '';
+
+      // 4. Si le serveur a moins de texte, envoyer notre version complète
+      if (fullLocal.length > serverText.length + 10) {
+        console.log('📚 Synchronisation nécessaire - Local:', fullLocal.length, 'Serveur:', serverText.length);
+        const synced = await transcriptionHistoryService.patchSessionIfShorter(session.id, fullLocal);
+        if (synced && cid === selectedCommercialId) {
+          // Recharger l'historique après synchronisation
+          await loadHistoryForSelected();
+        }
+      } else {
+        console.log('📚 Pas de synchronisation nécessaire - Local:', fullLocal.length, 'Serveur:', serverText.length);
+      }
+
+      // 5. Vider les buffers live MAINTENANT uniquement
+      clearLiveBuffersFor(cid);
+
+      // 6. Mettre à jour le statut des commerciaux
+      socket.emit('request_commercials_status');
     };
 
     socket.on('transcription_update', onUpdate);
@@ -169,33 +343,30 @@ const TranscriptionsPage = () => {
       socket.off('transcription_session_completed', onCompleted);
       socket.emit('leaveRoom', 'audio-streaming');
     };
-  }, [socket, selectedCommercialId, loadHistoryForSelected]);
+  }, [socket, selectedCommercialId, loadHistoryForSelected, autoCorrectionsEnabled, liveMaxChars, clearLiveBuffersFor, getLiveCombinedFor, sessions]);
 
-  // -------- Liste fusionnée des commerciaux (DB + live/status) --------
+  // Liste commerciaux fusionnée
   const commercials: CommercialItem[] = useMemo(() => {
     const map = new Map<string, CommercialItem>();
+    for (const c of allCommercials) map.set(c.id, { ...c });
 
-    // DB
-    for (const c of allCommercials) {
-      map.set(c.id, { ...c });
-    }
-
-    // Marquer ceux qui émettent du live
-    Object.keys(liveByCommercial).forEach(cid => {
+    Object.keys(liveCommittedByCommercial).forEach(cid => {
       if (!map.has(cid)) {
-        map.set(cid, {
-          id: cid,
-          name: `Commercial ${cid}`,
-          sessionsCount: 0,
-          lastTime: Date.now(),
-        });
+        map.set(cid, { id: cid, name: `Commercial ${cid}`, sessionsCount: 0, lastTime: Date.now() });
+      } else {
+        const item = map.get(cid)!;
+        item.lastTime = Math.max(item.lastTime ?? 0, Date.now());
+      }
+    });
+    Object.keys(livePartialByCommercial).forEach(cid => {
+      if (!map.has(cid)) {
+        map.set(cid, { id: cid, name: `Commercial ${cid}`, sessionsCount: 0, lastTime: Date.now() });
       } else {
         const item = map.get(cid)!;
         item.lastTime = Math.max(item.lastTime ?? 0, Date.now());
       }
     });
 
-    // Statuts temps réel
     map.forEach((item, cid) => {
       const st = commercialStatus[cid];
       if (st) {
@@ -211,76 +382,77 @@ const TranscriptionsPage = () => {
       const q = query.toLowerCase();
       items = items.filter(i => i.name?.toLowerCase().includes(q) || i.id.includes(query));
     }
-    items.sort((a, b) => (b.lastTime ?? 0) - (a.lastTime ?? 0));
+    
+    // Tri: commerciaux connectés (avec activité récente) en premier, puis par lastTime
+    items.sort((a, b) => {
+      // Déterminer si un commercial est connecté (a une activité récente)
+      const aIsConnected = a.isOnline || a.isTranscribing || (a.lastTime && (Date.now() - a.lastTime) < 180000); // 3 minutes
+      const bIsConnected = b.isOnline || b.isTranscribing || (b.lastTime && (Date.now() - b.lastTime) < 180000); // 3 minutes
+      
+      // Si l'un est connecté et l'autre non, le connecté va en premier
+      if (aIsConnected && !bIsConnected) return -1;
+      if (!aIsConnected && bIsConnected) return 1;
+      
+      // Si les deux sont connectés ou les deux déconnectés, trier par lastTime
+      return (b.lastTime ?? 0) - (a.lastTime ?? 0);
+    });
+    
     return items;
-  }, [allCommercials, liveByCommercial, commercialStatus, query]);
+  }, [allCommercials, liveCommittedByCommercial, livePartialByCommercial, commercialStatus, query]);
 
-  // -------- Filtres locaux dérivés --------
+  // Dérivés UI
   const uniqueBuildings = useMemo(() => {
     const buildings = new Set<string>();
     sessions.forEach(s => { if (s.building_name) buildings.add(s.building_name); });
     return Array.from(buildings).sort();
   }, [sessions]);
 
-  const selectedLive = selectedCommercialId ? liveByCommercial[selectedCommercialId] : '';
+  const selectedCommitted = selectedCommercialId ? (liveCommittedByCommercial[selectedCommercialId] || '') : '';
+  const selectedPartial = selectedCommercialId ? (livePartialByCommercial[selectedCommercialId] || '') : '';
+  const selectedLive = (selectedCommitted + (selectedPartial ? (selectedCommitted ? ' ' : '') + selectedPartial : '')).trim();
   const selectedDoor = selectedCommercialId ? doorByCommercial[selectedCommercialId] : undefined;
 
-  // Reset du live visible à la sélection (optionnel)
   const handleSelectCommercial = (id: string) => {
     setSelectedCommercialId(id);
-    setLiveByCommercial(prev => ({ ...prev, [id]: '' }));
+    setLivePartialByCommercial(prev => ({ ...prev, [id]: '' }));
   };
 
-  // Stats pour l'en-tête
-  const onlineCommerciaux = commercials.filter(c => c.isOnline || c.isTranscribing || !!liveByCommercial[c.id]);
-  const transcribingCommerciaux = commercials.filter(c => c.isTranscribing);
-
   return (
-    <div className="h-[calc(100vh-4rem)] bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50 overflow-hidden">
-      <div className="h-full flex flex-col p-6">
-        {/* En-tête amélioré */}
-        <div className="flex flex-col lg:flex-row lg:items-center justify-between mb-6 gap-4">
-          <div className="space-y-2">
-            <div className="flex items-center gap-3">
-              <div className="p-3 bg-gradient-to-br from-blue-100 to-indigo-100 rounded-xl">
-                <FileText className="h-6 w-6 text-blue-600" />
-              </div>
-              <div>
-                <h1 className="text-xl lg:text-2xl font-bold text-gray-900">Transcriptions</h1>
-                <p className="text-sm lg:text-base text-gray-600">Suivi en temps réel et historique des sessions commerciales</p>
-              </div>
-            </div>
-            
-            {/* Stats rapides */}
-            <div className="flex flex-wrap items-center gap-2 lg:gap-4 pt-2">
-              <div className="flex items-center gap-2 px-3 py-1.5 bg-green-100 text-green-700 rounded-full text-sm font-medium">
-                <div className="w-2 h-2 bg-green-500 rounded-full"></div>
-                {onlineCommerciaux.length} en ligne
-              </div>
-              {transcribingCommerciaux.length > 0 && (
-                <div className="flex items-center gap-2 px-3 py-1.5 bg-red-100 text-red-700 rounded-full text-sm font-medium">
-                  <Mic className="h-3 w-3" />
-                  {transcribingCommerciaux.length} en transcription
-                </div>
-              )}
-            </div>
+    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-blue-50 p-6">
+      <style>{scrollStyles}</style>
+      <div className="max-w-7xl mx-auto space-y-6">
+        {/* Header */}
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-3xl font-bold text-gray-900">Transcriptions</h1>
+            <p className="text-gray-600 mt-1">Gestion et consultation des sessions de transcription</p>
           </div>
-          
-          <Button 
-            variant="outline" 
-            onClick={() => { loadAllCommercials(); loadHistoryForSelected(); }} 
-            className="gap-2 bg-white/80 backdrop-blur-sm border-gray-200 hover:bg-white hover:shadow-md transition-all self-start lg:self-auto"
-          >
-            <RefreshCw className="h-4 w-4" />
-            Actualiser
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button
+              variant={autoCorrectionsEnabled ? "default" : "outline"}
+              onClick={() => setAutoCorrectionsEnabled(v => !v)}
+              className={`gap-2 ${autoCorrectionsEnabled ? 'bg-indigo-600 hover:bg-indigo-700 text-white' : 'bg-white/80 backdrop-blur-sm border-gray-200 hover:bg-white'}`}
+              title="Activer/Désactiver les corrections automatiques (dictionnaire, normalisation, fusion intelligente)"
+            >
+              <Sparkles className="h-4 w-4" />
+              {autoCorrectionsEnabled ? 'Corrections auto: ON' : 'Corrections auto: OFF'}
+            </Button>
+            <Button
+              onClick={loadAllCommercials}
+              variant="outline"
+              className="gap-2 bg-white/80 backdrop-blur-sm border-gray-200 hover:bg-white"
+            >
+              <RefreshCw className="h-4 w-4" />
+              Actualiser
+            </Button>
+          </div>
         </div>
 
-        {/* Contenu principal avec structure améliorée */}
-        <div className="flex-1 flex flex-col lg:flex-row gap-6 min-h-0">
-          {/* Colonne des commerciaux améliorée */}
-          <div className="w-full lg:w-96 lg:flex-shrink-0">
-            <Card className="shadow-xl border-0 bg-white/95 backdrop-blur-sm lg:h-full flex flex-col">
+        {/* Layout principal */}
+        <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 h-[calc(100vh-200px)]">
+          {/* Sidebar commerciaux */}
+          <div className="lg:col-span-1">
+            <Card className="shadow-xl border-0 bg-white/95 backdrop-blur-sm h-full">
               <CardHeader className="pb-4 bg-gradient-to-r from-blue-50 to-indigo-50 border-b border-gray-100/50">
                 <CardTitle className="flex items-center gap-2 text-lg">
                   <div className="p-2 bg-blue-100 rounded-lg">
@@ -289,17 +461,17 @@ const TranscriptionsPage = () => {
                   Commerciaux
                 </CardTitle>
                 <div className="relative">
-                  <Search className="h-4 w-4 absolute left-3 top-3 text-gray-400" />
-                  <Input 
-                    className="pl-9 bg-white/80 border-gray-200 focus:bg-white transition-colors" 
-                    placeholder="Rechercher un commercial..." 
-                    value={query} 
-                    onChange={(e) => setQuery(e.target.value)} 
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+                  <Input
+                    placeholder="Rechercher un commercial..."
+                    value={query}
+                    onChange={(e) => setQuery(e.target.value)}
+                    className="pl-10 bg-white/80 border-gray-200"
                   />
                 </div>
               </CardHeader>
-              <CardContent className="flex-1 p-0">
-                <ScrollArea className="h-full">
+              <CardContent className="flex-1 p-0 h-[calc(100%-120px)]">
+                <ScrollArea className="h-full custom-scroll-area">
                   {commercials.length === 0 ? (
                     <div className="text-gray-500 text-sm text-center py-12">
                       <User className="h-12 w-12 mx-auto mb-3 text-gray-300" />
@@ -308,9 +480,14 @@ const TranscriptionsPage = () => {
                   ) : (
                     <div className="p-4 space-y-3">
                       {commercials.map(c => {
-                        const isLive = !!liveByCommercial[c.id];
-                        const isOnline = c.isOnline || false;
+                        const hasCommitted = !!liveCommittedByCommercial[c.id];
+                        const hasPartial = !!livePartialByCommercial[c.id];
+                        const isLive = hasCommitted || hasPartial;
                         const isTranscribing = c.isTranscribing || false;
+                        
+                        // Un commercial est considéré connecté s'il a une activité récente (3 minutes)
+                        const hasRecentActivity = c.lastTime && (Date.now() - c.lastTime) < 180000; // 3 minutes
+                        const isOnline = c.isOnline || isTranscribing || isLive || hasRecentActivity;
 
                         let statusColor = 'bg-gray-400';
                         if (isTranscribing) statusColor = 'bg-red-500';
@@ -375,10 +552,10 @@ const TranscriptionsPage = () => {
             </Card>
           </div>
 
-          {/* Contenu principal amélioré */}
-          <div className="flex-1 flex flex-col space-y-6 min-w-0 lg:min-h-0">
-            {/* Section Live améliorée */}
-            <Card className="shadow-xl border-0 bg-white/95 backdrop-blur-sm">
+          {/* Contenu principal */}
+          <div className="lg:col-span-3 flex flex-col space-y-6 h-full">
+            {/* Live */}
+            <Card className="shadow-xl border-0 bg-white/95 backdrop-blur-sm flex-shrink-0">
               <CardHeader className="pb-4 bg-gradient-to-r from-green-50 to-emerald-50 border-b border-gray-100/50">
                 <CardTitle className="flex items-center gap-2 text-lg">
                   <div className="p-2 bg-green-100 rounded-lg">
@@ -420,9 +597,9 @@ const TranscriptionsPage = () => {
               </CardContent>
             </Card>
 
-            {/* Section Historique améliorée */}
-            <Card className="shadow-xl border-0 bg-white/95 backdrop-blur-sm">
-              <CardHeader className="pb-4 bg-gradient-to-r from-purple-50 to-pink-50 border-b border-gray-100/50">
+            {/* Historique */}
+            <Card className="shadow-xl border-0 bg-white/95 backdrop-blur-sm flex-1 min-h-0">
+              <CardHeader className="pb-4 bg-gradient-to-r from-purple-50 to-pink-50 border-b border-gray-100/50 flex-shrink-0">
                 <div className="flex items-center justify-between">
                   <CardTitle className="flex items-center gap-2 text-lg">
                     <div className="p-2 bg-purple-100 rounded-lg">
@@ -481,7 +658,7 @@ const TranscriptionsPage = () => {
                 )}
               </CardHeader>
 
-              <CardContent className="p-0">
+              <CardContent className="p-0 flex-1 min-h-0">
                 {!selectedCommercialId ? (
                   <div className="text-center py-16">
                     <div className="p-4 bg-gray-100 rounded-full w-20 h-20 mx-auto mb-4 flex items-center justify-center">
@@ -506,66 +683,76 @@ const TranscriptionsPage = () => {
                     <div className="text-gray-500 font-medium">Aucune session trouvée avec les filtres actuels</div>
                   </div>
                 ) : (
-                  <div className="p-4 space-y-3">
-                    <div className="grid grid-cols-12 gap-4 px-4 py-3 bg-gradient-to-r from-gray-50 to-slate-50 rounded-xl text-xs font-semibold text-gray-600 uppercase tracking-wide border border-gray-100">
-                      <div className="col-span-2">Date & Heure</div>
-                      <div className="col-span-3">Immeuble</div>
-                      <div className="col-span-1">Durée</div>
-                      <div className="col-span-2">Porte</div>
-                      <div className="col-span-4">Transcription</div>
+                  <div className="flex flex-col h-full">
+                    <div className="flex-shrink-0 p-4 pb-2">
+                      <div className="grid grid-cols-12 gap-4 px-4 py-3 bg-gradient-to-r from-gray-50 to-slate-50 rounded-xl text-xs font-semibold text-gray-600 uppercase tracking-wide border border-gray-100">
+                        <div className="col-span-2">Date & Heure</div>
+                        <div className="col-span-3">Immeuble</div>
+                        <div className="col-span-1">Durée</div>
+                        <div className="col-span-2">Porte</div>
+                        <div className="col-span-4">Transcription</div>
+                      </div>
                     </div>
 
-                                         <ScrollArea className="h-[40vh] lg:h-[50vh]">
-                      <div className="space-y-2">
-                        {sessions.map(session => (
-                          <div
-                            key={session.id}
-                            className="grid grid-cols-12 gap-4 px-4 py-4 hover:bg-gradient-to-r hover:from-blue-50 hover:to-indigo-50 rounded-xl cursor-pointer transition-all duration-300 group border border-transparent hover:border-blue-200 hover:shadow-md"
-                            onClick={() => setOpenSession(session)}
-                          >
-                            <div className="col-span-2 flex items-center gap-2 min-w-0">
-                              <div className="p-1.5 bg-blue-100 rounded-lg">
-                                <Clock className="h-3 w-3 text-blue-600 flex-shrink-0" />
-                              </div>
-                              <div className="min-w-0 flex-1">
-                                <div className="text-xs font-semibold text-gray-900 truncate">
-                                  {formatDate(session.start_time)}
+                    <div className="flex-1 min-h-0 px-4 pb-4">
+                      <ScrollArea className="h-full custom-scroll-area">
+                        <div className="space-y-2 pr-4">
+                          {sessions.map(session => {
+                            const displayTranscript = autoCorrectionsEnabled
+                              ? correctTextChunk(session.full_transcript || '')
+                              : (session.full_transcript || '');
+
+                            return (
+                              <div
+                                key={session.id}
+                                className="grid grid-cols-12 gap-4 px-4 py-4 hover:bg-gradient-to-r hover:from-blue-50 hover:to-indigo-50 rounded-xl cursor-pointer transition-all duration-300 group border border-transparent hover:border-blue-200 hover:shadow-md"
+                                onClick={() => setOpenSession(session)}
+                              >
+                                <div className="col-span-2 flex items-center gap-2 min-w-0">
+                                  <div className="p-1.5 bg-blue-100 rounded-lg">
+                                    <Clock className="h-3 w-3 text-blue-600 flex-shrink-0" />
+                                  </div>
+                                  <div className="min-w-0 flex-1">
+                                    <div className="text-xs font-semibold text-gray-900 truncate">
+                                      {formatDate(session.start_time)}
+                                    </div>
+                                  </div>
+                                </div>
+
+                                <div className="col-span-3 flex items-center min-w-0">
+                                  <div className="min-w-0 flex-1">
+                                    <div
+                                      className="text-sm text-gray-700 truncate font-medium"
+                                      title={session.building_name || 'Non défini'}
+                                    >
+                                      {session.building_name || 'Non défini'}
+                                    </div>
+                                  </div>
+                                </div>
+
+                                <div className="col-span-1 flex items-center">
+                                  <Badge variant="secondary" className="text-xs bg-purple-100 text-purple-800">
+                                    {formatDuration(session.duration_seconds)}
+                                  </Badge>
+                                </div>
+
+                                <div className="col-span-2 flex items-center min-w-0">
+                                  <span className="text-sm text-gray-600 truncate font-medium" title={session.last_door_label || 'Non définie'}>
+                                    {session.last_door_label || 'Non définie'}
+                                  </span>
+                                </div>
+
+                                <div className="col-span-4 flex items-center min-w-0">
+                                  <p className="text-sm text-gray-700 line-clamp-2 group-hover:text-gray-900 transition-colors">
+                                    {displayTranscript || 'Aucune transcription'}
+                                  </p>
                                 </div>
                               </div>
-                            </div>
-
-                            <div className="col-span-3 flex items-center min-w-0">
-                              <div className="min-w-0 flex-1">
-                                <div
-                                  className="text-sm text-gray-700 truncate font-medium"
-                                  title={session.building_name || 'Non défini'}
-                                >
-                                  {session.building_name || 'Non défini'}
-                                </div>
-                              </div>
-                            </div>
-
-                            <div className="col-span-1 flex items-center">
-                              <Badge variant="secondary" className="text-xs bg-purple-100 text-purple-800">
-                                {formatDuration(session.duration_seconds)}
-                              </Badge>
-                            </div>
-
-                            <div className="col-span-2 flex items-center min-w-0">
-                              <span className="text-sm text-gray-600 truncate font-medium" title={session.last_door_label || 'Non définie'}>
-                                {session.last_door_label || 'Non définie'}
-                              </span>
-                            </div>
-
-                            <div className="col-span-4 flex items-center min-w-0">
-                              <p className="text-sm text-gray-700 line-clamp-2 group-hover:text-gray-900 transition-colors">
-                                {session.full_transcript || 'Aucune transcription'}
-                              </p>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    </ScrollArea>
+                            );
+                          })}
+                        </div>
+                      </ScrollArea>
+                    </div>
                   </div>
                 )}
               </CardContent>
@@ -574,7 +761,7 @@ const TranscriptionsPage = () => {
         </div>
       </div>
 
-      {/* Modal détails améliorée */}
+      {/* Modal détails */}
       <Modal
         isOpen={!!openSession}
         onClose={() => setOpenSession(null)}
@@ -652,7 +839,7 @@ const TranscriptionsPage = () => {
               <Button
                 size="sm"
                 variant="outline"
-                onClick={() => copyText(openSession.full_transcript)}
+                onClick={() => copyText(correctTextChunk(openSession.full_transcript || ''))}
                 className="gap-2 bg-blue-50 border-blue-200 text-blue-700 hover:bg-blue-100 transition-colors"
               >
                 <Copy className="h-4 w-4" />
@@ -664,7 +851,7 @@ const TranscriptionsPage = () => {
                 onClick={() =>
                   downloadText(
                     `transcription_${openSession.commercial_name || openSession.commercial_id}_${new Date(openSession.start_time).toISOString().split('T')[0]}.txt`,
-                    openSession.full_transcript
+                    correctTextChunk(openSession.full_transcript || '')
                   )
                 }
                 className="gap-2 bg-green-50 border-green-200 text-green-700 hover:bg-green-100 transition-colors"
@@ -681,7 +868,9 @@ const TranscriptionsPage = () => {
               </h4>
               <div className="max-h-[60vh] overflow-y-auto border border-gray-200 rounded-xl bg-white shadow-inner">
                 <pre className="whitespace-pre-wrap text-sm p-6 leading-relaxed text-gray-700 font-mono">
-                  {openSession.full_transcript || 'Aucune transcription disponible'}
+                  {autoCorrectionsEnabled
+                    ? correctTextChunk(openSession.full_transcript || 'Aucune transcription disponible')
+                    : (openSession.full_transcript || 'Aucune transcription disponible')}
                 </pre>
               </div>
             </div>

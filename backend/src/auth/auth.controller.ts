@@ -228,7 +228,7 @@ export class AuthController {
       const keycloakUser = await this.keycloakService.getUserByEmail(email);
       if (!keycloakUser) {
         throw new HttpException('User not found', HttpStatus.NOT_FOUND);
-      }
+      } 
       
       // Get user roles
       const roles = await this.keycloakService.getUserRoles(keycloakUser.id);
@@ -260,6 +260,7 @@ export class AuthController {
           role: primaryRole,
         },
       };
+
     } catch (error) {
       this.logger.error(`Login failed for ${email}`, error);
       
@@ -275,14 +276,12 @@ export class AuthController {
   }
 
   private determinePrimaryRole(roles: string[]): 'admin' | 'manager' | 'commercial' | 'directeur' | 'backoffice' {
-    // Priority order: admin > directeur > manager > backoffice > commercial
     if (roles.includes('admin')) return 'admin';
     if (roles.includes('directeur')) return 'directeur';
     if (roles.includes('manager')) return 'manager';
     if (roles.includes('backoffice')) return 'backoffice';
     if (roles.includes('commercial')) return 'commercial';
     
-    // Default to admin if no recognized role found
     return 'admin';
   }
 
