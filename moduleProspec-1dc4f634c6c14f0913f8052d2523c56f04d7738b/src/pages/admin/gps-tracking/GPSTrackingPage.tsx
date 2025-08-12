@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '../../../components/ui
 import { Badge } from '../../../components/ui-admin/badge';
 import { Button } from '../../../components/ui-admin/button';
 import { Avatar, AvatarFallback } from '../../../components/ui-admin/avatar';
-import { MapPin, Activity, User, WifiOff, Signal, Search, X } from 'lucide-react';
+import { MapPin, Activity, User, WifiOff, Signal, Search, X, RefreshCw, Target } from 'lucide-react';
 import { commercialService } from '../../../services/commercial.service';
 import { useSocket } from '../../../hooks/useSocket';
 import { useNavigate } from 'react-router-dom';
@@ -111,6 +111,47 @@ const RefreshControl = React.memo(({ onClick, position }: { onClick: () => void,
         button.style.fontFamily = 'sans-serif';
         button.style.fontWeight = 'bold';
         button.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M3 21v-5h5"/></svg>';
+        button.onclick = onClick;
+
+        this._container.appendChild(button);
+        return this._container;
+      }
+
+      onRemove() {
+        this._container.parentNode?.removeChild(this._container);
+        this._map = undefined;
+      }
+    }
+    return new CustomControl();
+  }, { position });
+
+  return null;
+});
+
+// Composant FocusControl pour le bouton focus
+const FocusControl = React.memo(({ onClick, position }: { onClick: () => void, position: 'top-left' | 'top-right' | 'bottom-left' | 'bottom-right' }) => {
+  useControl(() => {
+    class CustomControl {
+      _map: any;
+      _container!: HTMLDivElement;
+
+      onAdd(map: any) {
+        this._map = map;
+        this._container = document.createElement('div');
+        this._container.className = 'mapboxgl-ctrl mapboxgl-ctrl-group';
+
+        const button = document.createElement('button');
+        button.className = 'mapboxgl-ctrl-icon';
+        button.type = 'button';
+        button.title = 'Centrer sur commerciaux en ligne';
+        button.style.width = '29px';
+        button.style.height = '29px';
+        button.style.display = 'flex';
+        button.style.alignItems = 'center';
+        button.style.justifyContent = 'center';
+        button.style.fontFamily = 'sans-serif';
+        button.style.fontWeight = 'bold';
+        button.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg>';
         button.onclick = onClick;
 
         this._container.appendChild(button);
@@ -486,6 +527,8 @@ const GPSTrackingPage: React.FC = () => {
     }
   }, [show3D]);
 
+
+
   const refreshGPSState = () => {
     if (socket) {
       console.log('Rafraîchissement manuel de l\'état GPS');
@@ -503,6 +546,28 @@ const GPSTrackingPage: React.FC = () => {
 
   const onlineCommerciaux = filteredCommerciaux.filter(c => c.isOnline);
   const offlineCommerciaux = filteredCommerciaux.filter(c => !c.isOnline);
+
+  // Focus automatique sur les commerciaux en ligne quand ils se connectent
+  useEffect(() => {
+    if (onlineCommerciaux.length > 0 && !selectedCommercial) {
+      // Délai pour laisser le temps aux données de se charger
+      const timeoutId = setTimeout(() => {
+        centerOnOnlineCommerciaux();
+      }, 1000);
+      
+      return () => clearTimeout(timeoutId);
+    }
+  }, [onlineCommerciaux.length, selectedCommercial]);
+
+  // Fermer le popup si le commercial sélectionné se déconnecte
+  useEffect(() => {
+    if (selectedCommercial) {
+      const isStillOnline = onlineCommerciaux.some(c => c.id === selectedCommercial.id);
+      if (!isStillOnline) {
+        setSelectedCommercial(null);
+      }
+    }
+  }, [onlineCommerciaux, selectedCommercial]);
 
   if (loading) {
     return (
@@ -546,6 +611,7 @@ const GPSTrackingPage: React.FC = () => {
           <FullscreenControl position="top-right" />
           <ThreeDControl position="top-right" onClick={() => setShow3D(s => !s)} />
           <RefreshControl position="top-right" onClick={refreshGPSState} />
+          <FocusControl position="top-right" onClick={centerOnOnlineCommerciaux} />
 
           <ScaleControl position="bottom-right" />
 
@@ -593,7 +659,7 @@ const GPSTrackingPage: React.FC = () => {
           )}
 
           {/* Marqueurs des commerciaux avec pins 3D uniformes */}
-          {commerciaux.map((commercial) => {
+          {commerciaux.filter(commercial => commercial.isOnline).map((commercial) => {
             if (!commercial.location) return null;
             
             return (
@@ -637,6 +703,8 @@ const GPSTrackingPage: React.FC = () => {
             );
           })}
         </Map>
+
+
 
 
 
