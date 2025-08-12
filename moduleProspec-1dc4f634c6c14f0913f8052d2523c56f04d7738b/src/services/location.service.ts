@@ -144,18 +144,18 @@ class LocationService {
           this.sendLocationUpdate(locationData);
         },
         (error) => {
-          console.error('❌ Erreur de géolocalisation:', error.message);
+          console.error('Erreur de géolocalisation:', error.message);
           this.handleLocationError(error);
         },
         {
-          enableHighAccuracy: false, // Moins précis mais plus rapide
-          timeout: 60000, // 60 secondes pour watchPosition
-          maximumAge: 30000, // Cache de 30 secondes (plus fréquent)
+          enableHighAccuracy: true, // Haute précision pour éviter POSITION_UNAVAILABLE
+          timeout: 90000, // 90 secondes pour watchPosition
+          maximumAge: 60000, // Cache de 60 secondes
         }
       );
 
       this.isTracking = true;
-      console.log('📍 Suivi GPS démarré pour commercial:', commercialId);
+      console.log('Suivi GPS démarré pour commercial:', commercialId);
       
       // Démarrer le heartbeat pour maintenir la connexion
       this.startHeartbeat();
@@ -163,7 +163,7 @@ class LocationService {
       return true;
 
     } catch (error) {
-      console.error('❌ Impossible d\'obtenir la position:', error);
+      console.error('Impossible d\'obtenir la position:', error);
       return false;
     }
   }
@@ -193,36 +193,50 @@ class LocationService {
         resolve,
         reject,
         {
-          enableHighAccuracy: false, // Moins précis mais plus rapide sur mobile
-          timeout: 45000, // 45 secondes
-          maximumAge: 600000, // Cache de 10 minutes pour la première position
+          enableHighAccuracy: true, // Précision élevée pour éviter POSITION_UNAVAILABLE
+          timeout: 60000, // 60 secondes - plus long timeout
+          maximumAge: 60000, // Cache de 1 minute seulement
         }
       );
     });
   }
 
-  private async getCurrentPositionWithRetry(maxRetries = 3): Promise<GeolocationPosition> {
+  private async getCurrentPositionWithRetry(maxRetries = 5): Promise<GeolocationPosition> {
     for (let i = 0; i < maxRetries; i++) {
       try {
         console.log(`📍 Tentative GPS ${i + 1}/${maxRetries}...`);
         
-        // Configuration adaptée aux mobiles
+        // Configuration progressive : d'abord haute précision, puis dégradée
         const options = {
-          enableHighAccuracy: false, // Toujours false pour éviter les problèmes de permission
-          timeout: 30000, // 30 secondes
-          maximumAge: 300000, // 5 minutes de cache
+          enableHighAccuracy: i < 2, // Haute précision pour les 2 premières tentatives
+          timeout: 45000 + (i * 15000), // Timeout croissant: 45s, 60s, 75s...
+          maximumAge: i === 0 ? 0 : 300000, // Pas de cache pour la première tentative
         };
+        
+        console.log(`Configuration tentative ${i + 1}:`, options);
         
         return await new Promise<GeolocationPosition>((resolve, reject) => {
           navigator.geolocation.getCurrentPosition(resolve, reject, options);
         });
       } catch (error) {
-        console.log(`❌ Tentative ${i + 1} échouée:`, error);
+        console.log(`Tentative ${i + 1} échouée:`, error);
+        
+        // Analyser le type d'erreur
+        if (error instanceof GeolocationPositionError) {
+          if (error.code === error.PERMISSION_DENIED) {
+            // Permission refusée, pas la peine de réessayer
+            throw error;
+          }
+        }
+        
         if (i === maxRetries - 1) {
           throw error; // Dernière tentative, on lance l'erreur
         }
-        // Attendre avant de réessayer
-        await new Promise(resolve => setTimeout(resolve, 1000));
+        
+        // Attendre progressivement plus longtemps entre les tentatives
+        const delay = 2000 + (i * 1000); // 2s, 3s, 4s, 5s
+        console.log(`⏱️ Attente ${delay}ms avant la prochaine tentative...`);
+        await new Promise(resolve => setTimeout(resolve, delay));
       }
     }
     throw new Error('Toutes les tentatives ont échoué');
@@ -273,6 +287,7 @@ class LocationService {
 
   private handleLocationError(error: GeolocationPositionError) {
     let message = '';
+    let shouldRetry = false;
     
     switch (error.code) {
       case error.PERMISSION_DENIED:
@@ -280,17 +295,45 @@ class LocationService {
         this.showLocationInstructions();
         break;
       case error.POSITION_UNAVAILABLE:
-        message = 'Position non disponible';
+        message = 'Position non disponible - Vérifiez que le GPS est activé et que vous êtes à l\'extérieur';
+        shouldRetry = true;
         break;
       case error.TIMEOUT:
-        message = 'Timeout de géolocalisation';
+        message = 'Timeout de géolocalisation - Tentative de reconnexion...';
+        shouldRetry = true;
         break;
       default:
         message = 'Erreur de géolocalisation inconnue';
         break;
     }
 
-    console.error('❌ Erreur GPS:', message);
+    console.error('Erreur GPS:', message, error);
+    
+    // Tentative de récupération automatique pour certaines erreurs
+    if (shouldRetry && this.isTracking) {
+      console.log('🔄 Tentative de récupération GPS dans 10 secondes...');
+      setTimeout(() => {
+        if (this.isTracking && this.commercialId) {
+          console.log('🔄 Redémarrage du suivi GPS...');
+          // Redémarrer le tracking
+          this.getCurrentPositionWithRetry()
+            .then(position => {
+              console.log('✅ GPS récupéré avec succès');
+              this.sendLocationUpdate({
+                latitude: position.coords.latitude,
+                longitude: position.coords.longitude,
+                accuracy: position.coords.accuracy,
+                timestamp: position.timestamp,
+                speed: position.coords.speed || undefined,
+                heading: position.coords.heading || undefined,
+              });
+            })
+            .catch(retryError => {
+              console.error('Impossible de récupérer le GPS:', retryError);
+            });
+        }
+      }, 10000);
+    }
     
     // Notifier l'admin que le commercial a un problème GPS
     if (this.socket && this.commercialId) {
@@ -298,6 +341,7 @@ class LocationService {
         commercialId: this.commercialId,
         error: message,
         timestamp: new Date().toISOString(),
+        shouldRetry,
       });
     }
   }
@@ -335,7 +379,7 @@ class LocationService {
     
     if (isIOS) {
       instructions = `
-📱 INSTRUCTIONS POUR iOS:
+INSTRUCTIONS POUR iOS:
 1. Ouvrez Réglages > Confidentialité et sécurité > Service de localisation
 2. Activez "Service de localisation"
 3. Trouvez Safari dans la liste et sélectionnez "Lors de l'utilisation de l'app"
@@ -343,7 +387,7 @@ class LocationService {
       `.trim();
     } else if (isAndroid) {
       instructions = `
-📱 INSTRUCTIONS POUR ANDROID:
+INSTRUCTIONS POUR ANDROID:
 1. Ouvrez Paramètres > Applications > Chrome (ou votre navigateur)
 2. Appuyez sur "Autorisations"
 3. Activez "Position"
@@ -351,7 +395,7 @@ class LocationService {
       `.trim();
     } else {
       instructions = `
-💻 INSTRUCTIONS:
+INSTRUCTIONS:
 1. Cliquez sur l'icône de localisation dans la barre d'adresse
 2. Sélectionnez "Toujours autoriser" ou "Autoriser"
 3. Rechargez la page si nécessaire
