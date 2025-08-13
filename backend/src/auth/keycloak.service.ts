@@ -113,6 +113,7 @@ export class KeycloakService {
       client_secret: this.cfg('KEYCLOAK_CLIENT_SECRET'),
       username: email,
       password,
+      scope: 'openid email profile roles',
     });
     
     try {
@@ -123,7 +124,7 @@ export class KeycloakService {
           headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
         }
       );
-      return data; // { access_token, refresh_token, ... }
+      return data;  
     } catch (error) {
       this.logger.error(`Login failed for ${email}`, error);
       throw new HttpException('Invalid credentials', 401);
@@ -146,6 +147,17 @@ export class KeycloakService {
       return data.map((role: any) => role.name);
     } catch (error) {
       this.logger.error(`Failed to get roles for user ${userId}`, error);
+      return [];
+    }
+  }
+
+  async getUserGroups(userId: string): Promise<string[]> {
+    try {
+      const { data } = await this.kc.get(`/users/${userId}/groups`, { headers: await this.hdr() });
+      // data is array of groups with fields like id, name, path
+      return Array.isArray(data) ? data.map((g: any) => g?.name).filter(Boolean) : [];
+    } catch (error) {
+      this.logger.error(`Failed to get groups for user ${userId}`, error);
       return [];
     }
   }

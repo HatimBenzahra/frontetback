@@ -51,12 +51,15 @@ const Login = () => {
         localStorage.setItem('refresh_token', response.refresh_token);
       }
       
-      // Store user info
-      authService.storeUser(response.user);
+      // Store user info (prefer localId for commercial calls when present)
+      authService.storeUser({
+        ...response.user,
+        id: response.user.localId || response.user.id,
+      });
 
       // Update auth context
       login({
-        id: response.user.id,
+        id: response.user.localId || response.user.id,
         name: `${response.user.firstName} ${response.user.lastName}`,
         email: response.user.email,
         role: response.user.role, // Now using the real role from backend
@@ -68,6 +71,8 @@ const Login = () => {
       console.error('Login error:', err);
       if (err.response?.status === 401) {
         setError('Email ou mot de passe incorrect');
+      } else if (err.response?.status === 403) {
+        setError("Votre compte n'a pas les autorisations nécessaires pour accéder à cette application.");
       } else if (err.response?.data?.message) {
         setError(err.response.data.message);
       } else {

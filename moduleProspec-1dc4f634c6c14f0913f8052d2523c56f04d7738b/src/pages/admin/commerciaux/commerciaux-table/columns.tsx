@@ -3,7 +3,7 @@
 
 import type { ColumnDef } from "@tanstack/react-table"
 import { Link } from "react-router-dom"
-import { ArrowUpDown, Mail, Eye, Edit } from "lucide-react"
+import { ArrowUpDown, Mail, Eye, Edit, UserPlus } from "lucide-react"
 import { Button } from "@/components/ui-admin/button"
 import { Badge } from "@/components/ui-admin/badge"
 import { Checkbox } from "@/components/ui-admin/checkbox"
@@ -24,7 +24,12 @@ const SortableHeader = ({ title, column }: { title: string, column: any }) => (
   </Button>
 )
 
-export const createColumns = (isDeleteMode: boolean, onEdit: (commercial: Commercial) => void, managerIdForBack?: string): ColumnDef<Commercial>[] => {
+export const createColumns = (
+  isDeleteMode: boolean,
+  onEdit: (commercial: Commercial) => void,
+  managerIdForBack?: string,
+  onAssign?: (commercial: Commercial) => void,
+): ColumnDef<Commercial>[] => {
   const columns: ColumnDef<Commercial>[] = [
     // --- Colonne de sélection ---
     ...(isDeleteMode ? [{
@@ -73,22 +78,41 @@ export const createColumns = (isDeleteMode: boolean, onEdit: (commercial: Commer
       accessorKey: "manager",
       header: () => <Header title="Manager" />,
       cell: ({ row }) => {
-        const managerName = row.original.manager;
+        const managerName = row.original.manager || "Non assigné";
         const managerId = row.original.managerId;
+        if (!managerId) {
+          return <span className="text-slate-500">Non assigné</span>;
+        }
         return (
-            <Link 
-                to={`/admin/managers/${managerId}`} 
-                className="hover:underline hover:text-primary transition-colors"
-                onClick={(e) => e.stopPropagation()}
-            >
-                {managerName}
-            </Link>
+          <Link
+            to={`/admin/managers/${managerId}`}
+            className="hover:underline hover:text-primary transition-colors"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {managerName}
+          </Link>
         )
       },
     },
     {
       accessorKey: "equipe",
       header: () => <Header title="Équipe" />,
+      cell: ({ row }) => {
+        const equipeLabel = row.original.equipe || "Non assignée";
+        return <span className={equipeLabel === "Non assignée" ? "text-slate-500" : ""}>{equipeLabel}</span>;
+      }
+    },
+    {
+      accessorKey: "isAssigned",
+      header: () => <Header title="Statut" />,
+      cell: ({ row }) => {
+        const assigned = Boolean(row.original.isAssigned && row.original.managerId && row.original.equipeId);
+        return assigned ? (
+          <Badge variant="outline" className="bg-emerald-50 text-emerald-700 border-emerald-200">Assigné</Badge>
+        ) : (
+          <Badge variant="outline" className="bg-amber-50 text-amber-700 border-amber-200">Non assigné</Badge>
+        );
+      },
     },
     {
       accessorKey: "classement",
@@ -119,6 +143,21 @@ export const createColumns = (isDeleteMode: boolean, onEdit: (commercial: Commer
                 // CORRECTION: Utilisation d'un TooltipProvider et ajout d'espace
                 <TooltipProvider delayDuration={100}>
                     <div className="text-right space-x-2">
+                        {!commercial.isAssigned && onAssign && (
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <Button
+                                variant="ghost"
+                                className="h-8 w-8 p-0"
+                                onClick={(e) => { e.stopPropagation(); onAssign(commercial); }}
+                              >
+                                <UserPlus className="h-4 w-4 text-emerald-600" />
+                                <span className="sr-only">Assigner</span>
+                              </Button>
+                            </TooltipTrigger>
+                            <TooltipContent><p>Assigner</p></TooltipContent>
+                          </Tooltip>
+                        )}
                         <Tooltip>
                             <TooltipTrigger asChild>
                                 <Button asChild variant="ghost" className="h-8 w-8 p-0">

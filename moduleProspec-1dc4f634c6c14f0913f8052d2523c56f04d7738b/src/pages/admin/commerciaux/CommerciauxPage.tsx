@@ -75,17 +75,15 @@ const CommerciauxPage = () => {
         );
 
         // Enrichir + calculer totalContratsSignes une seule fois
-        const enriched: EnrichedCommercial[] = commerciauxFromApi.map((comm) => {
+         const enriched: EnrichedCommercial[] = commerciauxFromApi.map((comm: any) => {
           const totalContratsSignes = comm.historiques.reduce(
             (sum: number, h: any) => sum + h.nbContratsSignes,
             0
           );
           return {
             ...comm,
-            manager: managersMap.get(comm.managerId) || "N/A",
-            equipe: comm.equipeId
-              ? equipesMap.get(comm.equipeId) || "Non assignée"
-              : "Non assignée",
+               manager: comm.managerId ? managersMap.get(comm.managerId) || "N/A" : "Non assigné",
+               equipe: comm.equipeId ? (equipesMap.get(comm.equipeId) || "Non assignée") : "Non assignée",
             classement: 0,
             totalContratsSignes,
           };
@@ -112,7 +110,7 @@ const CommerciauxPage = () => {
 
   /* ---------------------- Columns ---------------------- */
   const columns = useMemo(
-    () => createColumns(isDeleteMode, (c) => handleEditOpen(c)),
+    () => createColumns(isDeleteMode, (c) => handleEditOpen(c), undefined, (c) => handleOpenAssignModal(c)),
     [isDeleteMode]
   );
 
@@ -248,6 +246,45 @@ const CommerciauxPage = () => {
     setTeamsOfSelectedManagerInEdit(selectedManager?.equipes || []);
     setIsEditModalOpen(true);
   }, [managers]);
+
+  /* ---------------------- Assign Modal ---------------------- */
+  const [isAssignModalOpen, setIsAssignModalOpen] = useState(false);
+  const [assignTarget, setAssignTarget] = useState<Commercial | null>(null);
+  const [assignManagerId, setAssignManagerId] = useState<string>("");
+  const [assignEquipeId, setAssignEquipeId] = useState<string>("");
+  const [assignTeams, setAssignTeams] = useState<TeamLite[]>([]);
+
+  const handleOpenAssignModal = (commercial: Commercial) => {
+    setAssignTarget(commercial);
+    setAssignManagerId("");
+    setAssignEquipeId("");
+    setAssignTeams([]);
+    setIsAssignModalOpen(true);
+  };
+
+  const handleSelectAssignManager = (managerId: string) => {
+    setAssignManagerId(managerId);
+    const selected = managers.find((m) => m.id === managerId);
+    setAssignTeams(selected?.equipes || []);
+    setAssignEquipeId("");
+  };
+
+  const handleConfirmAssign = async () => {
+    if (!assignTarget) return;
+    try {
+      await commercialService.updateCommercial(assignTarget.id, {
+        managerId: assignManagerId || undefined,
+        equipeId: assignEquipeId || undefined,
+      });
+      setIsAssignModalOpen(false);
+      setAssignTarget(null);
+      fetchDataWrapper();
+      toast.success("Commercial assigné avec succès");
+    } catch (e) {
+      console.error(e);
+      toast.error("Échec de l'assignation");
+    }
+  };
 
   const handleEditInputChange = useCallback(
     (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -602,6 +639,51 @@ const CommerciauxPage = () => {
           >
             Enregistrer les modifications
           </Button>
+        </div>
+      </Modal>
+
+      {/* Modal assignment rapide */}
+      <Modal
+        isOpen={isAssignModalOpen}
+        onClose={() => setIsAssignModalOpen(false)}
+        title="Assigner le commercial"
+        maxWidth="max-w-xl"
+        overlayClassName="backdrop-blur-sm bg-black/10"
+      >
+        <div className="space-y-4">
+          <div className="text-sm text-muted-foreground">
+            Sélectionnez un manager et une équipe (optionnel) à associer à ce commercial.
+          </div>
+          <div className="space-y-1">
+            <Label htmlFor="assign-manager">Manager</Label>
+            <Select onValueChange={handleSelectAssignManager} value={assignManagerId}>
+              <SelectTrigger id="assign-manager">
+                <SelectValue placeholder="Sélectionner un manager" />
+              </SelectTrigger>
+              <SelectContent>
+                {managers.map((m) => (
+                  <SelectItem key={m.id} value={m.id}>{m.prenom} {m.nom}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="space-y-1">
+            <Label htmlFor="assign-equipe">Équipe (optionnel)</Label>
+            <Select onValueChange={setAssignEquipeId} value={assignEquipeId} disabled={!assignManagerId}>
+              <SelectTrigger id="assign-equipe">
+                <SelectValue placeholder="Sélectionner une équipe" />
+              </SelectTrigger>
+              <SelectContent>
+                {assignTeams.map((e) => (
+                  <SelectItem key={e.id} value={e.id}>{e.nom}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="flex justify-end gap-2 pt-2">
+            <Button variant="outline" onClick={() => setIsAssignModalOpen(false)}>Annuler</Button>
+            <Button className="bg-green-600 text-white hover:bg-green-700" onClick={handleConfirmAssign} disabled={!assignManagerId}>Assigner</Button>
+          </div>
         </div>
       </Modal>
     </>

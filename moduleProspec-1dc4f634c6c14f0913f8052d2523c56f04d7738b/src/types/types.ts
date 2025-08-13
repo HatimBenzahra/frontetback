@@ -5,7 +5,8 @@ export interface Commercial {
   email: string;
   telephone: string | null;
   equipeId?: string;
-  managerId: string;
+  managerId?: string;
+  isAssigned?: boolean;
   currentMonthlyGoal?: number; // Ajouté pour correspondre au schéma Prisma
   historiques: { nbContratsSignes: number }[]; // Ajouté pour correspondre à l'API
   manager?: string;

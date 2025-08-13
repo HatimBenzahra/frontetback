@@ -1,4 +1,5 @@
 import { Body, Controller, Post, Query, BadRequestException, NotFoundException, Logger, HttpException, HttpStatus } from '@nestjs/common';
+import * as jwt from 'jsonwebtoken';
 import { KeycloakService } from './keycloak.service';
 import { JwtUtil } from './jwt.util';
 import { MailerService } from './mailer.service';
@@ -223,25 +224,90 @@ export class AuthController {
 
     try {
       const tokenData = await this.keycloakService.login(email, password);
-      
-      // Get user info from Keycloak
-      const keycloakUser = await this.keycloakService.getUserByEmail(email);
-      if (!keycloakUser) {
-        throw new HttpException('User not found', HttpStatus.NOT_FOUND);
-      } 
-      
-      // Get user roles
-      const roles = await this.keycloakService.getUserRoles(keycloakUser.id);
-      const primaryRole = this.determinePrimaryRole(roles);
 
-      // Resolve local user ID depending on role
+      // Try to infer role and user info directly from the access token (avoid KC admin API when possible)
+      let primaryRole: 'admin' | 'manager' | 'commercial' | 'directeur' | 'backoffice' | null = null;
+      let tokenPayload: any = null;
+      try {
+        tokenPayload = jwt.decode(tokenData.access_token);
+        if (tokenPayload) {
+          primaryRole = this.determinePrimaryRoleFromToken(tokenPayload);
+        }
+      } catch {}
+
+      // Derive user info from token when possible
+      let keycloakUser: any = null;
+      if (tokenPayload) {
+        const tokenEmail = tokenPayload.email || email;
+        const firstName = tokenPayload.given_name || tokenPayload.givenName || tokenPayload.firstName || '';
+        const lastName = tokenPayload.family_name || tokenPayload.familyName || tokenPayload.lastName || '';
+        keycloakUser = {
+          id: tokenPayload.sub,
+          email: tokenEmail,
+          firstName,
+          lastName,
+        };
+      }
+
+      // If token missing critical info, fallback to Keycloak Admin API
+      if (!keycloakUser?.email) {
+        const kcUser = await this.keycloakService.getUserByEmail(email);
+        if (!kcUser) {
+          throw new HttpException('User not found', HttpStatus.NOT_FOUND);
+        }
+        keycloakUser = kcUser;
+      }
+
+      // Fallback to KC admin role mapping if token did not clearly provide a role
+      if (!primaryRole) {
+        const [roles, groups] = await Promise.all([
+          this.keycloakService.getUserRoles(keycloakUser.id),
+          this.keycloakService.getUserGroups(keycloakUser.id),
+        ]);
+        // Try mapping via groups names first as customers often use groups for app roles
+        if (Array.isArray(groups) && groups.length > 0) {
+          primaryRole = this.determinePrimaryRoleFromToken({ groups });
+        }
+        if (!primaryRole) {
+          primaryRole = this.determinePrimaryRole(roles);
+        }
+      }
+
+      if (!primaryRole) {
+        throw new HttpException('Rôle non autorisé pour cette application', HttpStatus.FORBIDDEN);
+      }
+
+      // Resolve or provision local user on first login
       let localId: string | null = null;
       if (primaryRole === 'commercial') {
-        const commercial = await this.commercialService.findByEmail(email);
-        localId = commercial?.id ?? null;
+        const existing = await this.commercialService.findByEmail(email);
+        if (existing) {
+          localId = existing.id;
+        } else {
+          // Create unassigned commercial on first login
+          const created = await this.commercialService.create({
+            id: tokenPayload?.sub,
+            nom: keycloakUser?.lastName || '',
+            prenom: keycloakUser?.firstName || '',
+            email,
+            isAssigned: false,
+          } as any);
+          localId = created.id;
+        }
       } else if (primaryRole === 'manager') {
-        const manager = await this.managerService.findByEmail(email);
-        localId = manager?.id ?? null;
+        const existing = await this.managerService.findByEmail(email);
+        if (existing) {
+          localId = existing.id;
+        } else {
+          // Create manager on first login (no équipe relation required here, a default équipe will be created by service if needed)
+          const created = await this.managerService.create({
+            id: tokenPayload?.sub,
+            nom: keycloakUser?.lastName || '',
+            prenom: keycloakUser?.firstName || '',
+            email,
+          } as any);
+          localId = created.id;
+        }
       }
       
       this.logger.log(`User logged in successfully: ${email} with role: ${primaryRole}`);
@@ -253,6 +319,7 @@ export class AuthController {
         expires_in: tokenData.expires_in,
         user: {
           id: localId || keycloakUser?.id,
+          localId: localId,
           keycloakId: keycloakUser?.id,
           email: keycloakUser?.email,
           firstName: keycloakUser?.firstName,
@@ -261,28 +328,61 @@ export class AuthController {
         },
       };
 
-    } catch (error) {
-      this.logger.error(`Login failed for ${email}`, error);
-      
-      if (error instanceof HttpException && error.getStatus() === 401) {
-        throw error;
+    } catch (error: any) {
+      this.logger.error(`Login failed for ${email}`, {
+        message: error?.message,
+        status: error?.response?.status || (error instanceof HttpException ? error.getStatus() : undefined),
+        data: error?.response?.data,
+      });
+
+      if (error instanceof HttpException) {
+        throw error; // preserve original status/message (401/403/404/...)
       }
-      
-      throw new HttpException(
-        'Login failed. Please check your credentials.',
-        HttpStatus.INTERNAL_SERVER_ERROR
-      );
+
+      const statusFromAxios = error?.response?.status;
+      if (statusFromAxios === 401) {
+        throw new HttpException('Invalid credentials', HttpStatus.UNAUTHORIZED);
+      }
+
+      throw new HttpException('Login failed due to an internal error', HttpStatus.INTERNAL_SERVER_ERROR);
     }
   }
 
-  private determinePrimaryRole(roles: string[]): 'admin' | 'manager' | 'commercial' | 'directeur' | 'backoffice' {
+  private determinePrimaryRoleFromToken(payload: any): 'admin' | 'manager' | 'commercial' | 'directeur' | 'backoffice' | null {
+    // Prefer group-based mapping like "Prospection-Commercial"
+    const groups: string[] = Array.isArray(payload?.groups) ? payload.groups : [];
+    const realmRoles: string[] = Array.isArray(payload?.realm_access?.roles) ? payload.realm_access.roles : [];
+
+    const groupToRoleMap: Record<string, 'admin' | 'manager' | 'commercial' | 'directeur' | 'backoffice'> = {
+      'Prospection-Admin': 'admin',
+      'Prospection-Manager': 'manager',
+      'Prospection-Directeur': 'directeur',
+      'Prospection-Backoffice': 'backoffice',
+      'Prospection-Commercial': 'commercial',
+    };
+
+    for (const g of groups) {
+      const mapped = groupToRoleMap[g];
+      if (mapped) return mapped;
+    }
+
+    // Fallback: realm roles directly carry our app roles
+    const roleOrder: Array<'admin' | 'directeur' | 'manager' | 'backoffice' | 'commercial'> = ['admin', 'directeur', 'manager', 'backoffice', 'commercial'];
+    for (const r of roleOrder) {
+      if (realmRoles.includes(r)) return r;
+    }
+
+    return null;
+  }
+
+  private determinePrimaryRole(roles: string[]): 'admin' | 'manager' | 'commercial' | 'directeur' | 'backoffice' | null {
     if (roles.includes('admin')) return 'admin';
     if (roles.includes('directeur')) return 'directeur';
     if (roles.includes('manager')) return 'manager';
     if (roles.includes('backoffice')) return 'backoffice';
     if (roles.includes('commercial')) return 'commercial';
-    
-    return 'admin';
+
+    return null;
   }
 
   @Post('resend-setup')

@@ -10,19 +10,21 @@ export class CommercialService {
   constructor(private prisma: PrismaService) {}
 
   create(createCommercialDto: CreateCommercialDto) {
-    const { equipeId, ...otherData } = createCommercialDto;
+    const { equipeId, managerId, id: forcedId, isAssigned, ...otherData } = createCommercialDto;
     return this.prisma.commercial.create({
       data: {
+        ...(forcedId ? { id: forcedId } : {}),
         ...otherData,
-        equipe: {
-          connect: { id: equipeId },
-        },
+        // Compute assignment at creation based on presence of both relations
+        isAssigned: Boolean(equipeId && managerId),
+        ...(equipeId ? { equipe: { connect: { id: equipeId } } } : {}),
+        ...(managerId ? { managerId } : {}),
       },
     });
   }
 
-  findAll() {
-    return this.prisma.commercial.findMany({
+  async findAll() {
+    const list = await this.prisma.commercial.findMany({
       include: {
         equipe: {
           include: {
@@ -32,13 +34,22 @@ export class CommercialService {
         historiques: true, // Include historiques to sum contracts
       },
     });
+    return list.map((c: any) => ({
+      ...c,
+      isAssigned: Boolean(c.managerId && c.equipeId),
+    }));
   }
 
-  findOne(id: string) {
-    return this.prisma.commercial.findUnique({
+  async findOne(id: string) {
+    const c = await this.prisma.commercial.findUnique({
       where: { id },
       include: { equipe: { include: { manager: true } } },
     });
+    if (!c) return c;
+    return {
+      ...c,
+      isAssigned: Boolean(c.managerId && c.equipeId),
+    } as any;
   }
 
   findByEmail(email: string) {
@@ -49,14 +60,29 @@ export class CommercialService {
   }
 
   async update(id: string, updateCommercialDto: UpdateCommercialDto) {
-    const { equipeId, ...otherData } = updateCommercialDto;
+    const { equipeId, managerId, ...otherData } = updateCommercialDto;
+
+    // Fetch current relations once to avoid null-deref and multiple calls
+    const existing = await this.prisma.commercial.findUnique({
+      where: { id },
+      select: { managerId: true, equipeId: true },
+    });
+
+    const shouldRecomputeAssignment =
+      typeof managerId !== 'undefined' || typeof equipeId !== 'undefined';
+    const effectiveManagerId = managerId ?? existing?.managerId ?? null;
+    const effectiveEquipeId = equipeId ?? existing?.equipeId ?? null;
+    const isAssignedUpdate = shouldRecomputeAssignment
+      ? { isAssigned: Boolean(effectiveManagerId && effectiveEquipeId) }
+      : {};
+
     const updatedCommercial = await this.prisma.commercial.update({
       where: { id },
       data: {
         ...otherData,
-        ...(equipeId && {
-          equipe: { connect: { id: equipeId } },
-        }),
+        ...(typeof managerId !== 'undefined' ? { managerId } : {}),
+        ...(equipeId ? { equipe: { connect: { id: equipeId } } } : {}),
+        ...isAssignedUpdate,
       },
     });
 

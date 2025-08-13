@@ -20,25 +20,35 @@ async function bootstrap() {
     const app = await NestFactory.create(AppModule, {
       httpsOptions,
       cors: {
-        origin: [
-          `https://${process.env.LOCALHOST_DEV}:${process.env.FRONTEND_PORT}`, 
-          `https://${process.env.LOCALHOST_IP}:${process.env.FRONTEND_PORT}`,
-          `https://${process.env.CLIENT_HOST}:${process.env.FRONTEND_PORT}`,
-          `http://${process.env.LOCALHOST_DEV}:${process.env.FRONTEND_PORT}`, 
-          `http://${process.env.LOCALHOST_IP}:${process.env.FRONTEND_PORT}`,
-          `http://${process.env.CLIENT_HOST}:${process.env.FRONTEND_PORT}`,
-          `https://${process.env.PRODUCTION_IP}`,
-          `http://${process.env.PRODUCTION_IP}`,
-          'http://192.168.120:5173',
-          'https://192.168.1.120:5173',
-          'http://192.168.1.120:3000',
-          'https://192.168.1.120:3000',
-          'https://13.39.149.200',
-          'http://13.39.149.200',
-
-        ],
+        origin: (origin: string | undefined, callback: (err: Error | null, allow?: boolean) => void) => {
+          // Allow requests with no origin (mobile apps, curl)
+          if (!origin) return callback(null, true);
+          const allowed = [
+            `https://${process.env.LOCALHOST_DEV}:${process.env.FRONTEND_PORT}`,
+            `https://${process.env.LOCALHOST_IP}:${process.env.FRONTEND_PORT}`,
+            `https://${process.env.CLIENT_HOST}:${process.env.FRONTEND_PORT}`,
+            `http://${process.env.LOCALHOST_DEV}:${process.env.FRONTEND_PORT}`,
+            `http://${process.env.LOCALHOST_IP}:${process.env.FRONTEND_PORT}`,
+            `http://${process.env.CLIENT_HOST}:${process.env.FRONTEND_PORT}`,
+            `https://${process.env.PRODUCTION_IP}`,
+            `http://${process.env.PRODUCTION_IP}`,
+            'http://192.168.120:5173',
+            'https://192.168.1.120:5173',
+            'http://192.168.1.120:3000',
+            'https://192.168.1.120:3000',
+            'https://13.39.149.200',
+            'http://13.39.149.200',
+          ];
+          if (allowed.includes(origin) || /^https?:\/\/192\.168\.[0-9]+\.[0-9]+(:\d+)?$/.test(origin)) {
+            return callback(null, true);
+          }
+          return callback(new Error('Not allowed by CORS'));
+        },
         methods: 'GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS',
         credentials: true,
+        allowedHeaders: ['Content-Type', 'Authorization', 'Accept'],
+        preflightContinue: false,
+        optionsSuccessStatus: 204,
       },
     });
 
@@ -60,25 +70,34 @@ async function bootstrap() {
     app.useGlobalPipes(new ValidationPipe());
 
     app.enableCors({
-      origin: [
-        `http://${process.env.LOCALHOST_DEV}:${process.env.FRONTEND_PORT}`, 
-        `http://${process.env.LOCALHOST_IP}:${process.env.FRONTEND_PORT}`,
-        `http://${process.env.CLIENT_HOST}:${process.env.FRONTEND_PORT}`,
-        `https://${process.env.LOCALHOST_DEV}:${process.env.FRONTEND_PORT}`, 
-        `https://${process.env.LOCALHOST_IP}:${process.env.FRONTEND_PORT}`,
-        `https://${process.env.CLIENT_HOST}:${process.env.FRONTEND_PORT}`,
-        `https://${process.env.PRODUCTION_IP}`,
-        `http://${process.env.PRODUCTION_IP}`,
-        'http://192.168.1.120:5173',
-        'https://192.168.1.120:5173',
-        'http://192.168.1.120:3000',
-        'https://192.168.1.120:3000',
-        'https://13.39.149.200',
-        'http://13.39.149.200',
-
-      ],
+      origin: (origin: string | undefined, callback: (err: Error | null, allow?: boolean) => void) => {
+        if (!origin) return callback(null, true);
+        const allowed = [
+          `http://${process.env.LOCALHOST_DEV}:${process.env.FRONTEND_PORT}`,
+          `http://${process.env.LOCALHOST_IP}:${process.env.FRONTEND_PORT}`,
+          `http://${process.env.CLIENT_HOST}:${process.env.FRONTEND_PORT}`,
+          `https://${process.env.LOCALHOST_DEV}:${process.env.FRONTEND_PORT}`,
+          `https://${process.env.LOCALHOST_IP}:${process.env.FRONTEND_PORT}`,
+          `https://${process.env.CLIENT_HOST}:${process.env.FRONTEND_PORT}`,
+          `https://${process.env.PRODUCTION_IP}`,
+          `http://${process.env.PRODUCTION_IP}`,
+          'http://192.168.1.120:5173',
+          'https://192.168.1.120:5173',
+          'http://192.168.1.120:3000',
+          'https://192.168.1.120:3000',
+          'https://13.39.149.200',
+          'http://13.39.149.200',
+        ];
+        if (allowed.includes(origin) || /^https?:\/\/192\.168\.[0-9]+\.[0-9]+(:\d+)?$/.test(origin)) {
+          return callback(null, true);
+        }
+        return callback(new Error('Not allowed by CORS'));
+      },
       methods: 'GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS',
       credentials: true,
+      allowedHeaders: ['Content-Type', 'Authorization', 'Accept'],
+      preflightContinue: false,
+      optionsSuccessStatus: 204,
     });
 
     const port = process.env.API_PORT ?? 3000;

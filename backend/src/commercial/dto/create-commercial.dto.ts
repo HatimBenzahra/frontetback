@@ -2,6 +2,10 @@ import { IsEmail, IsNotEmpty, IsOptional, IsString } from 'class-validator';
 
 export class CreateCommercialDto {
   @IsString()
+  @IsOptional()
+  id?: string;
+
+  @IsString()
   @IsNotEmpty()
   nom: string;
 
@@ -18,10 +22,13 @@ export class CreateCommercialDto {
   telephone?: string;
 
   @IsString()
-  @IsNotEmpty()
-  equipeId: string;
+  @IsOptional()
+  equipeId?: string;
 
   @IsString()
-  @IsNotEmpty()
-  managerId: string;
+  @IsOptional()
+  managerId?: string;
+
+  @IsOptional()
+  isAssigned?: boolean;
 }

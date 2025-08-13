@@ -37,10 +37,11 @@ model Commercial {
   prenom             String
   email              String                  @unique
   telephone          String?
-  equipeId           String
-  managerId          String
+  equipeId           String?
+  managerId          String?
+  isAssigned         Boolean                 @default(false)
   currentMonthlyGoal Int?
-  equipe             Equipe                  @relation(fields: [equipeId], references: [id])
+  equipe             Equipe?                 @relation(fields: [equipeId], references: [id])
   historiques        HistoriqueProspection[]
   zones              Zone[]                  @relation("CommercialZones")
   immeubles          Immeuble[]              @relation("ImmeubleProspectors")

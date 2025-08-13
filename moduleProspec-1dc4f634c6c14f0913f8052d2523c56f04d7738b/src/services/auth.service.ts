@@ -1,7 +1,7 @@
 import axios from 'axios';
 import { API_BASE_URL } from '../config';
 
-const authApi = axios.create({
+export const authApi = axios.create({
   baseURL: API_BASE_URL,
 });
 
@@ -12,6 +12,7 @@ export interface LoginResponse {
   expires_in: number;
   user: {
     id: string;
+    localId?: string;
     email: string;
     firstName: string;
     lastName: string;
