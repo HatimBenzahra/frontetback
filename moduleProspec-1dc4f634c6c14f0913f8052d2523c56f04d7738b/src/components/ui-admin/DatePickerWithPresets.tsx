@@ -1,5 +1,5 @@
 // src/components/ui/DatePickerWithPresets.tsx
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import {
   format,
   startOfWeek,
@@ -8,17 +8,13 @@ import {
   endOfMonth,
   startOfYear,
   endOfYear,
-  addDays,
   subDays,
-  isToday,
-  isSameDay,
-  isWithinInterval
+  isSameDay
 } from "date-fns";
 import { fr } from "date-fns/locale";
 import type { DateRange } from "react-day-picker";
 import { 
   Calendar as CalendarIcon, 
-  ChevronLeft, 
   ChevronRight,
   Clock,
   Sparkles,
