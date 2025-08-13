@@ -25,7 +25,14 @@ export function UserNav() {
     navigate('/login', { replace: true });
   };
 
-  const initials = (user.name || '').split(' ').map((n) => n[0]).join('').toUpperCase();
+  const displayName = user.name || user.email || 'Utilisateur';
+  const initials = displayName
+    .split(' ')
+    .filter(Boolean)
+    .map((n) => n[0])
+    .join('')
+    .slice(0, 2)
+    .toUpperCase();
 
   return (
     <DropdownMenu>
@@ -40,7 +47,7 @@ export function UserNav() {
       <DropdownMenuContent className="w-56" align="end" forceMount>
         <DropdownMenuLabel className="font-normal">
           <div className="flex flex-col space-y-1">
-            <p className="text-sm font-medium leading-none">{user.name}</p>
+            <p className="text-sm font-medium leading-none">{displayName}</p>
             <p className="text-xs leading-none text-muted-foreground">
               {user.email || `${user.role}@winvest.capital`}
             </p>

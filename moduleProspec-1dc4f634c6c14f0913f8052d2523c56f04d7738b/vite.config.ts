@@ -25,6 +25,14 @@ export default defineConfig(({ mode }) => {
       },
       host: env.VITE_SERVER_HOST,
       port: parseInt(env.VITE_FRONTEND_PORT || '5173'),
+      proxy: {
+        '/api': {
+          target: `https://${env.VITE_SERVER_HOST || 'localhost'}:${env.VITE_API_PORT || '3000'}`,
+          changeOrigin: true,
+          secure: false,
+          rewrite: (path) => path.replace(/^\/api/, ''),
+        },
+      },
     },
   }
 })

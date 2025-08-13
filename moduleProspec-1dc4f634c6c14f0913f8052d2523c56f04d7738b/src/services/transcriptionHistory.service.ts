@@ -115,6 +115,24 @@ class TranscriptionHistoryService {
       return false;
     }
   }
+
+  async getAllCommercials(): Promise<Array<{ id: string; name: string }>> {
+    try {
+      const response = await fetch(`${this.baseUrl}/api/transcription-history/commercials`, {
+        method: 'GET',
+        headers: { 'Content-Type': 'application/json' },
+      });
+      if (!response.ok) {
+        throw new Error(`Erreur HTTP: ${response.status}`);
+      }
+      const data = await response.json();
+      const list = (data.commercials || []).map((c: any) => ({ id: c.id, name: c.name }));
+      return list;
+    } catch (error) {
+      console.error('❌ Erreur récupération commerciaux (transcriptions):', error);
+      return [];
+    }
+  }
 }
 
 export const transcriptionHistoryService = new TranscriptionHistoryService(); 

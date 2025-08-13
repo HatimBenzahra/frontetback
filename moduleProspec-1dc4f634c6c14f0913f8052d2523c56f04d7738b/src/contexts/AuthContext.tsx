@@ -32,18 +32,30 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   useEffect(() => {
     const initializeAuth = () => {
       const token = authService.getToken();
-      const savedUser = authService.getUser();
-      
+      const savedUser: any = authService.getUser();
+
       if (token && savedUser) {
-        setUser(savedUser);
-        
+        // Normaliser la forme utilisateur (certains flux stockent firstName/lastName)
+        const normalized: User = {
+          id: savedUser.id,
+          name:
+            savedUser.name ||
+            [savedUser.firstName, savedUser.lastName].filter(Boolean).join(' ') ||
+            savedUser.email ||
+            'Utilisateur',
+          role: savedUser.role,
+          email: savedUser.email,
+        };
+
+        setUser(normalized);
+
         // Auto-logout après 15 minutes
         setTimeout(() => {
           console.log('Auto logout après 15 minutes');
           logout();
         }, 900000); // 15 minutes
       }
-      
+
       setIsLoading(false);
     };
 

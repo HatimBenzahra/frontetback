@@ -22,7 +22,14 @@ export function UserNavMenu({ isCollapsed }: UserNavMenuProps) {
     navigate('/login', { replace: true });
   };
 
-  const initials = user.name.split(' ').map((n) => n[0]).join('').toUpperCase();
+  const displayName = user.name || user.email || 'Utilisateur';
+  const initials = displayName
+    .split(' ')
+    .filter(Boolean)
+    .map((n) => n[0])
+    .join('')
+    .slice(0, 2)
+    .toUpperCase();
 
   return (
     <DropdownMenu>
@@ -38,7 +45,7 @@ export function UserNavMenu({ isCollapsed }: UserNavMenuProps) {
             <Avatar className="h-8 w-8"><AvatarFallback>{initials}</AvatarFallback></Avatar>
             {!isCollapsed && (
               <div className="flex flex-col items-start truncate text-left">
-                <span className="text-sm font-medium">{user.name}</span>
+                <span className="text-sm font-medium">{displayName}</span>
                 <span className="text-xs text-muted-foreground">{user.role}</span>
               </div>
             )}
@@ -50,7 +57,7 @@ export function UserNavMenu({ isCollapsed }: UserNavMenuProps) {
       <DropdownMenuContent className="w-56" align="end" forceMount>
         <DropdownMenuLabel className="font-normal">
           <div className="flex flex-col space-y-1">
-            <p className="text-sm font-medium leading-none">{user.name}</p>
+            <p className="text-sm font-medium leading-none">{displayName}</p>
             <p className="text-xs leading-none text-muted-foreground">
               {user.role}@winvest.capital
             </p>
