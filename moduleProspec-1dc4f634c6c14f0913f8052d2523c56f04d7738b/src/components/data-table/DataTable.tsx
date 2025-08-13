@@ -122,12 +122,12 @@ export function DataTable<TData extends { id: string }, TValue>({
       <Table>
         <TableHeader>
           {table.getHeaderGroups().map(headerGroup => (
-            <TableRow key={headerGroup.id} className="border-b-[#EFEDED] hover:bg-transparent">
+            <TableRow key={headerGroup.id} className="bg-[hsl(var(--winvest-blue-moyen))]/10 text-[hsl(var(--winvest-blue-moyen))]">
               {headerGroup.headers.map(header => (
                 <TableHead
                   key={header.id}
                   className={cn(
-                    "h-12 px-4 text-base font-semibold text-gray-600 bg-muted/50",
+                    "h-12 px-4 text-sm font-semibold uppercase tracking-wider text-[hsl(var(--winvest-blue-moyen))] bg-[hsl(var(--winvest-blue-moyen))]/10",
                     (header.column.columnDef.meta as { className?: string })?.className
                   )}
                 >
@@ -144,7 +144,7 @@ export function DataTable<TData extends { id: string }, TValue>({
               data-state={row.getIsSelected() && "selected"}
               onClick={() => handleRowClick(row)}
               className={cn(
-                "group border-b-[#EFEDED] animate-in fade-in-0 slide-in-from-bottom-2 transition",
+                "group border-b border-b-[hsl(var(--winvest-blue-moyen))]/10 hover:bg-[hsl(var(--winvest-blue-moyen))]/5 animate-in fade-in-0 slide-in-from-bottom-2 transition",
                 areRowsClickable ? "cursor-pointer" : "select-none",
                 row.getIsSelected() && isDeleteMode ? "bg-red-50" : row.getIsSelected() ? "bg-blue-50" : ""
               )}
@@ -154,7 +154,7 @@ export function DataTable<TData extends { id: string }, TValue>({
                 <TableCell
                   key={cell.id}
                   className={cn(
-                    "align-top group-hover:bg-zinc-100 transition-colors duration-150 py-4 px-4",
+                    "align-top transition-colors duration-150 py-3 px-4",
                     (cell.column.columnDef.meta as { className?: string })?.className
                   )}
                 >
@@ -207,7 +207,7 @@ export function DataTable<TData extends { id: string }, TValue>({
           {!isDeleteMode ? (
             <>
               {addEntityButtonText && (
-                <Button onClick={onAddEntity} className="bg-black text-white hover:bg-zinc-800 focus:ring-2 focus:ring-black/40 focus:outline-none">
+                <Button onClick={onAddEntity} className="bg-[hsl(var(--winvest-blue-moyen))] text-white hover:bg-[hsl(var(--winvest-blue-moyen))]/90 focus:ring-2 focus:ring-[hsl(var(--winvest-blue-moyen))]/40 focus:outline-none">
                   <PlusCircle className="mr-2 h-4 w-4" />{addEntityButtonText}
                 </Button>
               )}
@@ -267,11 +267,11 @@ export function DataTable<TData extends { id: string }, TValue>({
   ) : (
     <>
       {title && (
-        <CardHeader>
-          <CardTitle>{title}</CardTitle>
+        <CardHeader className="px-4 py-3 bg-[hsl(var(--winvest-blue-moyen))] text-white">
+          <CardTitle className="text-lg font-semibold">{title}</CardTitle>
         </CardHeader>
       )}
-      <CardContent className={!title ? "pt-6" : ""}>
+      <CardContent className={!title ? "pt-6" : "pt-4"}>
         {innerContent}
       </CardContent>
     </>
@@ -282,7 +282,7 @@ export function DataTable<TData extends { id: string }, TValue>({
   }
 
   return (
-    <Card>
+    <Card className="rounded-xl border border-[hsl(var(--winvest-blue-moyen))]/20 shadow-lg overflow-hidden">
       {tableContent}
     </Card>
   )

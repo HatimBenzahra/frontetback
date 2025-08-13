@@ -1,4 +1,4 @@
-import { Controller, Post, Body, Get, Param } from '@nestjs/common';
+import { Controller, Post, Body, Get, Param, Query } from '@nestjs/common';
 import { AssignmentGoalsService } from './assignment-goals.service';
 import { AssignmentType } from '@prisma/client';
 
@@ -13,11 +13,15 @@ export class AssignmentGoalsController {
     @Body('zoneId') zoneId: string,
     @Body('assigneeId') assigneeId: string,
     @Body('assignmentType') assignmentType: AssignmentType,
+    @Body('startDate') startDate?: string,
+    @Body('durationMonths') durationMonths?: number,
   ) {
     return this.assignmentGoalsService.assignZone(
       zoneId,
       assigneeId,
       assignmentType,
+      startDate ? new Date(startDate) : undefined,
+      durationMonths,
     );
   }
 
@@ -27,6 +31,34 @@ export class AssignmentGoalsController {
     @Body('goal') goal: number,
   ) {
     return this.assignmentGoalsService.setMonthlyGoal(commercialId, goal);
+  }
+
+  @Post('set-global-goal')
+  setGlobalGoal(
+    @Body('goal') goal: number,
+    @Body('startDate') startDate?: string,
+    @Body('durationMonths') durationMonths?: number,
+  ) {
+    return this.assignmentGoalsService.setGlobalGoal(
+      goal,
+      startDate ? new Date(startDate) : undefined,
+      durationMonths,
+    );
+  }
+
+  @Get('global-goal/current')
+  getCurrentGlobalGoal() {
+    return this.assignmentGoalsService.getCurrentGlobalGoal();
+  }
+
+  @Get('history')
+  getAssignmentHistory(@Query('zoneId') zoneId?: string) {
+    return this.assignmentGoalsService.getZoneAssignmentHistory(zoneId);
+  }
+
+  @Get('zone/:zoneId/history')
+  getAssignmentHistoryForZone(@Param('zoneId') zoneId: string) {
+    return this.assignmentGoalsService.getZoneAssignmentHistory(zoneId);
   }
 
   @Get('manager/:managerId/zones')

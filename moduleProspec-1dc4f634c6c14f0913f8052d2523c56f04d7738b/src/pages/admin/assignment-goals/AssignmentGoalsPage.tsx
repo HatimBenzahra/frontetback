@@ -50,15 +50,19 @@ const AssignmentGoalsPage = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [selectedZone, setSelectedZone] = useState<Zone | null>(null);
+  const [assignmentHistory, setAssignmentHistory] = useState<any[]>([]);
+  const [currentGlobalGoal, setCurrentGlobalGoal] = useState<{ goal: number; startDate: string; endDate: string } | null>(null);
 
   useEffect(() => {
     const fetchData = async () => {
       setLoading(true);
       try {
-        const [commercialsData, zonesData, managersData] = await Promise.all([
+        const [commercialsData, zonesData, managersData, historyData, globalGoal] = await Promise.all([
           commercialService.getCommerciaux(),
           zoneService.getZones(),
           managerService.getManagers(),
+          assignmentGoalsService.getAssignmentHistory(),
+          assignmentGoalsService.getCurrentGlobalGoal(),
         ]);
 
         setData({
@@ -66,6 +70,8 @@ const AssignmentGoalsPage = () => {
           managers: managersData,
           zones: mapApiZonesToUiZones(zonesData),
         });
+        setAssignmentHistory(historyData || []);
+        setCurrentGlobalGoal(globalGoal || null);
       } catch (err) {
         const message =
           err instanceof Error
@@ -85,40 +91,43 @@ const AssignmentGoalsPage = () => {
   const handleAssignZone = async (
     zoneId: string,
     assigneeId: string,
-    assigneeType: AssignmentType
+    assigneeType: AssignmentType,
+    startDate?: string,
+    durationMonths?: number,
   ) => {
     try {
-      await assignmentGoalsService.assignZone(zoneId, assigneeId, assigneeType);
+      await assignmentGoalsService.assignZone(zoneId, assigneeId, assigneeType, startDate, durationMonths);
       toast.success('Zone assignée avec succès!', {
         description: `La zone a été assignée à l'${assigneeType}.`,
       });
+      // Refresh history
+      const refreshed = await assignmentGoalsService.getAssignmentHistory(selectedZone?.id);
+      setAssignmentHistory(refreshed || []);
     } catch (err) {
       console.error('Erreur lors de l’assignation de la zone:', err);
       toast.error("Erreur lors de l'assignation de la zone.");
     }
   };
 
-  const handleSetGoal = async (commercialId: string, goal: number) => {
-    const currentMonth = new Date().getMonth() + 1;
-    const currentYear = new Date().getFullYear();
+  const handleSetGlobalGoal = async (goal: number, startDate?: string, durationMonths?: number) => {
     try {
-      await assignmentGoalsService.setMonthlyGoal(
-        commercialId,
-        goal,
-        currentMonth,
-        currentYear
-      );
-      toast.success('Objectif mensuel défini avec succès!', {
-        description: `L'objectif de ${goal} contrats a été fixé.`,
+      const res = await assignmentGoalsService.setGlobalGoal(goal, startDate, durationMonths);
+      setCurrentGlobalGoal(res);
+      toast.success("Objectif global défini avec succès!", {
+        description: `Objectif ${goal} contrats (durée ${durationMonths || 1} mois).`,
       });
     } catch (err) {
-      console.error("Erreur lors de la définition de l'objectif:", err);
-      toast.error("Erreur lors de la définition de l'objectif.");
+      console.error("Erreur lors de la définition de l'objectif global:", err);
+      toast.error("Erreur lors de la définition de l'objectif global.");
     }
   };
 
-  const handleSelectZone = (zoneId: string) =>
-    setSelectedZone(zones.find((z) => z.id === zoneId) ?? null);
+  const handleSelectZone = async (zoneId: string) => {
+    const z = zones.find((z) => z.id === zoneId) ?? null;
+    setSelectedZone(z);
+    const history = await assignmentGoalsService.getAssignmentHistory(zoneId);
+    setAssignmentHistory(history || []);
+  };
 
   if (loading) {
     return (
@@ -160,13 +169,68 @@ const AssignmentGoalsPage = () => {
             onZoneSelect={handleSelectZone}
           />
           <GoalSettingCard
-            commercials={commercials}
-            onSetGoal={handleSetGoal}
+            onSetGlobalGoal={handleSetGlobalGoal}
+            currentGlobalGoal={currentGlobalGoal}
           />
         </div>
 
-        <div className="lg:col-span-2">
+        <div className="lg:col-span-2 space-y-8">
           <ZoneMapViewer zones={zones} focusedZone={selectedZone} />
+          {/* Historique d'assignation */}
+          <div className="bg-white rounded-xl border border-[hsl(var(--winvest-blue-moyen))]/20 shadow-lg overflow-hidden">
+            <div className="px-4 py-3 bg-[hsl(var(--winvest-blue-moyen))] text-white">
+              <h2 className="text-lg font-semibold">Historique des assignations</h2>
+              <p className="text-xs opacity-90">Suivi des périodes d'assignation par zone</p>
+            </div>
+            <div className="overflow-x-auto">
+              <table className="min-w-full">
+                <thead>
+                  <tr className="bg-[hsl(var(--winvest-blue-moyen))]/10 text-[hsl(var(--winvest-blue-moyen))]">
+                    <th className="px-4 py-2 text-left text-xs font-semibold uppercase tracking-wider">Zone</th>
+                    <th className="px-4 py-2 text-left text-xs font-semibold uppercase tracking-wider">Type</th>
+                    <th className="px-4 py-2 text-left text-xs font-semibold uppercase tracking-wider">Début</th>
+                    <th className="px-4 py-2 text-left text-xs font-semibold uppercase tracking-wider">Fin</th>
+                    <th className="px-4 py-2 text-left text-xs font-semibold uppercase tracking-wider">Durée</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-[hsl(var(--winvest-blue-moyen))]/10">
+                  {assignmentHistory.map((h) => {
+                    const start = new Date(h.startDate);
+                    const end = h.endDate ? new Date(h.endDate) : null;
+                    const durationDays = end ? Math.max(1, Math.ceil((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24))) : '-';
+                    const typeColor =
+                      h.assignedToType === 'COMMERCIAL'
+                        ? 'bg-blue-100 text-blue-800 border-blue-200'
+                        : h.assignedToType === 'MANAGER'
+                        ? 'bg-purple-100 text-purple-800 border-purple-200'
+                        : 'bg-emerald-100 text-emerald-800 border-emerald-200';
+                    return (
+                      <tr key={h.id} className="hover:bg-[hsl(var(--winvest-blue-moyen))]/5 transition-colors">
+                        <td className="px-4 py-3 whitespace-nowrap font-medium text-gray-900">{h.zoneName || h.zoneId}</td>
+                        <td className="px-4 py-3 whitespace-nowrap">
+                          <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs border ${typeColor}`}>
+                            {h.assignedToType}
+                          </span>
+                        </td>
+                        <td className="px-4 py-3 whitespace-nowrap text-gray-700">{start.toLocaleDateString('fr-FR')}</td>
+                        <td className="px-4 py-3 whitespace-nowrap text-gray-700">{end ? end.toLocaleDateString('fr-FR') : '-'}</td>
+                        <td className="px-4 py-3 whitespace-nowrap">
+                          <span className="inline-flex items-center px-2 py-0.5 rounded-md text-xs font-medium bg-[hsl(var(--winvest-blue-moyen))]/10 text-[hsl(var(--winvest-blue-moyen))] border border-[hsl(var(--winvest-blue-moyen))]/20">
+                            {durationDays === '-' ? '-' : `${durationDays} j`}
+                          </span>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                  {assignmentHistory.length === 0 && (
+                    <tr>
+                      <td colSpan={5} className="text-center text-gray-500 px-4 py-6">Aucun historique</td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
         </div>
       </div>
     </div>

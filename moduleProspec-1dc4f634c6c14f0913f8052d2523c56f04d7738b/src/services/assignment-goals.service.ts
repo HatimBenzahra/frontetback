@@ -10,8 +10,16 @@ const getAssignedZonesForCommercial = async (commercialId: string): Promise<any[
 };
 
 // On inclut les autres fonctions pour que le service soit complet
-const assignZone = async (zoneId: string, assigneeId: string, assigneeType: AssignmentType) => {
-  const payload = { zoneId, assigneeId, assignmentType: assigneeType };
+const assignZone = async (
+  zoneId: string,
+  assigneeId: string,
+  assigneeType: AssignmentType,
+  startDate?: string,
+  durationMonths?: number
+) => {
+  const payload: any = { zoneId, assigneeId, assignmentType: assigneeType };
+  if (startDate) payload.startDate = startDate;
+  if (durationMonths && durationMonths > 0) payload.durationMonths = durationMonths;
   const response = await axios.post(`${API_URL}/assign-zone`, payload);
   return response.data;
 };
@@ -22,8 +30,34 @@ const setMonthlyGoal = async (commercialId: string, goal: number, month: number,
   return response.data;
 };
 
+const setGlobalGoal = async (
+  goal: number,
+  startDate?: string,
+  durationMonths?: number,
+) => {
+  const payload: any = { goal };
+  if (startDate) payload.startDate = startDate;
+  if (durationMonths && durationMonths > 0) payload.durationMonths = durationMonths;
+  const response = await axios.post(`${API_URL}/set-global-goal`, payload);
+  return response.data;
+};
+
+const getCurrentGlobalGoal = async () => {
+  const response = await axios.get(`${API_URL}/global-goal/current`);
+  return response.data;
+};
+
+const getAssignmentHistory = async (zoneId?: string): Promise<any[]> => {
+  const url = zoneId ? `${API_URL}/history?zoneId=${zoneId}` : `${API_URL}/history`;
+  const response = await axios.get(url);
+  return response.data;
+};
+
 export const assignmentGoalsService = {
   getAssignedZonesForCommercial,
   assignZone,
   setMonthlyGoal,
+  setGlobalGoal,
+  getCurrentGlobalGoal,
+  getAssignmentHistory,
 };

@@ -67,6 +67,7 @@ model Zone {
   commercial      Commercial?    @relation("CommercialZones", fields: [commercialId], references: [id])
   equipe          Equipe?        @relation("EquipeZones", fields: [equipeId], references: [id])
   manager         Manager?       @relation("ManagerZones", fields: [managerId], references: [id])
+  assignmentHistories ZoneAssignmentHistory[]
 
   @@unique([nom, typeAssignation])
   @@map("zones")
@@ -200,4 +201,30 @@ model TranscriptionSession {
   updatedAt         DateTime @updatedAt
 
   @@map("transcription_sessions")
+}
+
+/// Historique des assignations de zones avec durée
+model ZoneAssignmentHistory {
+  id               String         @id @default(uuid())
+  zoneId           String
+  assignedToType   AssignmentType
+  assignedToId     String
+  startDate        DateTime       @default(now())
+  endDate          DateTime?
+  createdAt        DateTime       @default(now())
+  zone             Zone           @relation(fields: [zoneId], references: [id])
+
+  @@index([zoneId])
+  @@map("zone_assignment_histories")
+}
+
+/// Objectif global avec période d'application
+model GlobalGoal {
+  id         String   @id @default(uuid())
+  goal       Int
+  startDate  DateTime @default(now())
+  endDate    DateTime
+  createdAt  DateTime @default(now())
+
+  @@map("global_goals")
 }

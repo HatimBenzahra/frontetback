@@ -2,7 +2,10 @@ import { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui-admin/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui-admin/select';
 import { Button } from '@/components/ui-admin/button';
-import { MapPin, Loader2 } from 'lucide-react';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui-admin/popover';
+import { Calendar } from '@/components/ui-admin/calendar';
+import { MapPin, Loader2, Calendar as CalendarIcon } from 'lucide-react';
+import { fr } from 'date-fns/locale';
 import { AssignmentType } from '@/types/enums';
 import type { Commercial, Manager, Zone } from '@/types/types';
 
@@ -10,7 +13,13 @@ interface ZoneAssignmentCardProps {
   zones: Zone[];
   commercials: Commercial[];
   managers: Manager[];
-  onAssign: (zoneId: string, assigneeId: string, assigneeType: AssignmentType) => Promise<void>;
+  onAssign: (
+    zoneId: string,
+    assigneeId: string,
+    assigneeType: AssignmentType,
+    startDate?: string,
+    durationMonths?: number,
+  ) => Promise<void>;
   onZoneSelect: (zoneId: string) => void;
 }
 
@@ -19,14 +28,23 @@ export const ZoneAssignmentCard = ({ zones, commercials, managers, onAssign, onZ
   const [assigneeType, setAssigneeType] = useState<AssignmentType>(AssignmentType.COMMERCIAL);
   const [assigneeId, setAssigneeId] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [durationMonths, setDurationMonths] = useState<number | string>(1);
+  const [startDate, setStartDate] = useState<Date | undefined>(undefined);
+  const [isStartOpen, setIsStartOpen] = useState(false);
 
   const assigneeOptions = assigneeType === AssignmentType.COMMERCIAL ? commercials : managers;
-  const isFormValid = selectedZone && assigneeId && assigneeType;
+  const isFormValid = selectedZone && assigneeId && assigneeType && (typeof durationMonths === 'number' && durationMonths > 0);
 
   const handleSubmit = async () => {
     if (!isFormValid) return;
     setIsSubmitting(true);
-    await onAssign(selectedZone, assigneeId, assigneeType);
+    await onAssign(
+      selectedZone,
+      assigneeId,
+      assigneeType,
+      startDate ? startDate.toISOString() : undefined,
+      durationMonths as number,
+    );
     setIsSubmitting(false);
   };
   
@@ -81,6 +99,40 @@ export const ZoneAssignmentCard = ({ zones, commercials, managers, onAssign, onZ
                     {assigneeOptions.map(p => <SelectItem key={p.id} value={p.id}>{p.prenom} {p.nom}</SelectItem>)}
                 </SelectContent>
             </Select>
+        </div>
+
+        {/* Date de début (optionnelle) */}
+        <div className="space-y-2">
+          <label className="text-sm font-medium">Date de début</label>
+          <Popover open={isStartOpen} onOpenChange={setIsStartOpen}>
+            <PopoverTrigger asChild>
+              <Button variant="outline" className="w-full justify-start text-left font-normal">
+                <CalendarIcon className="mr-2 h-4 w-4" />
+                {startDate ? startDate.toLocaleDateString('fr-FR') : <span>Choisir une date</span>}
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-auto p-0" align="start">
+              <Calendar
+                mode="single"
+                selected={startDate}
+                onSelect={(date) => { setStartDate(date); setIsStartOpen(false); }}
+                initialFocus
+                locale={fr}
+              />
+            </PopoverContent>
+          </Popover>
+        </div>
+
+        {/* Durée en mois */}
+        <div className="space-y-2">
+          <label className="text-sm font-medium">Durée (mois)</label>
+          <input
+            type="number"
+            min={1}
+            value={durationMonths}
+            onChange={(e) => setDurationMonths(e.target.value === '' ? '' : parseInt(e.target.value, 10))}
+            className="w-full border rounded-md px-3 py-2"
+          />
         </div>
 
         <Button onClick={handleSubmit} disabled={!isFormValid || isSubmitting} className="w-full bg-blue-600 hover:bg-blue-700">

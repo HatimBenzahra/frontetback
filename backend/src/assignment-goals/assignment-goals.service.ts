@@ -14,6 +14,8 @@ export class AssignmentGoalsService {
     zoneId: string,
     assigneeId: string,
     assignmentType: AssignmentType,
+    startDate?: Date,
+    durationMonths?: number,
   ) {
     const zone = await this.prisma.zone.findUnique({ where: { id: zoneId } });
     if (!zone) {
@@ -68,10 +70,27 @@ export class AssignmentGoalsService {
         throw new BadRequestException('Invalid assignment type');
     }
 
-    return this.prisma.zone.update({
+    const updatedZone = await this.prisma.zone.update({
       where: { id: zoneId },
       data: updateData,
     });
+
+    // Create history entry
+    const start = startDate ?? new Date();
+    const months = durationMonths && durationMonths > 0 ? durationMonths : 1;
+    const end = new Date(start);
+    end.setMonth(end.getMonth() + months);
+    await this.prisma.zoneAssignmentHistory.create({
+      data: {
+        zoneId,
+        assignedToType: assignmentType,
+        assignedToId: assigneeId,
+        startDate: start,
+        endDate: end,
+      },
+    });
+
+    return updatedZone;
   }
 
   async setMonthlyGoal(commercialId: string, goal: number) {
@@ -88,6 +107,53 @@ export class AssignmentGoalsService {
       where: { id: commercialId },
       data: { currentMonthlyGoal: goal },
     });
+  }
+
+  async setGlobalGoal(goal: number, startDate?: Date, durationMonths?: number) {
+    if (!goal || goal <= 0) {
+      throw new BadRequestException('Invalid goal');
+    }
+    const start = startDate ?? new Date();
+    const months = durationMonths && durationMonths > 0 ? durationMonths : 1;
+    const end = new Date(start);
+    end.setMonth(end.getMonth() + months);
+
+    // Optionally close previous active goals by setting endDate if in future
+    await this.prisma.globalGoal.updateMany({
+      where: { endDate: { gt: new Date() } },
+      data: { endDate: new Date() },
+    });
+
+    return this.prisma.globalGoal.create({
+      data: { goal, startDate: start, endDate: end },
+    });
+  }
+
+  async getCurrentGlobalGoal() {
+    const now = new Date();
+    const current = await this.prisma.globalGoal.findFirst({
+      where: { startDate: { lte: now }, endDate: { gte: now } },
+      orderBy: { startDate: 'desc' },
+    });
+    return current ?? null;
+  }
+
+  async getZoneAssignmentHistory(zoneId?: string) {
+    const where = zoneId ? { zoneId } : undefined;
+    const histories = await this.prisma.zoneAssignmentHistory.findMany({
+      where,
+      orderBy: { startDate: 'desc' },
+      include: { zone: true },
+    });
+    return histories.map((h) => ({
+      id: h.id,
+      zoneId: h.zoneId,
+      zoneName: h.zone?.nom,
+      assignedToType: h.assignedToType,
+      assignedToId: h.assignedToId,
+      startDate: h.startDate,
+      endDate: h.endDate,
+    }));
   }
 
   async getAssignedZonesForManager(managerId: string) {
