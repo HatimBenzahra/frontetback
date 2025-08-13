@@ -4,8 +4,8 @@ import { API_BASE_URL } from '../config';
 
 const API_URL = `${API_BASE_URL}/statistics`;
 
-// Définition des types pour les filtres
-export type PeriodType = 'WEEK' | 'MONTH' | 'YEAR';
+// Définition des types pour les filtres (alignés avec le backend/Prisma)
+export type PeriodType = 'WEEKLY' | 'MONTHLY' | 'YEARLY';
 export type StatEntityType = 'COMMERCIAL' | 'EQUIPE' | 'MANAGER';
 
 export interface StatisticsQuery {

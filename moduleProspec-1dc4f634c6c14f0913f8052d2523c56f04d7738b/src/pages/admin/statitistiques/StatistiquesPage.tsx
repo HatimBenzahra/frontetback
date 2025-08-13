@@ -10,21 +10,21 @@ import { GenericBarChart } from '@/components/charts/GenericBarChart';
 import { GenericPieChart } from '@/components/charts/GenericPieChart';
 import { LeaderboardTable } from './LeaderboardTable';
 import { Button } from '@/components/ui-admin/button';
+import { Badge } from '@/components/ui-admin/badge';
 import { cn } from '@/lib/utils';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui-admin/select";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui-admin/card';
 import { StatistiquesSkeleton } from './StatistiquesSkeleton';
 
 // --- Imports des Icônes ---
 import { 
-    BarChart3, Briefcase, FileSignature, Target, X
+    BarChart3, Briefcase, FileSignature, Target
 } from 'lucide-react';
 import { managerService } from '@/services/manager.service';
 import { equipeService } from '@/services/equipe.service';
 import { commercialService } from '@/services/commercial.service';
 
 const StatistiquesPage = () => {
-    const [timeFilter, setTimeFilter] = useState<PeriodType>('MONTH');
+    const [timeFilter, setTimeFilter] = useState<PeriodType>('MONTHLY');
     const [entityType, setEntityType] = useState<StatEntityType | 'ALL'>('ALL');
     const [entityId, setEntityId] = useState<string | undefined>(undefined);
     
@@ -87,14 +87,7 @@ const StatistiquesPage = () => {
         fetchStatistics();
     }, [timeFilter, entityType, entityId]);
 
-    const handleEntityTypeChange = (value: string) => {
-        setEntityType(value as StatEntityType | 'ALL');
-        setEntityId(undefined); // Reset entityId when type changes
-    };
-
-    const handleEntityIdChange = (value: string) => {
-        setEntityId(value === 'ALL' ? undefined : value);
-    };
+    // removed old handlers (dropdown-based) no longer used after pill UI
 
     const currentData = useMemo(() => {
         if (!statsData) return null;
@@ -141,75 +134,155 @@ const StatistiquesPage = () => {
         >
             <div className="flex flex-wrap gap-6 justify-between items-center pb-6 border-b border-gray-200 mb-5 mt-0.25">
                 <h1 className="text-4xl font-extrabold tracking-tight text-gray-900">Tableau de Bord des Statistiques</h1>
-                <div className="flex items-center gap-3">
-                    {entityType === 'ALL' ? (
-                        <Select onValueChange={handleEntityTypeChange} value={entityType}>
-                            <SelectTrigger className="w-[200px] h-11 rounded-lg border-gray-300 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-all duration-200">
-                                <SelectValue placeholder="Filtrer par type d'entité" />
-                            </SelectTrigger>
-                            <SelectContent className="rounded-lg shadow-lg">
-                                <SelectItem value="ALL">Toutes les Entités</SelectItem>
-                                <SelectItem value="MANAGER">Manager</SelectItem>
-                                <SelectItem value="EQUIPE">Équipe</SelectItem>
-                                <SelectItem value="COMMERCIAL">Commercial</SelectItem>
-                            </SelectContent>
-                        </Select>
-                    ) : (
-                        <div className="flex items-center gap-2">
-                            <Select onValueChange={handleEntityIdChange} value={entityId || 'ALL'} disabled={loadingEntities}>
-                                <SelectTrigger className="w-[200px] h-11 rounded-lg border-gray-300 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-all duration-200">
-                                    <SelectValue placeholder="Choisir lequel" />
-                                </SelectTrigger>
-                                <SelectContent className="rounded-lg shadow-lg">
-                                    <SelectItem value="ALL">Tous</SelectItem>
-                                    {entities.map(e => <SelectItem key={e.id} value={e.id}>{e.nom}</SelectItem>)}
-                                </SelectContent>
-                            </Select>
+                <div className="flex flex-col md:flex-row md:items-center gap-3 md:gap-6 w-full md:w-auto">
+                    <div className="flex flex-wrap gap-2" aria-label="Type d'entité">
+                        {[
+                            { value: 'ALL', label: 'Toutes' },
+                            { value: 'MANAGER', label: 'Managers' },
+                            { value: 'EQUIPE', label: 'Équipes' },
+                            { value: 'COMMERCIAL', label: 'Commerciaux' },
+                        ].map(opt => (
+                            <Button
+                                key={opt.value}
+                                variant="ghost"
+                                onClick={() => {
+                                    const selected = opt.value as StatEntityType | 'ALL';
+                                    if (entityType === selected) {
+                                        setEntityType('ALL');
+                                        setEntityId(undefined);
+                                    } else {
+                                        setEntityType(selected);
+                                        setEntityId(undefined);
+                                    }
+                                }}
+                                className={cn(
+                                    'rounded-full px-4 py-2 border',
+                                    entityType === (opt.value as any)
+                                        ? 'bg-[hsl(var(--winvest-blue-moyen))] text-white border-transparent'
+                                        : 'text-gray-700 border-gray-200 hover:bg-gray-100'
+                                )}
+                            >
+                                {opt.label}
+                            </Button>
+                        ))}
+                    </div>
+                    {entityType !== 'ALL' && (
+                        <div className="flex flex-wrap gap-2" aria-label="Sélection d'entité">
                             <Button
                                 variant="ghost"
-                                size="icon"
-                                onClick={() => {
-                                    setEntityType('ALL');
-                                    setEntityId(undefined);
-                                }}
-                                className="h-9 w-9 rounded-full bg-gray-100 text-gray-500 hover:bg-gray-200 hover:text-gray-700 flex items-center justify-center p-0"
+                                onClick={() => setEntityId(undefined)}
+                                disabled={loadingEntities}
+                                className={cn(
+                                    'rounded-full px-4 py-2 border',
+                                    !entityId ? 'bg-gray-900 text-white border-transparent' : 'text-gray-700 border-gray-200 hover:bg-gray-100'
+                                )}
                             >
-                                <X className="h-5 w-5" />
+                                Tous
                             </Button>
+                            {entities.map((e) => (
+                                <Button
+                                    key={e.id}
+                                    variant="ghost"
+                                    onClick={() => setEntityId(entityId === e.id ? undefined : e.id)}
+                                    className={cn(
+                                        'rounded-full px-4 py-2 border',
+                                        entityId === e.id
+                                            ? 'bg-[hsl(var(--winvest-blue-moyen))] text-white border-transparent'
+                                            : 'text-gray-700 border-gray-200 hover:bg-gray-100'
+                                    )}
+                                >
+                                    {e.nom}
+                                </Button>
+                            ))}
                         </div>
                     )}
                 </div>
                 <div className="flex flex-wrap items-center gap-2 p-1 bg-white rounded-xl shadow-sm border border-gray-200">
                     <Button 
                         variant='ghost' 
-                        onClick={() => setTimeFilter('WEEK')} 
+                        onClick={() => setTimeFilter('WEEKLY')} 
                         className={cn(
                             "px-5 py-2 rounded-lg text-base font-medium transition-all duration-300", 
-                            timeFilter === 'WEEK' 
+                            timeFilter === 'WEEKLY' 
                                 ? 'bg-[hsl(var(--winvest-blue-moyen))] text-white shadow-md hover:bg-[hsl(var(--winvest-blue-moyen))] hover:text-white' 
                                 : 'text-gray-700 hover:bg-gray-100 hover:text-gray-900'
                         )}
                     >Cette semaine</Button>
                     <Button 
                         variant='ghost' 
-                        onClick={() => setTimeFilter('MONTH')} 
+                        onClick={() => setTimeFilter('MONTHLY')} 
                         className={cn(
                             "px-5 py-2 rounded-lg text-base font-medium transition-all duration-300", 
-                            timeFilter === 'MONTH' 
+                            timeFilter === 'MONTHLY' 
                                 ? 'bg-[hsl(var(--winvest-blue-moyen))] text-white shadow-md hover:bg-[hsl(var(--winvest-blue-moyen))] hover:text-white' 
                                 : 'text-gray-700 hover:bg-gray-100 hover:text-gray-900'
                         )}
                     >Ce mois</Button>
                     <Button 
                         variant='ghost' 
-                        onClick={() => setTimeFilter('YEAR')} 
+                        onClick={() => setTimeFilter('YEARLY')} 
                         className={cn(
                             "px-5 py-2 rounded-lg text-base font-medium transition-all duration-300", 
-                            timeFilter === 'YEAR' 
+                            timeFilter === 'YEARLY' 
                                 ? 'bg-[hsl(var(--winvest-blue-moyen))] text-white shadow-md hover:bg-[hsl(var(--winvest-blue-moyen))] hover:text-white' 
                                 : 'text-gray-700 hover:bg-gray-100 hover:text-gray-900'
                         )}
                     >Cette année</Button>
+                </div>
+            </div>
+
+            {/* Barre des filtres actifs */}
+            <div className="flex flex-wrap items-center justify-between gap-4 bg-gray-50 border border-gray-200 rounded-xl px-4 py-3">
+                <div className="flex flex-wrap items-center gap-2">
+                    <span className="text-sm text-gray-600">Filtres actifs:</span>
+                    {/* Période */}
+                    <Badge variant="secondary">
+                        {timeFilter === 'WEEKLY' ? 'Cette semaine' : timeFilter === 'MONTHLY' ? 'Ce mois' : 'Cette année'}
+                    </Badge>
+                    {/* Type d'entité si non ALL */}
+                    {entityType !== 'ALL' && (
+                        <Badge variant="outline">
+                            {entityType === 'MANAGER' ? 'Manager' : entityType === 'EQUIPE' ? 'Équipe' : 'Commercial'}
+                            <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => {
+                                    setEntityType('ALL');
+                                    setEntityId(undefined);
+                                }}
+                                className="ml-1 h-5 px-1 text-xs rounded"
+                            >
+                                ×
+                            </Button>
+                        </Badge>
+                    )}
+                    {/* Entité spécifique */}
+                    {entityType !== 'ALL' && entityId && (
+                        <Badge variant="outline">
+                            {entities.find(e => e.id === entityId)?.nom || 'Sélection'}
+                            <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => setEntityId(undefined)}
+                                className="ml-1 h-5 px-1 text-xs rounded"
+                            >
+                                ×
+                            </Button>
+                        </Badge>
+                    )}
+                </div>
+                <div>
+                    <Button
+                        variant="ghost"
+                        onClick={() => {
+                            setTimeFilter('MONTHLY');
+                            setEntityType('ALL');
+                            setEntityId(undefined);
+                        }}
+                        className="rounded-full border border-gray-200 hover:bg-gray-100"
+                    >
+                        Réinitialiser les filtres
+                    </Button>
                 </div>
             </div>
 
