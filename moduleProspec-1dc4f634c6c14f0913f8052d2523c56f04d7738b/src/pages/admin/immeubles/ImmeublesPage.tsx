@@ -962,24 +962,28 @@ const ImmeublesPage = () => {
                 isOpen={isCreatorOpen}
                 onClose={() => setIsCreatorOpen(false)}
                 title="Ajouter un nouvel immeuble"
-                maxWidth="max-w-lg"
-                overlayClassName="backdrop-blur-sm bg-black/10"
+                maxWidth="max-w-2xl"
+                overlayClassName="backdrop-blur-sm bg-black/20"
             >
-                <div className="text-slate-600 text-sm sm:text-base mb-4">
+                <div className="text-slate-600 text-sm sm:text-base mb-6">
                     {formStep === 1 ? "Commencez par l'adresse et sélectionnez une zone existante dans la base de données." : "Ajoutez les détails de l'immeuble."}
                 </div>
                 {/* Barre de progression */}
-                <div className="mb-4">
-                    <div className="w-full bg-slate-200 rounded-full h-1.5">
-                        <motion.div className="bg-blue-600 h-1.5 rounded-full" initial={{ width: "0%" }} animate={{ width: formStep === 1 ? "50%" : "100%" }} transition={{ duration: 0.3 }} />
+                <div className="mb-6">
+                    <div className="w-full bg-slate-200 rounded-full h-2">
+                        <motion.div className="bg-blue-600 h-2 rounded-full" initial={{ width: "0%" }} animate={{ width: formStep === 1 ? "50%" : "100%" }} transition={{ duration: 0.3 }} />
+                    </div>
+                    <div className="flex justify-between mt-2 text-xs text-slate-500">
+                        <span className={formStep === 1 ? "text-blue-600 font-medium" : ""}>Étape 1: Adresse & Zone</span>
+                        <span className={formStep === 2 ? "text-blue-600 font-medium" : ""}>Étape 2: Détails</span>
                     </div>
                 </div>
                 {/* Contenu */}
-                <div className="space-y-4">
+                <div className="space-y-6 min-h-[400px]">
                         {formStep === 1 && (
-                            <div className="grid gap-4">
-                                <div className="grid gap-2">
-                                    <Label className="font-semibold">Adresse</Label>
+                            <div className="grid gap-6">
+                                <div className="grid gap-3">
+                                    <Label className="font-semibold text-base">Adresse *</Label>
                                     <AddressInput
                                         initialValue={formState.adresse}
                                         onSelect={(selection) => {
@@ -994,20 +998,28 @@ const ImmeublesPage = () => {
                                         }}
                                     />
                                 </div>
-                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                                    <div>
-                                        <Label>Ville</Label>
-                                        <Input value={formState.ville} onChange={e => setFormState(p => ({ ...p, ville: e.target.value }))} />
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                                    <div className="space-y-2">
+                                        <Label className="font-medium">Ville *</Label>
+                                        <Input 
+                                            value={formState.ville} 
+                                            onChange={e => setFormState(p => ({ ...p, ville: e.target.value }))}
+                                            className="h-11"
+                                        />
                                     </div>
-                                    <div>
-                                        <Label>Code Postal</Label>
-                                        <Input value={formState.codePostal} onChange={e => setFormState(p => ({ ...p, codePostal: e.target.value }))} />
+                                    <div className="space-y-2">
+                                        <Label className="font-medium">Code Postal *</Label>
+                                        <Input 
+                                            value={formState.codePostal} 
+                                            onChange={e => setFormState(p => ({ ...p, codePostal: e.target.value }))}
+                                            className="h-11"
+                                        />
                                     </div>
                                 </div>
-                                <div>
-                                    <Label>Zone *</Label>
+                                <div className="space-y-3">
+                                    <Label className="font-medium text-base">Zone *</Label>
                                     <Select value={formState.zoneId} onValueChange={v => setFormState(p => ({ ...p, zoneId: v }))}>
-                                        <SelectTrigger className="mt-1">
+                                        <SelectTrigger className="h-11">
                                             <SelectValue placeholder="Sélectionner une zone existante" />
                                         </SelectTrigger>
                                         <SelectContent>
@@ -1016,12 +1028,12 @@ const ImmeublesPage = () => {
                                             ) : (
                                                 zones.map(z => (
                                                     <SelectItem key={z.id} value={z.id}>
-                                                        <div className="flex items-center gap-2">
+                                                        <div className="flex items-center gap-3">
                                                             <div 
-                                                                className="w-3 h-3 rounded-full" 
+                                                                className="w-4 h-4 rounded-full border-2 border-white shadow-sm" 
                                                                 style={{ backgroundColor: z.color || '#64748b' }}
                                                             />
-                                                            {z.name}
+                                                            <span className="font-medium">{z.name}</span>
                                                         </div>
                                                     </SelectItem>
                                                 ))
@@ -1029,70 +1041,106 @@ const ImmeublesPage = () => {
                                         </SelectContent>
                                     </Select>
                                     {selectedZone && (typeof formState.latitude === 'number') && (typeof formState.longitude === 'number') && (
-                                        <div className="mt-2 text-sm">
+                                        <div className="mt-3 p-3 rounded-lg border bg-slate-50">
                                             {zoneProximity?.inZone ? (
-                                                <span className="text-emerald-600 flex items-center gap-1">
-                                                    <div className="w-2 h-2 rounded-full bg-emerald-500"></div>
-                                                    L'adresse est dans la zone (≈ {Math.round(zoneProximity.distance)} m du centre)
-                                                </span>
+                                                <div className="flex items-center gap-2 text-emerald-700">
+                                                    <div className="w-3 h-3 rounded-full bg-emerald-500"></div>
+                                                    <span className="font-medium">Adresse dans la zone</span>
+                                                    <span className="text-sm text-emerald-600">(≈ {Math.round(zoneProximity.distance)} m du centre)</span>
+                                                </div>
                                             ) : (
-                                                <span className="text-red-600 flex items-center gap-1">
-                                                    <div className="w-2 h-2 rounded-full bg-red-500"></div>
-                                                    Hors zone: distance ≈ {Math.round(zoneProximity?.distance || 0)} m, rayon {Math.round(zoneProximity?.radius || 0)} m
-                                                </span>
+                                                <div className="flex items-center gap-2 text-red-700">
+                                                    <div className="w-3 h-3 rounded-full bg-red-500"></div>
+                                                    <span className="font-medium">Hors zone</span>
+                                                    <span className="text-sm text-red-600">(distance ≈ {Math.round(zoneProximity?.distance || 0)} m, rayon {Math.round(zoneProximity?.radius || 0)} m)</span>
+                                                </div>
                                             )}
                                         </div>
                                     )}
                                     {!formState.zoneId && (
-                                        <p className="text-xs text-slate-500 mt-1">
-                                            L'admin doit sélectionner une zone existante pour assigner l'immeuble
-                                        </p>
+                                        <div className="mt-2 p-3 rounded-lg bg-blue-50 border border-blue-200">
+                                            <p className="text-sm text-blue-700 flex items-center gap-2">
+                                                <div className="w-2 h-2 rounded-full bg-blue-500"></div>
+                                                L'admin doit sélectionner une zone existante pour assigner l'immeuble
+                                            </p>
+                                        </div>
                                     )}
                                 </div>
                             </div>
                         )}
                         {formStep === 2 && (
-                            <div className="grid gap-4">
-                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                                    <div>
-                                        <Label>Étages</Label>
-                                        <Input type="number" min={1} max={50} value={formState.nbEtages} onChange={e => setFormState(p => ({ ...p, nbEtages: Number(e.target.value) || 1 }))} />
+                            <div className="grid gap-6">
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                                    <div className="space-y-2">
+                                        <Label className="font-medium">Nombre d'étages *</Label>
+                                        <Input 
+                                            type="number" 
+                                            min={1} 
+                                            max={50} 
+                                            value={formState.nbEtages} 
+                                            onChange={e => setFormState(p => ({ ...p, nbEtages: Number(e.target.value) || 1 }))}
+                                            className="h-11"
+                                        />
                                     </div>
-                                    <div>
-                                        <Label>Portes / étage</Label>
-                                        <Input type="number" min={1} max={20} value={formState.nbPortesParEtage} onChange={e => setFormState(p => ({ ...p, nbPortesParEtage: Number(e.target.value) || 1 }))} />
+                                    <div className="space-y-2">
+                                        <Label className="font-medium">Portes par étage *</Label>
+                                        <Input 
+                                            type="number" 
+                                            min={1} 
+                                            max={20} 
+                                            value={formState.nbPortesParEtage} 
+                                            onChange={e => setFormState(p => ({ ...p, nbPortesParEtage: Number(e.target.value) || 1 }))}
+                                            className="h-11"
+                                        />
                                     </div>
                                 </div>
-                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                                    <div>
-                                        <Label>Mode de prospection</Label>
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                                    <div className="space-y-2">
+                                        <Label className="font-medium">Mode de prospection *</Label>
                                         <Select value={formState.prospectingMode} onValueChange={v => setFormState(p => ({ ...p, prospectingMode: v as 'SOLO' | 'DUO' }))}>
-                                            <SelectTrigger className="mt-1">
-                                                <SelectValue placeholder="Choisir" />
+                                            <SelectTrigger className="h-11">
+                                                <SelectValue placeholder="Choisir le mode" />
                                             </SelectTrigger>
                                             <SelectContent>
-                                                <SelectItem value="SOLO">Solo</SelectItem>
-                                                <SelectItem value="DUO">Duo</SelectItem>
+                                                <SelectItem value="SOLO">Solo (1 prospecteur)</SelectItem>
+                                                <SelectItem value="DUO">Duo (2 prospecteurs)</SelectItem>
                                             </SelectContent>
                                         </Select>
                                     </div>
-                                    <div>
-                                        <Label>Digicode (optionnel)</Label>
-                                        <Input value={formState.digicode} onChange={e => setFormState(p => ({ ...p, digicode: e.target.value }))} />
+                                    <div className="space-y-2">
+                                        <Label className="font-medium">Digicode</Label>
+                                        <Input 
+                                            value={formState.digicode} 
+                                            onChange={e => setFormState(p => ({ ...p, digicode: e.target.value }))}
+                                            placeholder="Code d'accès (optionnel)"
+                                            className="h-11"
+                                        />
                                     </div>
                                 </div>
-                                <div className="flex items-center gap-2">
-                                    <input id="hasElevator" type="checkbox" checked={formState.hasElevator} onChange={e => setFormState(p => ({ ...p, hasElevator: e.target.checked }))} />
-                                    <Label htmlFor="hasElevator">Ascenseur</Label>
+                                <div className="flex items-center gap-3 p-4 rounded-lg border bg-slate-50">
+                                    <input 
+                                        id="hasElevator" 
+                                        type="checkbox" 
+                                        checked={formState.hasElevator} 
+                                        onChange={e => setFormState(p => ({ ...p, hasElevator: e.target.checked }))}
+                                        className="w-4 h-4 text-blue-600 rounded border-slate-300 focus:ring-blue-500"
+                                    />
+                                    <Label htmlFor="hasElevator" className="font-medium cursor-pointer">L'immeuble dispose d'un ascenseur</Label>
                                 </div>
                             </div>
                         )}
                     </div>
                     {/* Footer */}
-                    <div className="pt-3 flex justify-between w-full gap-3 bg-slate-50 border-t border-slate-200 p-4 rounded-b-lg">
+                    <div className="pt-6 flex justify-between w-full gap-4 bg-slate-50 border-t border-slate-200 p-6 rounded-b-lg">
                         {formStep === 1 ? (
                             <>
-                                <Button variant="outline" onClick={() => setIsCreatorOpen(false)}>Annuler</Button>
+                                <Button 
+                                    variant="outline" 
+                                    onClick={() => setIsCreatorOpen(false)}
+                                    className="px-6 py-2"
+                                >
+                                    Annuler
+                                </Button>
                                 <Button
                                     onClick={() => setFormStep(2)}
                                     disabled={
@@ -1105,14 +1153,27 @@ const ImmeublesPage = () => {
                                         !zoneProximity || zoneProximity.inZone ? undefined : 
                                         'L\'adresse doit appartenir à la zone sélectionnée'
                                     }
+                                    className="px-6 py-2 bg-blue-600 hover:bg-blue-700"
                                 >
                                     Suivant
                                 </Button>
                             </>
                         ) : (
                             <>
-                                <Button variant="outline" onClick={() => setFormStep(1)}>Précédent</Button>
-                                <Button disabled={isSubmitting} onClick={handleCreateSubmit}>{isSubmitting ? 'Création…' : 'Créer l\'immeuble'}</Button>
+                                <Button 
+                                    variant="outline" 
+                                    onClick={() => setFormStep(1)}
+                                    className="px-6 py-2"
+                                >
+                                    Précédent
+                                </Button>
+                                <Button 
+                                    disabled={isSubmitting} 
+                                    onClick={handleCreateSubmit}
+                                    className="px-6 py-2 bg-green-600 hover:bg-green-700"
+                                >
+                                    {isSubmitting ? 'Création…' : 'Créer l\'immeuble'}
+                                </Button>
                             </>
                         )}
                 </div>
