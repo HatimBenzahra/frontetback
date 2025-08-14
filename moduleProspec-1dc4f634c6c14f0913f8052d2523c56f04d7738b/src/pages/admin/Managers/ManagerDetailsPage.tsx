@@ -66,6 +66,8 @@ const ManagerDetailsPage = () => {
                 statisticsService.getStatsForManager(managerId),
                 statisticsService.getManagerPerformanceHistory(managerId)
             ]).then(([managerData, statsData, historyData]) => {
+                console.log('📊 Manager Performance History Data:', historyData);
+                console.log('📊 Data length:', historyData?.length);
                 const formattedEquipes = managerData.equipes.map((e: any) => ({
                     id: e.id,
                     nom: e.nom,

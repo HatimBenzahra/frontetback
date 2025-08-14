@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, Area } from 'recharts';
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import { Info } from 'lucide-react';
 
 // --- Types ---
@@ -50,7 +50,10 @@ const NoDataDisplay = () => (
 export const GenericLineChart = ({ data, xAxisDataKey, lines }: GenericLineChartProps) => {
   const [hoveredLine, setHoveredLine] = useState<string | null>(null);
 
-  if (!data || data.length < 2) {
+  console.log('📊 GenericLineChart - Data received:', data);
+  console.log('📊 GenericLineChart - Data length:', data?.length);
+
+  if (!data || data.length === 0) {
       return <NoDataDisplay />;
   }
 
@@ -87,15 +90,6 @@ export const GenericLineChart = ({ data, xAxisDataKey, lines }: GenericLineChart
                 activeDot={{ r: 5, strokeWidth: 2, fill: '#fff' }}
                 name={line.name || line.dataKey}
             />
-        ))}
-         {lines.map(line => (
-          <Area
-            key={`area-${line.dataKey}`}
-            type="monotone"
-            dataKey={line.dataKey}
-            fill={`url(#gradient-${line.dataKey})`}
-            strokeWidth={0}
-          />
         ))}
       </LineChart>
     </ResponsiveContainer>
