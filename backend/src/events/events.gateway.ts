@@ -719,4 +719,112 @@ export class EventsGateway implements OnGatewayConnection, OnGatewayDisconnect {
     // Renvoyer immédiatement le timestamp pour calculer la latence
     client.emit('pong', startTime);
   }
+
+  // Gestion des mises à jour de portes pour la synchronisation en temps réel
+  @SubscribeMessage('porte:update')
+  handlePorteUpdate(client: Socket, data: { porteId: string; updates: any }) {
+    console.log(`🚪 Mise à jour de porte: ${data.porteId}`, data.updates);
+    
+    // Diffuser la mise à jour à tous les clients dans la même room (même immeuble)
+    const rooms = Array.from(client.rooms);
+    const buildingRoom = rooms.find(room => room !== client.id);
+    
+    if (buildingRoom) {
+      this.server.to(buildingRoom).emit('porte:updated', {
+        porteId: data.porteId,
+        updates: data.updates,
+        updatedBy: client.id,
+        timestamp: new Date().toISOString()
+      });
+    }
+  }
+
+  // Gestion des changements de statut de portes
+  @SubscribeMessage('porte:statusChanged')
+  handlePorteStatusChange(client: Socket, data: { porteId: string; statut: string; assigneeId?: string }) {
+    console.log(`🚪 Changement de statut de porte: ${data.porteId} -> ${data.statut}`);
+    
+    // Diffuser le changement de statut à tous les clients dans la même room
+    const rooms = Array.from(client.rooms);
+    const buildingRoom = rooms.find(room => room !== client.id);
+    
+    if (buildingRoom) {
+      this.server.to(buildingRoom).emit('porte:statusChanged', {
+        porteId: data.porteId,
+        statut: data.statut,
+        assigneeId: data.assigneeId,
+        changedBy: client.id,
+        timestamp: new Date().toISOString()
+      });
+    }
+  }
+
+  // Gestion des assignations de portes (mode duo)
+  @SubscribeMessage('porte:assign')
+  handlePorteAssign(client: Socket, data: { porteId: string; assigneeId: string }) {
+    console.log(`🚪 Assignation de porte: ${data.porteId} -> ${data.assigneeId}`);
+    
+    const rooms = Array.from(client.rooms);
+    const buildingRoom = rooms.find(room => room !== client.id);
+    
+    if (buildingRoom) {
+      this.server.to(buildingRoom).emit('porte:assigned', {
+        porteId: data.porteId,
+        assigneeId: data.assigneeId,
+        assignedBy: client.id,
+        timestamp: new Date().toISOString()
+      });
+    }
+  }
+
+  // Gestion de l'ajout de portes
+  @SubscribeMessage('porte:added')
+  handlePorteAdded(client: Socket, data: { porte: any }) {
+    console.log(`🚪 Ajout de porte: ${data.porte.id}`);
+    
+    const rooms = Array.from(client.rooms);
+    const buildingRoom = rooms.find(room => room !== client.id);
+    
+    if (buildingRoom) {
+      this.server.to(buildingRoom).emit('porte:added', {
+        porte: data.porte,
+        addedBy: client.id,
+        timestamp: new Date().toISOString()
+      });
+    }
+  }
+
+  // Gestion de la suppression de portes
+  @SubscribeMessage('porte:deleted')
+  handlePorteDeleted(client: Socket, data: { porteId: string }) {
+    console.log(`🚪 Suppression de porte: ${data.porteId}`);
+    
+    const rooms = Array.from(client.rooms);
+    const buildingRoom = rooms.find(room => room !== client.id);
+    
+    if (buildingRoom) {
+      this.server.to(buildingRoom).emit('porte:deleted', {
+        porteId: data.porteId,
+        deletedBy: client.id,
+        timestamp: new Date().toISOString()
+      });
+    }
+  }
+
+  // Gestion de l'ajout d'étages
+  @SubscribeMessage('floor:added')
+  handleFloorAdded(client: Socket, data: { newNbEtages: number }) {
+    console.log(`🏢 Ajout d'étage: ${data.newNbEtages} étages total`);
+    
+    const rooms = Array.from(client.rooms);
+    const buildingRoom = rooms.find(room => room !== client.id);
+    
+    if (buildingRoom) {
+      this.server.to(buildingRoom).emit('floor:added', {
+        newNbEtages: data.newNbEtages,
+        addedBy: client.id,
+        timestamp: new Date().toISOString()
+      });
+    }
+  }
 }

@@ -322,14 +322,52 @@ const ProspectingDoorsPage = () => {
     useEffect(() => {
         if (!socket || !buildingId) return;
 
-        socket.on('porteUpdated', (updatedPorte: Porte) => {
+        socket.on('porteUpdated', (updatedPorte: any) => {
             setPortes(prevPortes =>
-                prevPortes.map(p => (p.id === updatedPorte.id ? updatedPorte : p))
+                prevPortes.map(p => {
+                    if (p.id === updatedPorte.id) {
+                        // Convertir le format backend (numeroPorte) vers le format frontend (numero)
+                        return {
+                            ...updatedPorte,
+                            numero: updatedPorte.numeroPorte || updatedPorte.numero || p.numero,
+                        };
+                    }
+                    return p;
+                })
             );
+        });
+
+        socket.on('porte:added', (data: { porte: any }) => {
+            const newPorte = {
+                id: data.porte.id,
+                numero: data.porte.numeroPorte,
+                statut: data.porte.statut as PorteStatus,
+                commentaire: data.porte.commentaire || null,
+                passage: data.porte.passage,
+                etage: data.porte.etage,
+            };
+            setPortes(prevPortes => [...prevPortes, newPorte]);
+        });
+
+        socket.on('porte:deleted', (data: { porteId: string }) => {
+            setPortes(prevPortes => prevPortes.filter(p => p.id !== data.porteId));
+        });
+
+        socket.on('floor:added', (data: { newNbEtages: number }) => {
+            setBuilding(prev => {
+                if (!prev) return prev;
+                return {
+                    ...prev,
+                    nbEtages: data.newNbEtages
+                };
+            });
         });
 
         return () => {
             socket.off('porteUpdated');
+            socket.off('porte:added');
+            socket.off('porte:deleted');
+            socket.off('floor:added');
         };
     }, [socket, buildingId]);
 
@@ -448,9 +486,9 @@ const ProspectingDoorsPage = () => {
 
         try {
             await porteService.updatePorte(updatedDoor.id, {
+                numeroPorte: updatedDoor.numero,
                 statut: updatedDoor.statut,
                 commentaire: updatedDoor.commentaire || '',
-                numeroPorte: updatedDoor.numero,
                 passage: newPassage,
             });
 
@@ -486,7 +524,11 @@ const ProspectingDoorsPage = () => {
     const handleAddDoor = async (floor: number) => {
         if (!buildingId || !user?.id || !building) return;
         const portesOnCurrentFloor = portes.filter(p => p.etage === floor);
-        const maxDoorNumber = Math.max(0, ...portesOnCurrentFloor.map(p => parseInt(p.numero.match(/\d+/)?.pop() || '0')));
+        const maxDoorNumber = Math.max(0, ...portesOnCurrentFloor.map(p => {
+            if (!p.numero) return 0;
+            const match = p.numero.match(/\d+/);
+            return parseInt(match?.pop() || '0');
+        }));
         const newDoorNumber = `Porte ${maxDoorNumber + 1}`;
 
         try {

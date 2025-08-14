@@ -20,6 +20,12 @@ export class PorteService {
       },
     });
 
+    // Émettre un événement WebSocket pour la synchronisation en temps réel
+    this.eventsGateway.sendToRoom(newPorte.immeubleId, 'porte:added', {
+      porte: newPorte,
+      timestamp: new Date().toISOString()
+    });
+
     return newPorte;
   }
 
@@ -46,6 +52,34 @@ export class PorteService {
         where: { id },
         data: updatePorteDto,
       });
+
+      // Émettre un événement WebSocket pour la synchronisation en temps réel
+      if (existingPorte.immeubleId) {
+        this.eventsGateway.sendToRoom(existingPorte.immeubleId, 'porte:updated', {
+          porteId: id,
+          updates: updatePorteDto,
+          timestamp: new Date().toISOString()
+        });
+
+        // Si le statut a changé, émettre un événement spécifique
+        if (existingPorte.statut !== updatedPorte.statut) {
+          this.eventsGateway.sendToRoom(existingPorte.immeubleId, 'porte:statusChanged', {
+            porteId: id,
+            statut: updatedPorte.statut,
+            assigneeId: updatedPorte.assigneeId,
+            timestamp: new Date().toISOString()
+          });
+        }
+
+        // Si l'assignation a changé (mode duo), émettre un événement spécifique
+        if (existingPorte.assigneeId !== updatedPorte.assigneeId) {
+          this.eventsGateway.sendToRoom(existingPorte.immeubleId, 'porte:assigned', {
+            porteId: id,
+            assigneeId: updatedPorte.assigneeId,
+            timestamp: new Date().toISOString()
+          });
+        }
+      }
 
       // Update historical data if status has changed and it's assigned to a commercial
       if (
@@ -135,7 +169,33 @@ export class PorteService {
     });
   }
 
-  remove(id: string) {
-    return this.prisma.porte.delete({ where: { id } });
+  async remove(id: string) {
+    // Récupérer les informations de la porte avant suppression
+    const porte = await this.prisma.porte.findUnique({
+      where: { id },
+      select: { immeubleId: true }
+    });
+
+    if (!porte) {
+      throw new NotFoundException(`Porte with ID ${id} not found`);
+    }
+
+    const deletedPorte = await this.prisma.porte.delete({ where: { id } });
+
+    // Décrémenter nbPortesTotal dans l'immeuble associé
+    await this.prisma.immeuble.update({
+      where: { id: porte.immeubleId },
+      data: {
+        nbPortesTotal: { decrement: 1 },
+      },
+    });
+
+    // Émettre un événement WebSocket pour la synchronisation en temps réel
+    this.eventsGateway.sendToRoom(porte.immeubleId, 'porte:deleted', {
+      porteId: id,
+      timestamp: new Date().toISOString()
+    });
+
+    return deletedPorte;
   }
 }

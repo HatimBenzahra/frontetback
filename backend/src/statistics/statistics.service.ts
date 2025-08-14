@@ -393,62 +393,81 @@ export class StatisticsService {
   }
 
   async triggerHistoryUpdate(commercialId: string, immeubleId: string) {
-    const portes = await this.prisma.porte.findMany({
-      where: { immeubleId },
-    });
+    try {
+      // Vérifier que le commercial et l'immeuble existent
+      const [commercial, immeuble] = await Promise.all([
+        this.prisma.commercial.findUnique({ where: { id: commercialId } }),
+        this.prisma.immeuble.findUnique({ where: { id: immeubleId } })
+      ]);
 
-    const stats = portes.reduce(
-      (acc, porte) => {
-        if (porte.statut !== 'NON_VISITE') {
-          acc.nbPortesVisitees++;
-        }
-        if (porte.statut === 'CONTRAT_SIGNE') {
-          acc.nbContratsSignes++;
-        }
-        if (porte.statut === 'RDV') {
-          acc.nbRdvPris++;
-        }
-        if (porte.statut === 'REFUS') {
-          acc.nbRefus++;
-        }
-        if (porte.statut === 'ABSENT') {
-          acc.nbAbsents++;
-        }
-        if (porte.statut === 'CURIEUX') {
-          acc.nbCurieux++;
-        }
-        return acc;
-      },
-      {
-        nbPortesVisitees: 0,
-        nbContratsSignes: 0,
-        nbRdvPris: 0,
-        nbRefus: 0,
-        nbAbsents: 0,
-        nbCurieux: 0,
-      },
-    );
+      if (!commercial) {
+        throw new Error(`Commercial with ID ${commercialId} not found`);
+      }
 
-    const history = await this.prisma.historiqueProspection.findFirst({
-      where: {
-        commercialId,
-        immeubleId,
-      },
-    });
+      if (!immeuble) {
+        throw new Error(`Immeuble with ID ${immeubleId} not found`);
+      }
 
-    if (history) {
-      await this.prisma.historiqueProspection.update({
-        where: { id: history.id },
-        data: stats,
+      const portes = await this.prisma.porte.findMany({
+        where: { immeubleId },
       });
-    } else {
-      await this.prisma.historiqueProspection.create({
-        data: {
-          ...stats,
+
+      const stats = portes.reduce(
+        (acc, porte) => {
+          if (porte.statut !== 'NON_VISITE') {
+            acc.nbPortesVisitees++;
+          }
+          if (porte.statut === 'CONTRAT_SIGNE') {
+            acc.nbContratsSignes++;
+          }
+          if (porte.statut === 'RDV') {
+            acc.nbRdvPris++;
+          }
+          if (porte.statut === 'REFUS') {
+            acc.nbRefus++;
+          }
+          if (porte.statut === 'ABSENT') {
+            acc.nbAbsents++;
+          }
+          if (porte.statut === 'CURIEUX') {
+            acc.nbCurieux++;
+          }
+          return acc;
+        },
+        {
+          nbPortesVisitees: 0,
+          nbContratsSignes: 0,
+          nbRdvPris: 0,
+          nbRefus: 0,
+          nbAbsents: 0,
+          nbCurieux: 0,
+        },
+      );
+
+      const history = await this.prisma.historiqueProspection.findFirst({
+        where: {
           commercialId,
           immeubleId,
         },
       });
+
+      if (history) {
+        await this.prisma.historiqueProspection.update({
+          where: { id: history.id },
+          data: stats,
+        });
+      } else {
+        await this.prisma.historiqueProspection.create({
+          data: {
+            ...stats,
+            commercialId,
+            immeubleId,
+          },
+        });
+      }
+    } catch (error) {
+      console.error('Error in triggerHistoryUpdate:', error);
+      throw error;
     }
   }
 }

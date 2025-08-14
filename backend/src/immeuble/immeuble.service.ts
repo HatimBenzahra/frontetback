@@ -5,10 +5,14 @@ import { UpdateImmeubleDto } from './dto/update-immeuble.dto';
 import { CreateCommercialImmeubleDto } from './dto/create-commercial-immeuble.dto';
 import { UpdateCommercialImmeubleDto } from './dto/update-commercial-immeuble.dto';
 import { ImmeubleStatus, ProspectingMode, PorteStatut } from '@prisma/client';
+import { EventsGateway } from '../events/events.gateway';
 
 @Injectable()
 export class ImmeubleService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private eventsGateway: EventsGateway
+  ) {}
 
   // Admin methods
   create(createImmeubleDto: CreateImmeubleDto) {
@@ -39,7 +43,7 @@ export class ImmeubleService {
     });
   }
 
-  update(id: string, updateImmeubleDto: UpdateImmeubleDto) {
+  async update(id: string, updateImmeubleDto: UpdateImmeubleDto) {
     const { prospectorsIds, ...rest } = updateImmeubleDto;
     const data = {
       ...rest,
@@ -49,10 +53,27 @@ export class ImmeubleService {
         },
       }),
     };
-    return this.prisma.immeuble.update({
+
+    // Récupérer l'ancien nombre d'étages pour détecter les changements
+    const oldImmeuble = await this.prisma.immeuble.findUnique({
+      where: { id },
+      select: { nbEtages: true }
+    });
+
+    const updatedImmeuble = await this.prisma.immeuble.update({
       where: { id },
       data,
     });
+
+    // Si le nombre d'étages a changé, émettre un événement WebSocket
+    if (oldImmeuble && oldImmeuble.nbEtages !== updatedImmeuble.nbEtages) {
+      this.eventsGateway.sendToRoom(id, 'floor:added', {
+        newNbEtages: updatedImmeuble.nbEtages,
+        timestamp: new Date().toISOString()
+      });
+    }
+
+    return updatedImmeuble;
   }
 
   async remove(id: string) {
