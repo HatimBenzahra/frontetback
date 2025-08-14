@@ -9,6 +9,7 @@ import { Badge } from '@/components/ui-admin/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui-admin/select';
 import { RefreshCw, Search, Copy, Download, Calendar, Clock, Building2, User, Filter, Mic, MicOff, Activity, Target, FileText } from 'lucide-react';
 import { type TranscriptionSession, transcriptionHistoryService } from '@/services/transcriptionHistory.service';
+import { API_BASE_URL } from '@/config';
 
 // Styles CSS personnalisés pour améliorer le scroll
 const scrollStyles = `
@@ -23,6 +24,7 @@ const scrollStyles = `
 `;
 
 type LiveUpdate = {
+  
   commercial_id: string;
   transcript: string;
   is_final: boolean;
@@ -142,9 +144,7 @@ const TranscriptionsPage = () => {
   // Debounce partiels
   const partialTimerRef = useRef<Record<string, number>>({});
 
-  const SERVER_HOST = import.meta.env.VITE_SERVER_HOST || window.location.hostname;
-  const API_PORT = import.meta.env.VITE_API_PORT || '3000';
-  const BASE = `https://${SERVER_HOST}:${API_PORT}`;
+  const BASE = API_BASE_URL;
 
   // Utils
   const formatDuration = (seconds: number) => {
