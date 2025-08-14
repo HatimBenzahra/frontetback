@@ -34,16 +34,27 @@ interface TranscriptionSession {
 
 @WebSocketGateway({
   cors: {
-    origin: [
-      `https://${process.env.LOCALHOST_DEV}:${process.env.FRONTEND_PORT}`, 
-      `https://127.0.0.1:${process.env.FRONTEND_PORT}`,
-      `https://${process.env.CLIENT_HOST}:${process.env.FRONTEND_PORT}`,
-      `https://${process.env.LOCALHOST_IP}:${process.env.FRONTEND_PORT}`,
-      `http://${process.env.LOCALHOST_DEV}:${process.env.FRONTEND_PORT}`, 
-      `http://127.0.0.1:${process.env.FRONTEND_PORT}`,
-      `http://${process.env.CLIENT_HOST}:${process.env.FRONTEND_PORT}`,
-      `http://${process.env.LOCALHOST_IP}:${process.env.FRONTEND_PORT}`
-    ],
+    origin: (origin: string | undefined, callback: (err: Error | null, allow?: boolean) => void) => {
+      if (!origin) return callback(null, true);
+      const allowed = [
+        `https://${process.env.LOCALHOST_DEV}:${process.env.FRONTEND_PORT}`,
+        `https://127.0.0.1:${process.env.FRONTEND_PORT}`,
+        `https://${process.env.CLIENT_HOST}:${process.env.FRONTEND_PORT}`,
+        `https://${process.env.LOCALHOST_IP}:${process.env.FRONTEND_PORT}`,
+        `http://${process.env.LOCALHOST_DEV}:${process.env.FRONTEND_PORT}`,
+        `http://127.0.0.1:${process.env.FRONTEND_PORT}`,
+        `http://${process.env.CLIENT_HOST}:${process.env.FRONTEND_PORT}`,
+        `http://${process.env.LOCALHOST_IP}:${process.env.FRONTEND_PORT}`,
+        `https://${process.env.PRODUCTION_IP}`,
+        `http://${process.env.PRODUCTION_IP}`,
+      ];
+      // Autoriser n'importe quelle IP locale 192.168.x.x avec ou sans port, en http ou https
+      const isLocalNetwork = /^https?:\/\/192\.168\.[0-9]+\.[0-9]+(:\d+)?$/.test(origin);
+      if (allowed.includes(origin) || isLocalNetwork) {
+        return callback(null, true);
+      }
+      return callback(new Error('Not allowed by CORS'));
+    },
     credentials: true,
   },
   transports: ['websocket', 'polling'],

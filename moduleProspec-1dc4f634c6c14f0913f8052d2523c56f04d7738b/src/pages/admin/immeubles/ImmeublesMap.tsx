@@ -8,6 +8,7 @@ import { Button } from '@/components/ui-admin/button';
 import { type Immeuble } from './columns';
 import { type Zone } from '../zones/columns';
 import { Eye } from 'lucide-react';
+import mapboxgl from '@/lib/mapbox';
 
 
 
@@ -34,46 +35,76 @@ interface ImmeublesMapProps {
   immeubles: Immeuble[];
   immeubleToFocusId: string | null;
   zoneToFocusId: string | null;
-  onFocusClear: () => void;
 }
 
 export const ImmeublesMap = (props: ImmeublesMapProps) => {
-    const { zones, immeubles, immeubleToFocusId, zoneToFocusId, onFocusClear } = props;
+    const { zones, immeubles, immeubleToFocusId, zoneToFocusId } = props;
     const validZones = zones.filter(z => z.latlng && typeof z.latlng[0] === 'number' && !isNaN(z.latlng[0]) && typeof z.latlng[1] === 'number' && !isNaN(z.latlng[1]));
     const validImmeubles = immeubles.filter(i => i.latlng && typeof i.latlng[0] === 'number' && !isNaN(i.latlng[0]) && typeof i.latlng[1] === 'number' && !isNaN(i.latlng[1]));
     const navigate = useNavigate();
     const mapRef = useRef<MapRef>(null);
     const [selectedImmeuble, setSelectedImmeuble] = useState<Immeuble | null>(null);
+    const [mapLoaded, setMapLoaded] = useState(false);
+    const statusColorMap: Record<Immeuble['status'], string> = {
+        'Non commencé': '#64748b',
+        'À visiter': '#2563eb',
+        'À terminer': '#f59e0b',
+        'Terminé': '#10b981',
+        'RDV Pris': '#7c3aed',
+        'Inaccessible': '#ef4444',
+    };
+
+    const Building3DIcon = ({ color = '#2563eb' }: { color?: string }) => (
+        <svg width="26" height="32" viewBox="0 0 26 32" style={{ filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.25))' }}>
+            <defs>
+                <linearGradient id="g1" x1="0%" y1="0%" x2="0%" y2="100%">
+                    <stop offset="0%" stopColor={color} stopOpacity="0.95" />
+                    <stop offset="100%" stopColor={color} stopOpacity="0.75" />
+                </linearGradient>
+                <linearGradient id="g2" x1="0%" y1="0%" x2="100%" y2="100%">
+                    <stop offset="0%" stopColor={color} stopOpacity="0.85" />
+                    <stop offset="100%" stopColor={color} stopOpacity="0.65" />
+                </linearGradient>
+            </defs>
+            <polygon points="13,0 0,6 13,12 26,6" fill="url(#g1)" />
+            <polygon points="0,6 0,22 13,28 13,12" fill="url(#g2)" />
+            <polygon points="26,6 26,22 13,28 13,12" fill={color} fillOpacity="0.8" />
+            <polygon points="13,0 0,6 0,22 13,28 26,22 26,6 13,0" fill="none" stroke="#0f172a" strokeOpacity="0.35" strokeWidth="1" />
+            <circle cx="13" cy="29.5" r="2" fill="#0f172a" fillOpacity="0.25" />
+        </svg>
+    );
 
     useEffect(() => {
         const map = mapRef.current;
-        if (!map) return;
+        if (!map || !mapLoaded) return;
 
-        if (immeubleToFocusId) {
-            const immeuble = validImmeubles.find(i => i.id === immeubleToFocusId);
-            if (immeuble && immeuble.latlng) {
-                setSelectedImmeuble(immeuble);
-                map.flyTo({ center: [immeuble.latlng[1], immeuble.latlng[0]], zoom: 17, duration: 1500 });
+        const timer = setTimeout(() => {
+            if (immeubleToFocusId) {
+                const immeuble = validImmeubles.find(i => i.id === immeubleToFocusId);
+                if (immeuble && immeuble.latlng) {
+                    setSelectedImmeuble(immeuble);
+                    map.flyTo({ center: [immeuble.latlng[1], immeuble.latlng[0]], zoom: 17, duration: 1500 });
+                }
+            } else if (zoneToFocusId) {
+                const zone = validZones.find(z => z.id === zoneToFocusId);
+                if (zone && zone.latlng) {
+                    setSelectedImmeuble(null);
+                    map.flyTo({ center: [zone.latlng[1], zone.latlng[0]], zoom: 14, duration: 1500 });
+                }
+            } else if (validZones.length > 0 || validImmeubles.length > 0) {
+                const allPoints = [
+                    ...validZones.map(z => [z.latlng[1], z.latlng[0]] as [number, number]),
+                    ...validImmeubles.map(i => [i.latlng[1], i.latlng[0]] as [number, number])
+                ];
+                if (allPoints.length > 0) {
+                    const bounds = allPoints.reduce((b, coord) => b.extend(coord), new mapboxgl.LngLatBounds(allPoints[0], allPoints[0]));
+                    map.fitBounds(bounds, { padding: 80, animate: true, maxZoom: 16 });
+                }
             }
-            onFocusClear();
-        } else if (zoneToFocusId) {
-            const zone = validZones.find(z => z.id === zoneToFocusId);
-            if (zone && zone.latlng) {
-                setSelectedImmeuble(null);
-                map.flyTo({ center: [zone.latlng[1], zone.latlng[0]], zoom: 14, duration: 1500 });
-            }
-            onFocusClear();
-        } else if (validZones.length > 0 || validImmeubles.length > 0) {
-            const allPoints = [
-                ...validZones.map(z => [z.latlng[1], z.latlng[0]]),
-                ...validImmeubles.map(i => [i.latlng[1], i.latlng[0]])
-            ];
-            const bounds = allPoints.reduce((bounds, coord) => {
-                return bounds.extend(coord);
-            }, new (window as any).mapboxgl.LngLatBounds(allPoints[0], allPoints[0]));
-            map.fitBounds(bounds, { padding: 80, animate: true, maxZoom: 16 });
-        }
-    }, [immeubleToFocusId, zoneToFocusId, mapRef, onFocusClear, validImmeubles, validZones]);
+        }, 50);
+
+        return () => clearTimeout(timer);
+    }, [immeubleToFocusId, zoneToFocusId, mapLoaded, validImmeubles, validZones]);
 
     return (
         <div className="h-[70vh] w-full rounded-lg overflow-hidden">
@@ -86,6 +117,8 @@ export const ImmeublesMap = (props: ImmeublesMapProps) => {
                     zoom: 12
                 }}
                 style={{ width: '100%', height: '100%' }}
+                onLoad={() => setMapLoaded(true)}
+                mapboxAccessToken={import.meta.env.VITE_MAPBOX_ACCESS_TOKEN}
                 mapStyle="mapbox://styles/mapbox/streets-v12"
             >
                 <NavigationControl position="top-right" />
@@ -113,14 +146,27 @@ export const ImmeublesMap = (props: ImmeublesMapProps) => {
                 {validImmeubles.map(immeuble => {
                     if (!immeuble.latlng) return null;
                     const [lat, lng] = immeuble.latlng;
+                    const color = statusColorMap[immeuble.status] ?? '#2563eb';
                     return (
-                        <Marker key={immeuble.id} longitude={lng} latitude={lat}>
-                            <Popup longitude={lng} latitude={lat}>
-                                <div className="space-y-2">
-                                    <p className="font-bold">{immeuble.adresse}</p>
-                                    <p className="text-sm text-muted-foreground">{immeuble.codePostal} {immeuble.ville}</p>
-                                    <Button size="sm" className="bg-green-600 text-white hover:bg-green-700" onClick={() => navigate(`/admin/immeubles/${immeuble.id}`)}>
-                                        <Eye className="mr-2 h-4 w-4" /> Voir les portes
+                        <Marker key={immeuble.id} longitude={lng} latitude={lat} anchor="bottom">
+                            <div style={{ cursor: 'pointer', transform: 'translateY(-4px)' }}>
+                                <Building3DIcon color={color} />
+                            </div>
+                            <Popup
+                                longitude={lng}
+                                latitude={lat}
+                                anchor="top"
+                                offset={12}
+                                closeButton={true}
+                            >
+                                <div className="rounded-lg p-2 bg-white space-y-1 min-w-[180px] max-w-[220px]">
+                                    <div className="flex items-center gap-2">
+                                        <span className="inline-block w-2 h-2 rounded-full" style={{ backgroundColor: color }} />
+                                        <p className="font-semibold text-sm leading-tight line-clamp-1">{immeuble.adresse}</p>
+                                    </div>
+                                    <p className="text-xs text-muted-foreground">{immeuble.codePostal} {immeuble.ville}</p>
+                                    <Button size="sm" className="w-full h-7 bg-green-600 text-white hover:bg-green-700" onClick={() => navigate(`/admin/immeubles/${immeuble.id}`)}>
+                                        <Eye className="mr-2 h-3.5 w-3.5" /> Voir les portes
                                     </Button>
                                 </div>
                             </Popup>
@@ -129,7 +175,7 @@ export const ImmeublesMap = (props: ImmeublesMapProps) => {
                 })}
 
                 {selectedImmeuble && selectedImmeuble.latlng && (
-                    <Marker longitude={selectedImmeuble.latlng[1]} latitude={selectedImmeuble.latlng[0]} popup={new (window as any).mapboxgl.Popup({ offset: 25 }).setText(`Focus: ${selectedImmeuble.adresse}`)} />
+                    <Marker longitude={selectedImmeuble.latlng[1]} latitude={selectedImmeuble.latlng[0]} popup={new mapboxgl.Popup({ offset: 25 }).setText(`Focus: ${selectedImmeuble.adresse}`)} />
                 )}
             </Map>
         </div>

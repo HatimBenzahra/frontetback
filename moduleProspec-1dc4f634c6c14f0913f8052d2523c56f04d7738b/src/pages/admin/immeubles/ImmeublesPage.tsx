@@ -179,9 +179,13 @@ const ImmeublesPage = () => {
         setView('map');
     }, []);
     
-    const handleClearFocus = useCallback(() => {
-        setImmeubleToFocusId(null);
-        setZoneToFocusId(null);
+    const handleViewChange = useCallback((newView: 'table' | 'map') => {
+        if (newView === 'map') {
+            // Switch manuel vers la carte → afficher tout (aucun focus spécifique)
+            setImmeubleToFocusId(null);
+            setZoneToFocusId(null);
+        }
+        setView(newView);
     }, []);
 
     // Filtrage des données
@@ -806,7 +810,6 @@ const ImmeublesPage = () => {
             immeubles={immeubles} 
             immeubleToFocusId={immeubleToFocusId}
             zoneToFocusId={zoneToFocusId}
-            onFocusClear={handleClearFocus}
         />
     );
 
@@ -816,7 +819,7 @@ const ImmeublesPage = () => {
                 title="Gestion des Immeubles"
                 description="Basculez entre la vue tableau et la vue carte. Cliquez sur une adresse ou une zone pour la localiser."
                 view={view}
-                onViewChange={setView}
+                onViewChange={handleViewChange}
                 tableComponent={tableComponent}
                 mapComponent={mapComponent}
             />
