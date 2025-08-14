@@ -1,21 +1,26 @@
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui-admin/card';
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LabelList, Cell } from 'recharts';
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LabelList, Legend } from 'recharts';
 
 interface ChartDataItem {
   [key: string]: string | number;
+}
+
+interface BarConfig {
+  dataKey: string;
+  fill: string;
+  name?: string;
 }
 
 interface GenericBarChartProps {
   title: string;
   data: ChartDataItem[];
   xAxisDataKey: string;
-  barDataKey: string;
-  fillColor: string | ((entry: ChartDataItem, index: number) => string);
+  bars: BarConfig[];
 }
 
 
 
-export const GenericBarChart = ({ title, data, xAxisDataKey, barDataKey, fillColor }: GenericBarChartProps) => {
+export const GenericBarChart = ({ title, data, xAxisDataKey, bars }: GenericBarChartProps) => {
   return (
     <Card className="h-full">
       <CardHeader><CardTitle>{title}</CardTitle></CardHeader>
@@ -46,14 +51,18 @@ export const GenericBarChart = ({ title, data, xAxisDataKey, barDataKey, fillCol
               cursor={{ fill: 'hsl(var(--muted))' }} 
               contentStyle={{ backgroundColor: 'hsl(var(--background))', borderColor: 'hsl(var(--border))' }} 
             />
-            <Bar dataKey={barDataKey} radius={[4, 4, 0, 0]} fill={typeof fillColor === 'string' ? fillColor : undefined}>
-              {typeof fillColor === 'function'
-                ? data.map((entry, index) => (
-                    <Cell key={`cell-${index}`} fill={fillColor(entry, index)} />
-                  ))
-                : null}
-              <LabelList dataKey={barDataKey} position="top" style={{ fill: 'hsl(var(--foreground))', fontSize: '12px' }} />
-            </Bar>
+            <Legend />
+            {bars.map((bar) => (
+              <Bar 
+                key={bar.dataKey}
+                dataKey={bar.dataKey} 
+                fill={bar.fill}
+                name={bar.name || bar.dataKey}
+                radius={[4, 4, 0, 0]}
+              >
+                <LabelList dataKey={bar.dataKey} position="top" style={{ fill: 'hsl(var(--foreground))', fontSize: '11px' }} />
+              </Bar>
+            ))}
           </BarChart>
         </ResponsiveContainer>
       </CardContent>

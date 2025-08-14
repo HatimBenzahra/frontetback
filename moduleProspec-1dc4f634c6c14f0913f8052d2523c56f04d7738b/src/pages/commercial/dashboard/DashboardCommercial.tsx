@@ -10,7 +10,7 @@ import { motion } from 'framer-motion';
 import StatCard from '@/components/ui-admin/StatCard';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui-admin/card';
 import { CheckCircle, DoorOpen, MapPin, ZapOff, Percent, Building, ArrowRight, History } from 'lucide-react';
-import { GenericLineChart } from '@/components/charts/GenericLineChart';
+import { GenericBarChart } from '@/components/charts/GenericBarChart';
 import { ZoneFocusMap } from './ZoneFocusMap';
 import { GoalProgressCard } from '@/components/ui-commercial/GoalProgressCard';
 import { Skeleton } from '@/components/ui-admin/skeleton';
@@ -112,14 +112,38 @@ const CommercialDashboardPage = () => {
         fetchData();
     }, [user]);
 
-    const activitePortesData = history
-        .map((item: any) => ({
-            name: new Date(item.dateProspection).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short' }),
-            'Portes Visitées': item.nbPortesVisitees,
-            'RDV Pris': item.nbRdvPris,
-            'Contrats Signés': item.nbContratsSignes,
-        }))
-        .reverse();
+    // Grouper les données par jour de la semaine
+    const dayNames = ['Dimanche', 'Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi'];
+    
+    const dailyPortesData = history.reduce((acc: any, item: any) => {
+        const date = new Date(item.dateProspection);
+        const dayOfWeek = date.getDay(); // 0 = Dimanche, 1 = Lundi, etc.
+        const dayName = dayNames[dayOfWeek];
+        
+        if (!acc[dayName]) {
+            acc[dayName] = {
+                jour: dayName,
+                'Portes Visitées': 0,
+                'Contrats Signés': 0,
+                order: dayOfWeek
+            };
+        }
+        acc[dayName]['Portes Visitées'] += item.nbPortesVisitees;
+        acc[dayName]['Contrats Signés'] += item.nbContratsSignes;
+        return acc;
+    }, {});
+
+    // Créer un tableau avec tous les jours de la semaine (même si 0 portes/contrats)
+    const dailyPortesArray = dayNames.map((dayName, index) => ({
+        jour: dayName,
+        'Portes Visitées': dailyPortesData[dayName]?.['Portes Visitées'] || 0,
+        'Contrats Signés': dailyPortesData[dayName]?.['Contrats Signés'] || 0,
+        order: index
+    })).sort((a, b) => {
+        // Réorganiser pour commencer par Lundi
+        const mondayFirst = (day: number) => day === 0 ? 6 : day - 1;
+        return mondayFirst(a.order) - mondayFirst(b.order);
+    });
 
     if (loading) return <DashboardSkeleton />;
     if (error) return <div className="text-center py-10 text-red-600 bg-red-50 h-screen flex items-center justify-center">{error}</div>;
@@ -166,17 +190,17 @@ const CommercialDashboardPage = () => {
                         <motion.div variants={itemVariants}>
                             <Card className="rounded-2xl bg-white border border-slate-200 shadow-sm">
                                 <CardHeader>
-                                    <CardTitle className="text-xl font-bold text-slate-900">Activité de Prospection</CardTitle>
-                                    <CardDescription>Évolution de vos visites, RDV et contrats.</CardDescription>
+                                    <CardTitle className="text-xl font-bold text-slate-900">Activité par Jour de la Semaine</CardTitle>
+                                    <CardDescription>Portes visitées et contrats signés par jour de la semaine.</CardDescription>
                                 </CardHeader>
                                 <CardContent className="h-[350px] pt-4">
-                                    <GenericLineChart
-                                        data={activitePortesData}
-                                        xAxisDataKey="name"
-                                        lines={[
-                                            { dataKey: 'Portes Visitées', name: 'Portes', stroke: '#3b82f6' },
-                                            { dataKey: 'RDV Pris', name: 'RDV', stroke: '#f97316' },
-                                            { dataKey: 'Contrats Signés', name: 'Contrats', stroke: '#10b981' },
+                                    <GenericBarChart
+                                        title=""
+                                        data={dailyPortesArray}
+                                        xAxisDataKey="jour"
+                                        bars={[
+                                            { dataKey: 'Portes Visitées', fill: '#3b82f6', name: 'Portes Visitées' },
+                                            { dataKey: 'Contrats Signés', fill: '#10b981', name: 'Contrats Signés' }
                                         ]}
                                     />
                                 </CardContent>
@@ -209,6 +233,8 @@ const CommercialDashboardPage = () => {
                                 description="Progression de votre objectif de contrats."
                                 value={currentStats.contratsSignes || 0}
                                 total={currentStats.objectifMensuel || 0}
+                                startDate={currentStats.objectifStartDate}
+                                endDate={currentStats.objectifEndDate}
                             />
                         </motion.div>
                         <motion.div variants={itemVariants}>

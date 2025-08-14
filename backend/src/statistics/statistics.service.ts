@@ -75,6 +75,15 @@ export class StatisticsService {
       );
     }
 
+    // Récupérer l'objectif global actuel
+    const globalGoal = await this.prisma.globalGoal.findFirst({
+      where: { 
+        startDate: { lte: new Date() }, 
+        endDate: { gte: new Date() } 
+      },
+      orderBy: { startDate: 'desc' },
+    });
+
     const aggregatedStats = commercial.historiques.reduce(
       (acc, history) => {
         acc.immeublesVisites.add(history.immeubleId);
@@ -126,8 +135,11 @@ export class StatisticsService {
           Math.min(tauxDeConversion, 100).toFixed(2),
         ),
         // --- MODIFICATION ICI ---
-        // On ajoute l'objectif mensuel aux KPIs retournés
-        objectifMensuel: commercial.currentMonthlyGoal || 0,
+        // On utilise l'objectif global pour tous les commerciaux
+        objectifMensuel: globalGoal?.goal || 0,
+        // Ajouter les informations de période de l'objectif global
+        objectifStartDate: globalGoal?.startDate || null,
+        objectifEndDate: globalGoal?.endDate || null,
       },
       repartitionStatuts,
     };
