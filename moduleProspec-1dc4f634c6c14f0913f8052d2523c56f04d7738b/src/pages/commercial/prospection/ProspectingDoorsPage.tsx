@@ -379,17 +379,17 @@ const ProspectingDoorsPage = () => {
     };
 
     const { visitedDoorsCount, coveragePercentage } = useMemo(() => {
-        if (!portes.length || !building) {
+        if (!portes.length) {
             return { visitedDoorsCount: 0, coveragePercentage: 0 };
         }
         const visited = portes.filter(p => p.statut !== "NON_VISITE").length;
-        const total = building.nbPortesTotal;
+        const total = portes.length;
         const percentage = total > 0 ? (visited / total) * 100 : 0;
         return {
             visitedDoorsCount: visited,
             coveragePercentage: parseFloat(percentage.toFixed(1)),
         };
-    }, [portes, building]);
+    }, [portes]);
 
     const fetchData = useCallback(async (id: string) => {
         setIsLoading(true);
@@ -459,6 +459,14 @@ const ProspectingDoorsPage = () => {
                 prevPortes.map(p => (p.id === finalUpdatedPorte.id ? finalUpdatedPorte : p))
             );
 
+            // Emit socket event for real-time sync with admin panel
+            if (socket && buildingId) {
+                socket.emit('immeubleUpdated', { 
+                    immeubleId: buildingId,
+                    type: 'porte_update'
+                });
+            }
+
             // The porteUpdated event from the backend will handle updating the state
             if(buildingId && user.id){
                 await statisticsService.triggerHistoryUpdate(user.id, buildingId);
@@ -498,7 +506,15 @@ const ProspectingDoorsPage = () => {
                 commentaire: newPorteFromApi.commentaire
             };
             setPortes([...portes, newPorte]);
-            setBuilding(prev => prev ? { ...prev, nbPortesTotal: prev.nbPortesTotal + 1 } : null);
+            
+            // Emit socket event for real-time sync with admin panel
+            if (socket && buildingId) {
+                socket.emit('immeubleUpdated', { 
+                    immeubleId: buildingId,
+                    type: 'porte_added'
+                });
+            }
+            
             toast.success("Porte ajoutée.");
         } catch (error) {
             console.error("Error adding door:", error);
@@ -515,6 +531,15 @@ const ProspectingDoorsPage = () => {
                 nbPortesParEtage: building.nbPortesParEtage || 10,
             }, user.id);
             await fetchData(buildingId);
+            
+            // Emit socket event for real-time sync with admin panel
+            if (socket && buildingId) {
+                socket.emit('immeubleUpdated', { 
+                    immeubleId: buildingId,
+                    type: 'floor_added'
+                });
+            }
+            
             toast.success("Étage ajouté.");
         } catch (error) {
             console.error("Error adding floor:", error);
@@ -532,7 +557,15 @@ const ProspectingDoorsPage = () => {
         try {
             await porteService.deletePorte(doorToDeleteId);
             setPortes(portes.filter(p => p.id !== doorToDeleteId));
-            setBuilding(prev => prev ? { ...prev, nbPortesTotal: prev.nbPortesTotal - 1 } : null);
+            
+            // Emit socket event for real-time sync with admin panel
+            if (socket && buildingId) {
+                socket.emit('immeubleUpdated', { 
+                    immeubleId: buildingId,
+                    type: 'porte_deleted'
+                });
+            }
+            
             toast.success("Porte supprimée.");
         } catch (error) {
             console.error("Error deleting door:", error);
@@ -571,11 +604,11 @@ const ProspectingDoorsPage = () => {
                     <CardHeader className="p-6">
                         
                         <CardDescription className="text-slate-600 mt-2">
-                            {building.nbPortesTotal} portes à prospecter. Mettez à jour leur statut au fur et à mesure.
+                            {portes.length} portes à prospecter. Mettez à jour leur statut au fur et à mesure.
                         </CardDescription>
                         <div className="mt-4 pt-4 border-t border-slate-200">
                             <div className="text-lg font-semibold text-slate-800">
-                                Couverture: {visitedDoorsCount} / {building.nbPortesTotal} portes ({coveragePercentage}%)
+                                Couverture: {visitedDoorsCount} / {portes.length} portes ({coveragePercentage}%)
                             </div>
                             <div className="w-full bg-slate-200 rounded-full h-2.5 mt-2">
                                 <motion.div 

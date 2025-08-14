@@ -17,8 +17,8 @@ interface DataTableProps<TData extends { id: string }, TValue> {
   columns: ColumnDef<TData, TValue>[]
   data: TData[]
   fullData?: TData[]
-  filterColumnId: string
-  filterPlaceholder: string
+  filterColumnId?: string | null
+  filterPlaceholder?: string
   title: string
   rowLinkBasePath?: string
   onRowClick?: (row: TData) => void
@@ -56,16 +56,16 @@ export function DataTable<TData extends { id: string }, TValue>({
   const [searchFocused, setSearchFocused] = React.useState(false)
   const navigate = useNavigate()
 
-  const filterValue = (columnFilters.find(f => f.id === filterColumnId)?.value as string) ?? "";
+  const filterValue = filterColumnId ? (columnFilters.find(f => f.id === filterColumnId)?.value as string) ?? "" : "";
 
   const tableData = React.useMemo(() => {
-    const base = Array.isArray(fullData) && filterValue
+    const base = Array.isArray(fullData) && filterValue && filterColumnId
       ? fullData
       : Array.isArray(data)
         ? data
         : [];
 
-    if (Array.isArray(fullData) && filterValue) {
+    if (Array.isArray(fullData) && filterValue && filterColumnId) {
       return base.filter(row =>
         String(row[filterColumnId as keyof TData])
           .toLowerCase()
@@ -180,27 +180,29 @@ export function DataTable<TData extends { id: string }, TValue>({
   const innerContent = (
     <>
       <div className="flex flex-wrap items-center justify-between gap-4 mb-4">
-        <div className={cn(
-          "relative w-full md:w-auto transition-all",
-          searchFocused ? "ring-2 ring-primary/30 rounded-md" : "",
-        )}>
-          <Search className={cn(
-            "absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 transition-all",
-            searchFocused ? "text-primary" : "text-muted-foreground"
-          )} />
-          <Input
-            placeholder={filterPlaceholder}
-            value={filterValue}
-            onChange={e => setColumnFilters(prev => {
-              const newFilters = prev.filter(f => f.id !== filterColumnId);
-              return [...newFilters, { id: filterColumnId, value: e.target.value }];
-            })}
-            className="pl-10 w-full min-w-[280px] md:min-w-[320px]"
-            onFocus={() => setSearchFocused(true)}
-            onBlur={() => setSearchFocused(false)}
-            aria-label="Rechercher"
-          />
-        </div>
+        {filterColumnId && (
+          <div className={cn(
+            "relative w-full md:w-auto transition-all",
+            searchFocused ? "ring-2 ring-primary/30 rounded-md" : "",
+          )}>
+            <Search className={cn(
+              "absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 transition-all",
+              searchFocused ? "text-primary" : "text-muted-foreground"
+            )} />
+            <Input
+              placeholder={filterPlaceholder || "Rechercher..."}
+              value={filterValue}
+              onChange={e => setColumnFilters(prev => {
+                const newFilters = prev.filter(f => f.id !== filterColumnId);
+                return [...newFilters, { id: filterColumnId, value: e.target.value }];
+              })}
+              className="pl-10 w-full min-w-[280px] md:min-w-[320px]"
+              onFocus={() => setSearchFocused(true)}
+              onBlur={() => setSearchFocused(false)}
+              aria-label="Rechercher"
+            />
+          </div>
+        )}
 
         <div className="flex flex-wrap items-center gap-2">
           {customHeaderContent}
