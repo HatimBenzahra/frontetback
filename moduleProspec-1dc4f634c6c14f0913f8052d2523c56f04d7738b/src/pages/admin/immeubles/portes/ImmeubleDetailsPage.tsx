@@ -319,6 +319,8 @@ const EditPorteModal = ({
     const [commentaire, setCommentaire] = useState(porte?.commentaire || "");
     const [assigneeId, setAssigneeId] = useState(porte?.assigneeId || "");
     const [loading, setLoading] = useState(false);
+    
+
 
     useEffect(() => {
         if (porte) {
@@ -345,8 +347,6 @@ const EditPorteModal = ({
                 commentaire: commentaire || null,
                 assigneeId: assigneeId || null,
             });
-            onClose();
-            toast.success("Porte mise à jour avec succès");
         } catch (error) {
             toast.error("Erreur lors de la mise à jour");
         } finally {
@@ -941,6 +941,8 @@ const ImmeubleDetailsPage = () => {
     const [isAddFloorModalOpen, setIsAddFloorModalOpen] = useState(false);
     const [porteToDelete, setPorteToDelete] = useState<Porte | null>(null);
     const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+    const [isStatusChangeWarningOpen, setIsStatusChangeWarningOpen] = useState(false);
+    const [pendingPorteUpdate, setPendingPorteUpdate] = useState<{ porteId: string; updates: Partial<Porte> } | null>(null);
     const [currentPage, setCurrentPage] = useState(1);
     const [itemsPerPage, setItemsPerPage] = useState(10);
     const [isAddingPorte, setIsAddingPorte] = useState(false);
@@ -1200,6 +1202,25 @@ const ImmeubleDetailsPage = () => {
     };
 
     const handleSavePorte = async (porteId: string, updates: Partial<Porte>) => {
+        // Vérifier si le statut a changé
+        const porte = immeuble?.portes.find(p => p.id === porteId);
+        const hasStatusChanged = porte && updates.statut && updates.statut !== porte.statut;
+        
+        // Si le statut a changé, afficher la modal de warning
+        if (hasStatusChanged) {
+            setPendingPorteUpdate({ porteId, updates });
+            setIsStatusChangeWarningOpen(true);
+            // Fermer la modal d'édition
+            setIsEditModalOpen(false);
+            setEditingPorte(null);
+            return;
+        }
+        
+        // Sinon, procéder directement à la mise à jour
+        await executePorteUpdate(porteId, updates);
+    };
+
+    const executePorteUpdate = async (porteId: string, updates: Partial<Porte>) => {
         try {
             // Convertir les types pour correspondre à l'API
             const apiUpdates = {
@@ -1227,6 +1248,12 @@ const ImmeubleDetailsPage = () => {
             if (socket) {
                 socket.emit('porte:update', { porteId, updates });
             }
+
+            // Fermer le modal d'édition s'il est ouvert
+            setIsEditModalOpen(false);
+            setEditingPorte(null);
+            
+            toast.success("Porte mise à jour avec succès");
         } catch (error) {
             throw error;
         }
@@ -1253,6 +1280,7 @@ const ImmeubleDetailsPage = () => {
         
         return `${etage}${String(maxNumber + 1).padStart(2, '0')}`;
     };
+
 
     // CRUD Operations
     const handleAddPorte = async (porteData: { numeroPorte: string; etage: number; statut: PorteStatus; assigneeId?: string }) => {
@@ -1880,6 +1908,101 @@ const ImmeubleDetailsPage = () => {
                 }}
                 onConfirm={handleDeletePorte}
             />
+
+            {/* Modal de warning pour changement de statut */}
+            <Modal isOpen={isStatusChangeWarningOpen} onClose={() => setIsStatusChangeWarningOpen(false)} title="Attention : Modification du statut">
+                <div className="space-y-6">
+                    {/* Header avec warning */}
+                    <div className="p-6 bg-gradient-to-r from-amber-50 to-orange-50 rounded-xl border border-amber-200 shadow-sm">
+                        <div className="flex items-center gap-4">
+                            <div className="p-3 bg-amber-100 rounded-full">
+                                <Check className="h-6 w-6 text-amber-600" />
+                            </div>
+                            <div className="flex-1">
+                                <h3 className="text-lg font-semibold text-amber-900">
+                                    Modification du statut détectée
+                                </h3>
+                                <p className="text-sm text-amber-700 mt-1">
+                                    Cette action va affecter les statistiques du commercial
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Contenu du warning */}
+                    <div className="space-y-4">
+                        <div className="p-4 bg-blue-50 rounded-lg border border-blue-200">
+                            <div className="flex items-start gap-3">
+                                <div className="p-2 bg-blue-100 rounded-md mt-0.5">
+                                    <Check className="h-4 w-4 text-blue-600" />
+                                </div>
+                                <div>
+                                    <h4 className="font-semibold text-blue-900 mb-1">
+                                        Impact sur les statistiques
+                                    </h4>
+                                    <p className="text-sm text-blue-700">
+                                        En modifiant le statut de cette porte, les statistiques du commercial qui l'a prospectée seront automatiquement mises à jour. Cette action peut affecter les performances affichées dans les tableaux de bord.
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div className="p-4 bg-purple-50 rounded-lg border border-purple-200">
+                            <div className="flex items-start gap-3">
+                                <div className="p-2 bg-purple-100 rounded-md mt-0.5">
+                                    <Users className="h-4 w-4 text-purple-600" />
+                                </div>
+                                <div>
+                                    <h4 className="font-semibold text-purple-900 mb-1">
+                                        Commercial concerné
+                                    </h4>
+                                    <p className="text-sm text-purple-700">
+                                        {immeuble?.prospectingMode === 'DUO' && pendingPorteUpdate ? (
+                                            (() => {
+                                                const porte = immeuble.portes.find(p => p.id === pendingPorteUpdate.porteId);
+                                                const assignee = immeuble.prospectors.find(p => p.id === porte?.assigneeId);
+                                                return assignee ? 
+                                                    `Les statistiques de ${assignee.nom} seront mises à jour.` :
+                                                    "Les statistiques du premier prospecteur seront mises à jour.";
+                                            })()
+                                        ) : (
+                                            `Les statistiques de ${immeuble?.prospectors?.[0]?.nom || 'du prospecteur'} seront mises à jour.`
+                                        )}
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Actions */}
+                    <div className="flex justify-end gap-3 pt-6 border-t border-gray-200 bg-gray-50 -mx-6 -mb-6 px-6 pb-6">
+                        <Button 
+                            variant="outline" 
+                            onClick={() => {
+                                setIsStatusChangeWarningOpen(false);
+                                setPendingPorteUpdate(null);
+                            }}
+                            className="border-gray-300 text-gray-700 hover:bg-gray-50 hover:border-gray-400 h-11 px-6"
+                        >
+                            <X className="h-4 w-4 mr-2" />
+                            Annuler
+                        </Button>
+                        <Button 
+                            onClick={async () => {
+                                if (pendingPorteUpdate) {
+                                    await executePorteUpdate(pendingPorteUpdate.porteId, pendingPorteUpdate.updates);
+                                    setIsStatusChangeWarningOpen(false);
+                                    setPendingPorteUpdate(null);
+                                }
+                            }}
+                            className="bg-gradient-to-r from-amber-600 to-orange-600 hover:from-amber-700 hover:to-orange-700 text-white h-11 px-6 shadow-md"
+                        >
+                            <Check className="h-4 w-4 mr-2" />
+                            Confirmer la modification
+                        </Button>
+                    </div>
+                </div>
+            </Modal>
         </div>
     );
 };

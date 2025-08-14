@@ -319,22 +319,83 @@ const ProspectingDoorsPage = () => {
     const [doorToDeleteId, setDoorToDeleteId] = useState<string | null>(null);
     const [openFloor, setOpenFloor] = useState<number | null>(1);
 
+    // Ref pour le debounce des stats
+    const updateStatsTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+    
+    // Fonction robuste pour mettre à jour les stats avec debounce
+    const triggerStatsUpdateDebounced = useCallback(() => {
+        if (updateStatsTimeoutRef.current) {
+            clearTimeout(updateStatsTimeoutRef.current);
+        }
+        
+        updateStatsTimeoutRef.current = setTimeout(async () => {
+            if (buildingId && user?.id) {
+                try {
+                    console.log('🔄 Mise à jour des statistiques depuis WebSocket...');
+                    await statisticsService.triggerHistoryUpdate(user.id, buildingId);
+                    console.log('✅ Statistiques mises à jour avec succès');
+                } catch (error) {
+                    console.error('❌ Erreur lors de la mise à jour des statistiques:', error);
+                }
+            }
+        }, 500); // Attendre 500ms avant de déclencher
+    }, [buildingId, user?.id]);
+
     useEffect(() => {
         if (!socket || !buildingId) return;
 
-        socket.on('porteUpdated', (updatedPorte: any) => {
+        // Handler robuste pour mise à jour des portes et stats
+        const handlePorteUpdate = async (updatedPorte: any, porteId?: string, updates?: any) => {
+            let hasStatusChanged = false;
+            
+            // Mettre à jour les portes localement
             setPortes(prevPortes =>
                 prevPortes.map(p => {
-                    if (p.id === updatedPorte.id) {
-                        // Convertir le format backend (numeroPorte) vers le format frontend (numero)
-                        return {
-                            ...updatedPorte,
-                            numero: updatedPorte.numeroPorte || updatedPorte.numero || p.numero,
-                        };
+                    if (p.id === (updatedPorte?.id || porteId)) {
+                        let newPorte;
+                        const oldStatus = p.statut;
+                        
+                        if (updatedPorte) {
+                            // Format complet de la porte (backend)
+                            newPorte = {
+                                ...updatedPorte,
+                                numero: updatedPorte.numeroPorte || updatedPorte.numero || p.numero,
+                            };
+                            hasStatusChanged = oldStatus !== updatedPorte.statut;
+                        } else if (updates) {
+                            // Format partiel (admin)
+                            newPorte = {
+                                ...p,
+                                ...updates,
+                                numero: updates.numeroPorte || p.numero,
+                            };
+                            hasStatusChanged = updates.statut && oldStatus !== updates.statut;
+                        }
+                        
+                        if (hasStatusChanged) {
+                            console.log(`🔄 Changement de statut détecté: ${oldStatus} → ${newPorte?.statut || updates?.statut}`);
+                        }
+                        
+                        return newPorte || p;
                     }
                     return p;
                 })
             );
+            
+            // Toujours déclencher la mise à jour des stats pour les changements via WebSocket
+            // car cela signifie qu'une modification externe a eu lieu
+            console.log('🔄 Modification de porte reçue via WebSocket - déclenchement des stats');
+            triggerStatsUpdateDebounced();
+        };
+
+        // Écouter l'événement du backend (format complet)
+        socket.on('porteUpdated', (updatedPorte: any) => {
+            handlePorteUpdate(updatedPorte);
+        });
+
+        // Écouter l'événement de l'admin (format partiel)
+        socket.on('porte:update', (data: { porteId: string; updates: any }) => {
+            handlePorteUpdate(null, data.porteId, data.updates);
         });
 
         socket.on('porte:added', (data: { porte: any }) => {
@@ -365,9 +426,15 @@ const ProspectingDoorsPage = () => {
 
         return () => {
             socket.off('porteUpdated');
+            socket.off('porte:update');
             socket.off('porte:added');
             socket.off('porte:deleted');
             socket.off('floor:added');
+            
+            // Nettoyer le timeout des stats
+            if (updateStatsTimeoutRef.current) {
+                clearTimeout(updateStatsTimeoutRef.current);
+            }
         };
     }, [socket, buildingId]);
 
