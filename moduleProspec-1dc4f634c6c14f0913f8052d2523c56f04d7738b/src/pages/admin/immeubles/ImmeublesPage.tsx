@@ -32,6 +32,8 @@ import {
     AlertDialogHeader,
     AlertDialogTitle,
 } from "@/components/ui-admin/alert-dialog";
+import { Modal } from "@/components/ui-admin/Modal";
+import AddressInput from "@/components/ui-admin/AddressInput";
 
 const ImmeublesPage = () => {
     const [view, setView] = useState<'table' | 'map'>('table');
@@ -58,6 +60,43 @@ const ImmeublesPage = () => {
     const [recentSearches, setRecentSearches] = useState<string[]>([]);
     const [immeubleToDelete, setImmeubleToDelete] = useState<string | null>(null);
     const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+    const [isDeleteMode, setIsDeleteMode] = useState(false);
+    const [itemsToDelete, setItemsToDelete] = useState<Immeuble[]>([]);
+
+    // Admin create modal state
+    const [isCreatorOpen, setIsCreatorOpen] = useState(false);
+    const [isSubmitting, setIsSubmitting] = useState(false);
+    const [formStep, setFormStep] = useState(1);
+    const [formState, setFormState] = useState({
+        adresse: "",
+        ville: "",
+        codePostal: "",
+        nbEtages: 1,
+        nbPortesParEtage: 1,
+        hasElevator: false,
+        digicode: "",
+        latitude: undefined as number | undefined,
+        longitude: undefined as number | undefined,
+        zoneId: "",
+        prospectingMode: "SOLO" as 'SOLO' | 'DUO',
+    });
+
+    // Compute zone containment for the selected address (admin creation modal)
+    const selectedZone = useMemo(() => zones.find(z => z.id === formState.zoneId) || null, [zones, formState.zoneId]);
+    const zoneProximity = useMemo(() => {
+        if (!selectedZone || typeof formState.latitude !== 'number' || typeof formState.longitude !== 'number') return null;
+        const toRad = (deg: number) => deg * Math.PI / 180;
+        const R = 6371000; // metres
+        const dLat = toRad(formState.latitude - selectedZone.latlng[0]);
+        const dLon = toRad(formState.longitude - selectedZone.latlng[1]);
+        const lat1 = toRad(selectedZone.latlng[0]);
+        const lat2 = toRad(formState.latitude);
+        const a = Math.sin(dLat/2) * Math.sin(dLat/2) + Math.cos(lat1) * Math.cos(lat2) * Math.sin(dLon/2) * Math.sin(dLon/2);
+        const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+        const distance = R * c; // in metres
+        const inZone = distance <= (selectedZone.radius || 0);
+        return { distance, radius: selectedZone.radius || 0, inZone };
+    }, [selectedZone, formState.latitude, formState.longitude]);
 
     useEffect(() => {
         fetchData(pageIndex, pageSize);
@@ -187,6 +226,60 @@ const ImmeublesPage = () => {
         }
         setView(newView);
     }, []);
+
+    const handleToggleDeleteMode = useCallback(() => {
+        setIsDeleteMode(prev => !prev);
+        setRowSelection({});
+    }, []);
+
+    // removed: confirmed via header buttons selection instead
+
+    const handleAddClick = useCallback(() => {
+        setFormStep(1);
+        setIsCreatorOpen(true);
+    }, []);
+
+    const handleCreateSubmit = async () => {
+        if (!formState.adresse || !formState.ville || !formState.codePostal || !formState.zoneId || !formState.latitude || !formState.longitude) {
+            toast.error("Veuillez renseigner l'adresse et sélectionner une zone existante.");
+            return;
+        }
+        // Enforce zone geofencing for admin-created immeubles
+        if (!zoneProximity || !zoneProximity.inZone) {
+            const extra = zoneProximity ? `Distance: ${Math.round(zoneProximity.distance)} m, rayon: ${Math.round(zoneProximity.radius)} m` : '';
+            toast.error(`L'adresse choisie n'appartient pas à la zone sélectionnée. ${extra}`.trim());
+            setFormStep(1);
+            return;
+        }
+        setIsSubmitting(true);
+        try {
+            const payload = {
+                adresse: formState.adresse,
+                ville: formState.ville,
+                codePostal: formState.codePostal,
+                status: undefined,
+                nbPortesTotal: (formState.nbEtages || 0) * (formState.nbPortesParEtage || 0),
+                nbEtages: formState.nbEtages,
+                nbPortesParEtage: formState.nbPortesParEtage,
+                prospectingMode: formState.prospectingMode,
+                dateDerniereVisite: undefined,
+                zoneId: formState.zoneId,
+                latitude: formState.latitude!,
+                longitude: formState.longitude!,
+                hasElevator: !!formState.hasElevator,
+                digicode: formState.digicode || undefined,
+                prospectorsIds: [],
+            };
+            await immeubleService.createImmeuble(payload);
+            toast.success("Immeuble créé avec succès.");
+            setIsCreatorOpen(false);
+            fetchData();
+        } catch (e) {
+            toast.error("Erreur lors de la création de l'immeuble.");
+        } finally {
+            setIsSubmitting(false);
+        }
+    };
 
     // Filtrage des données
     const filteredImmeubles = useMemo(() => {
@@ -556,6 +649,46 @@ const ImmeublesPage = () => {
                                     </Button>
                                 </motion.div>
                             )}
+
+                            {/* Boutons d'action alignés à droite du header */}
+                            {!isDeleteMode ? (
+                                <>
+                                    <Button
+                                        onClick={handleAddClick}
+                                        size="sm"
+                                        className="bg-[hsl(var(--winvest-blue-moyen))] text-white hover:bg-[hsl(var(--winvest-blue-moyen))]/90"
+                                    >
+                                        Ajouter un immeuble
+                                    </Button>
+                                    <Button
+                                        variant="outline"
+                                        size="sm"
+                                        onClick={handleToggleDeleteMode}
+                                    >
+                                        Supprimer
+                                    </Button>
+                                </>
+                            ) : (
+                                <>
+                                    <Button
+                                        variant="destructive"
+                                        size="sm"
+                                        onClick={() => {
+                                            const selected = Object.keys(rowSelection)
+                                                .filter(k => (rowSelection as any)[k])
+                                                .map(k => Number(k))
+                                                .map(idx => filteredImmeubles[idx])
+                                                .filter(Boolean);
+                                            setItemsToDelete(selected);
+                                        }}
+                                        disabled={Object.keys(rowSelection).filter(k => (rowSelection as any)[k]).length === 0}
+                                        className="bg-red-600 text-white hover:bg-red-700"
+                                    >
+                                        Supprimer ({Object.keys(rowSelection).filter(k => (rowSelection as any)[k]).length})
+                                    </Button>
+                                    <Button variant="outline" size="sm" onClick={handleToggleDeleteMode}>Annuler</Button>
+                                </>
+                            )}
                         </div>
                     </div>
                 </div>
@@ -773,33 +906,33 @@ const ImmeublesPage = () => {
             
             {/* Tableau moderne */}
             <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
-                            <DataTable
-                noCardWrapper
-                columns={columns}
-                data={filteredImmeubles}
-                title=""
-                filterColumnId={null}
-                filterPlaceholder=""
-                addEntityButtonText=""
-                onAddEntity={() => {}}
-                isDeleteMode={false}
-                onToggleDeleteMode={undefined}
-                rowSelection={rowSelection}
-                setRowSelection={setRowSelection}
-                onConfirmDelete={undefined}
-                onRowClick={handleSelectAndFocusImmeuble}
-                manualPagination
-                pageCount={Math.max(1, Math.ceil(totalCount / pageSize))}
-                pagination={{ pageIndex, pageSize }}
-                onPaginationChange={({ pageIndex: idx, pageSize: size }) => {
-                    if (size !== pageSize) {
-                        setPageSize(size);
-                        setPageIndex(0);
-                    } else {
-                        setPageIndex(idx);
-                    }
-                }}
-            />
+                <DataTable
+                    noCardWrapper
+                    columns={columns}
+                    data={filteredImmeubles}
+                    title=""
+                    filterColumnId={null}
+                    filterPlaceholder=""
+                    addEntityButtonText={undefined}
+                    onAddEntity={undefined}
+                    isDeleteMode={isDeleteMode}
+                    onToggleDeleteMode={undefined}
+                    rowSelection={rowSelection}
+                    setRowSelection={setRowSelection}
+                    onConfirmDelete={undefined}
+                    onRowClick={handleSelectAndFocusImmeuble}
+                    manualPagination
+                    pageCount={Math.max(1, Math.ceil(totalCount / pageSize))}
+                    pagination={{ pageIndex, pageSize }}
+                    onPaginationChange={({ pageIndex: idx, pageSize: size }) => {
+                        if (size !== pageSize) {
+                            setPageSize(size);
+                            setPageIndex(0);
+                        } else {
+                            setPageIndex(idx);
+                        }
+                    }}
+                />
             </div>
         </div>
     );
@@ -824,6 +957,206 @@ const ImmeublesPage = () => {
                 mapComponent={mapComponent}
             />
             
+            {/* Modal création immeuble (admin) */}
+            <Modal
+                isOpen={isCreatorOpen}
+                onClose={() => setIsCreatorOpen(false)}
+                title="Ajouter un nouvel immeuble"
+                maxWidth="max-w-lg"
+                overlayClassName="backdrop-blur-sm bg-black/10"
+            >
+                <div className="text-slate-600 text-sm sm:text-base mb-4">
+                    {formStep === 1 ? "Commencez par l'adresse et sélectionnez une zone existante dans la base de données." : "Ajoutez les détails de l'immeuble."}
+                </div>
+                {/* Barre de progression */}
+                <div className="mb-4">
+                    <div className="w-full bg-slate-200 rounded-full h-1.5">
+                        <motion.div className="bg-blue-600 h-1.5 rounded-full" initial={{ width: "0%" }} animate={{ width: formStep === 1 ? "50%" : "100%" }} transition={{ duration: 0.3 }} />
+                    </div>
+                </div>
+                {/* Contenu */}
+                <div className="space-y-4">
+                        {formStep === 1 && (
+                            <div className="grid gap-4">
+                                <div className="grid gap-2">
+                                    <Label className="font-semibold">Adresse</Label>
+                                    <AddressInput
+                                        initialValue={formState.adresse}
+                                        onSelect={(selection) => {
+                                            setFormState(prev => ({
+                                                ...prev,
+                                                adresse: selection.address,
+                                                ville: selection.city,
+                                                codePostal: selection.postalCode,
+                                                latitude: selection.latitude,
+                                                longitude: selection.longitude,
+                                            }));
+                                        }}
+                                    />
+                                </div>
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                    <div>
+                                        <Label>Ville</Label>
+                                        <Input value={formState.ville} onChange={e => setFormState(p => ({ ...p, ville: e.target.value }))} />
+                                    </div>
+                                    <div>
+                                        <Label>Code Postal</Label>
+                                        <Input value={formState.codePostal} onChange={e => setFormState(p => ({ ...p, codePostal: e.target.value }))} />
+                                    </div>
+                                </div>
+                                <div>
+                                    <Label>Zone *</Label>
+                                    <Select value={formState.zoneId} onValueChange={v => setFormState(p => ({ ...p, zoneId: v }))}>
+                                        <SelectTrigger className="mt-1">
+                                            <SelectValue placeholder="Sélectionner une zone existante" />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            {zones.length === 0 ? (
+                                                <SelectItem disabled value="__none__">Aucune zone disponible dans la base de données</SelectItem>
+                                            ) : (
+                                                zones.map(z => (
+                                                    <SelectItem key={z.id} value={z.id}>
+                                                        <div className="flex items-center gap-2">
+                                                            <div 
+                                                                className="w-3 h-3 rounded-full" 
+                                                                style={{ backgroundColor: z.color || '#64748b' }}
+                                                            />
+                                                            {z.name}
+                                                        </div>
+                                                    </SelectItem>
+                                                ))
+                                            )}
+                                        </SelectContent>
+                                    </Select>
+                                    {selectedZone && (typeof formState.latitude === 'number') && (typeof formState.longitude === 'number') && (
+                                        <div className="mt-2 text-sm">
+                                            {zoneProximity?.inZone ? (
+                                                <span className="text-emerald-600 flex items-center gap-1">
+                                                    <div className="w-2 h-2 rounded-full bg-emerald-500"></div>
+                                                    L'adresse est dans la zone (≈ {Math.round(zoneProximity.distance)} m du centre)
+                                                </span>
+                                            ) : (
+                                                <span className="text-red-600 flex items-center gap-1">
+                                                    <div className="w-2 h-2 rounded-full bg-red-500"></div>
+                                                    Hors zone: distance ≈ {Math.round(zoneProximity?.distance || 0)} m, rayon {Math.round(zoneProximity?.radius || 0)} m
+                                                </span>
+                                            )}
+                                        </div>
+                                    )}
+                                    {!formState.zoneId && (
+                                        <p className="text-xs text-slate-500 mt-1">
+                                            L'admin doit sélectionner une zone existante pour assigner l'immeuble
+                                        </p>
+                                    )}
+                                </div>
+                            </div>
+                        )}
+                        {formStep === 2 && (
+                            <div className="grid gap-4">
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                    <div>
+                                        <Label>Étages</Label>
+                                        <Input type="number" min={1} max={50} value={formState.nbEtages} onChange={e => setFormState(p => ({ ...p, nbEtages: Number(e.target.value) || 1 }))} />
+                                    </div>
+                                    <div>
+                                        <Label>Portes / étage</Label>
+                                        <Input type="number" min={1} max={20} value={formState.nbPortesParEtage} onChange={e => setFormState(p => ({ ...p, nbPortesParEtage: Number(e.target.value) || 1 }))} />
+                                    </div>
+                                </div>
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                    <div>
+                                        <Label>Mode de prospection</Label>
+                                        <Select value={formState.prospectingMode} onValueChange={v => setFormState(p => ({ ...p, prospectingMode: v as 'SOLO' | 'DUO' }))}>
+                                            <SelectTrigger className="mt-1">
+                                                <SelectValue placeholder="Choisir" />
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                                <SelectItem value="SOLO">Solo</SelectItem>
+                                                <SelectItem value="DUO">Duo</SelectItem>
+                                            </SelectContent>
+                                        </Select>
+                                    </div>
+                                    <div>
+                                        <Label>Digicode (optionnel)</Label>
+                                        <Input value={formState.digicode} onChange={e => setFormState(p => ({ ...p, digicode: e.target.value }))} />
+                                    </div>
+                                </div>
+                                <div className="flex items-center gap-2">
+                                    <input id="hasElevator" type="checkbox" checked={formState.hasElevator} onChange={e => setFormState(p => ({ ...p, hasElevator: e.target.checked }))} />
+                                    <Label htmlFor="hasElevator">Ascenseur</Label>
+                                </div>
+                            </div>
+                        )}
+                    </div>
+                    {/* Footer */}
+                    <div className="pt-3 flex justify-between w-full gap-3 bg-slate-50 border-t border-slate-200 p-4 rounded-b-lg">
+                        {formStep === 1 ? (
+                            <>
+                                <Button variant="outline" onClick={() => setIsCreatorOpen(false)}>Annuler</Button>
+                                <Button
+                                    onClick={() => setFormStep(2)}
+                                    disabled={
+                                        !formState.adresse || !formState.ville || !formState.codePostal || !formState.zoneId ||
+                                        typeof formState.latitude !== 'number' || typeof formState.longitude !== 'number' ||
+                                        !zoneProximity || !zoneProximity.inZone
+                                    }
+                                    title={
+                                        !formState.zoneId ? 'Sélectionnez une zone existante' :
+                                        !zoneProximity || zoneProximity.inZone ? undefined : 
+                                        'L\'adresse doit appartenir à la zone sélectionnée'
+                                    }
+                                >
+                                    Suivant
+                                </Button>
+                            </>
+                        ) : (
+                            <>
+                                <Button variant="outline" onClick={() => setFormStep(1)}>Précédent</Button>
+                                <Button disabled={isSubmitting} onClick={handleCreateSubmit}>{isSubmitting ? 'Création…' : 'Créer l\'immeuble'}</Button>
+                            </>
+                        )}
+                </div>
+            </Modal>
+
+            {/* Dialog de confirmation suppression multiple */}
+            <AlertDialog open={itemsToDelete.length > 0} onOpenChange={(open) => { if (!open) setItemsToDelete([]) }}>
+                <AlertDialogContent className="bg-white rounded-2xl">
+                    <AlertDialogHeader>
+                        <AlertDialogTitle>Confirmer la suppression</AlertDialogTitle>
+                        <AlertDialogDescription>
+                            Êtes-vous sûr de vouloir supprimer les {itemsToDelete.length} immeuble(s) sélectionné(s) ?
+                        </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <div className="max-h-48 overflow-y-auto border rounded-md p-3 mb-2">
+                        <ul className="list-disc ml-5 text-sm text-slate-700">
+                            {itemsToDelete.map(i => (<li key={i.id}>{i.adresse} ({i.codePostal} {i.ville})</li>))}
+                        </ul>
+                    </div>
+                    <AlertDialogFooter>
+                        <AlertDialogCancel onClick={() => setItemsToDelete([])}>
+                            Annuler
+                        </AlertDialogCancel>
+                        <AlertDialogAction
+                            onClick={async () => {
+                                try {
+                                    await Promise.all(itemsToDelete.map(i => immeubleService.deleteImmeuble(i.id)));
+                                    toast.success("Immeubles supprimés.");
+                                    setItemsToDelete([]);
+                                    setIsDeleteMode(false);
+                                    setRowSelection({});
+                                    fetchData();
+                                } catch (e) {
+                                    toast.error("Erreur lors de la suppression.");
+                                }
+                            }}
+                            className="bg-red-600 hover:bg-red-700 text-white"
+                        >
+                            Supprimer définitivement
+                        </AlertDialogAction>
+                    </AlertDialogFooter>
+                </AlertDialogContent>
+            </AlertDialog>
+
             {/* Dialog de confirmation de suppression */}
             <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
                 <AlertDialogContent className="bg-white rounded-2xl">

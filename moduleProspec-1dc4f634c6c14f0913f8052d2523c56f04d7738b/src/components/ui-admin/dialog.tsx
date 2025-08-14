@@ -61,7 +61,7 @@ function DialogContent({
         data-slot="dialog-content"
         onPointerDownOutside={(e) => {
           const target = e.target as HTMLElement;
-          if (target.closest('[data-radix-select-content]')) {
+          if (target.closest('[data-radix-select-content], [data-radix-popover-content]')) {
             e.preventDefault();
           }
         }}

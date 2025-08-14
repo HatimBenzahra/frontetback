@@ -1,7 +1,7 @@
 // frontend-shadcn/src/pages/admin/immeubles/ImmeublesMap.tsx
 import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import Map, { Marker, Popup, Source, Layer, NavigationControl } from 'react-map-gl';
+import Map, { Marker, Popup, Source, Layer, NavigationControl, FullscreenControl, useControl } from 'react-map-gl';
 import type { MapRef } from 'react-map-gl';
 import 'mapbox-gl/dist/mapbox-gl.css';
 import { Button } from '@/components/ui-admin/button';
@@ -45,13 +45,14 @@ export const ImmeublesMap = (props: ImmeublesMapProps) => {
     const mapRef = useRef<MapRef>(null);
     const [selectedImmeuble, setSelectedImmeuble] = useState<Immeuble | null>(null);
     const [mapLoaded, setMapLoaded] = useState(false);
-    const statusColorMap: Record<Immeuble['status'], string> = {
+    const [show3D, setShow3D] = useState(false);
+    const statusColorMap: Partial<Record<Immeuble['status'], string>> = {
         'Non commencé': '#64748b',
         'À visiter': '#2563eb',
         'À terminer': '#f59e0b',
         'Terminé': '#10b981',
         'RDV Pris': '#7c3aed',
-        'Inaccessible': '#ef4444',
+        // 'Inaccessible' non utilisé
     };
 
     const Building3DIcon = ({ color = '#2563eb' }: { color?: string }) => (
@@ -73,6 +74,57 @@ export const ImmeublesMap = (props: ImmeublesMapProps) => {
             <circle cx="13" cy="29.5" r="2" fill="#0f172a" fillOpacity="0.25" />
         </svg>
     );
+
+    // Contrôle 3D custom (même approche que ZoneMap)
+    const ThreeDControl = ({ onClick, position }: { onClick: () => void, position: 'top-left' | 'top-right' | 'bottom-left' | 'bottom-right' }) => {
+        useControl(() => {
+            class CustomControl {
+                _map: any;
+                _container!: HTMLDivElement;
+
+                onAdd(map: any) {
+                    this._map = map;
+                    this._container = document.createElement('div');
+                    this._container.className = 'mapboxgl-ctrl mapboxgl-ctrl-group';
+
+                    const button = document.createElement('button');
+                    button.className = 'mapboxgl-ctrl-icon';
+                    button.type = 'button';
+                    button.title = 'Basculer la vue 3D';
+                    button.style.width = '29px';
+                    button.style.height = '29px';
+                    button.style.display = 'flex';
+                    button.style.alignItems = 'center';
+                    button.style.justifyContent = 'center';
+                    button.style.fontFamily = 'sans-serif';
+                    button.style.fontWeight = 'bold';
+                    button.textContent = '3D';
+                    button.onclick = onClick;
+
+                    this._container.appendChild(button);
+                    return this._container;
+                }
+
+                onRemove() {
+                    this._container.parentNode?.removeChild(this._container);
+                    this._map = undefined;
+                }
+            }
+            return new CustomControl();
+        }, { position });
+        return null;
+    };
+
+    // Pitch de la carte lors du toggle 3D
+    useEffect(() => {
+        if (mapRef.current) {
+            if (show3D) {
+                mapRef.current.easeTo({ pitch: 60, duration: 1000 });
+            } else {
+                mapRef.current.easeTo({ pitch: 0, duration: 1000 });
+            }
+        }
+    }, [show3D]);
 
     useEffect(() => {
         const map = mapRef.current;
@@ -122,6 +174,110 @@ export const ImmeublesMap = (props: ImmeublesMapProps) => {
                 mapStyle="mapbox://styles/mapbox/streets-v12"
             >
                 <NavigationControl position="top-right" />
+                <FullscreenControl position="top-right" />
+                <ThreeDControl position="top-right" onClick={() => setShow3D(s => !s)} />
+
+                {show3D && (
+                    <Source
+                        id="mapbox-dem"
+                        type="raster-dem"
+                        url="mapbox://mapbox.mapbox-terrain-dem-v1"
+                        tileSize={512}
+                        maxzoom={14}
+                    />
+                )}
+                {show3D && (
+                    <Layer
+                        id="3d-buildings"
+                        source="composite"
+                        source-layer="building"
+                        filter={['==', 'extrude', 'true']}
+                        type="fill-extrusion"
+                        minzoom={15}
+                        paint={{
+                            'fill-extrusion-color': '#aaa',
+                            'fill-extrusion-height': [
+                                'interpolate',
+                                ['linear'],
+                                ['zoom'],
+                                15,
+                                0,
+                                15.05,
+                                ['get', 'height']
+                            ],
+                            'fill-extrusion-base': [
+                                'interpolate',
+                                ['linear'],
+                                ['zoom'],
+                                15,
+                                0,
+                                15.05,
+                                ['get', 'min_height']
+                            ],
+                            'fill-extrusion-opacity': 0.6
+                        }}
+                    />
+                )}
+
+                {/* Légende / Statistiques (alignée sur SuiviMap) */}
+                <div className="absolute top-4 left-4 bg-white/95 backdrop-blur-sm rounded-lg shadow-lg border border-gray-200 p-4 z-10 min-w-[220px]">
+                    <h3 className="font-semibold text-sm text-gray-800 mb-3 flex items-center">
+                        <svg className="w-4 h-4 mr-2 text-blue-600" fill="currentColor" viewBox="0 0 20 20">
+                            <path fillRule="evenodd" d="M5.05 4.05a7 7 0 119.9 9.9L10 18.9l-4.95-4.95a7 7 0 010-9.9zM10 11a2 2 0 100-4 2 2 0 000 4z" clipRule="evenodd" />
+                        </svg>
+                        Légende
+                    </h3>
+
+                    <div className="space-y-2">
+                        {([
+                            'Non commencé',
+                            'À visiter',
+                            'À terminer',
+                            'Terminé',
+                            'RDV Pris',
+                        ] as Immeuble['status'][]).map((s) => {
+                            const count = validImmeubles.filter(i => i.status === s).length;
+                            const color = statusColorMap[s] || '#64748b';
+                            return (
+                                <div key={s} className="flex items-center justify-between">
+                                    <div className="flex items-center gap-2">
+                                        <span className="inline-block w-4 h-4 rounded-sm border" style={{ backgroundColor: `${color}22`, borderColor: color }} />
+                                        <span className="text-xs text-gray-700">{s}</span>
+                                    </div>
+                                    <span className="text-[11px] text-gray-600">{count}</span>
+                                </div>
+                            );
+                        })}
+
+                        {validZones.length > 0 && (
+                            <>
+                                <hr className="my-2 border-gray-200" />
+                                <div className="flex items-center gap-2">
+                                    <div className="w-6 h-4 border-2 border-blue-400 bg-blue-400/20 rounded-sm"></div>
+                                    <span className="text-xs text-gray-700">Zones de prospection</span>
+                                </div>
+                            </>
+                        )}
+                    </div>
+
+                    {/* Statistiques rapides */}
+                    <div className="mt-3 pt-2 border-t border-gray-200">
+                        <div className="text-xs text-gray-600 space-y-1">
+                            <div className="flex justify-between">
+                                <span>Total immeubles</span>
+                                <span className="font-medium">{validImmeubles.length}</span>
+                            </div>
+                            <div className="flex justify-between">
+                                <span>Terminés</span>
+                                <span className="font-medium text-emerald-600">{validImmeubles.filter(i => i.status === 'Terminé').length}</span>
+                            </div>
+                            <div className="flex justify-between">
+                                <span>À visiter</span>
+                                <span className="font-medium text-blue-600">{validImmeubles.filter(i => i.status === 'À visiter').length}</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
 
                 {validZones.map(zone => {
                     if (!zone.latlng) return null;
