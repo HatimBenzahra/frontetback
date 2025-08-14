@@ -4,7 +4,7 @@
 
 import type { ColumnDef } from "@tanstack/react-table"
 import { Link } from "react-router-dom";
-import { ArrowUpDown, Eye, User, MapPin, Percent, Users, Trash2 } from "lucide-react"
+import { ArrowUpDown, Eye, User, MapPin, Users, Trash2 } from "lucide-react"
 import { Button } from "@/components/ui-admin/button"
 import { Badge } from "@/components/ui-admin/badge"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui-admin/tooltip"

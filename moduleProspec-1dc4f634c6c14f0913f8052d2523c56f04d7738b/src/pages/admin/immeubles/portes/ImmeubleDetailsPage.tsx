@@ -1,12 +1,12 @@
 // frontend-shadcn/src/pages/admin/immeubles/portes/ImmeubleDetailsPage.tsx
 
-import React, { useEffect, useState, useMemo, useCallback } from 'react';
+import React, { useEffect, useState, useMemo } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { 
     ArrowLeft, Building, Users, Check, MoveUpRight, KeyRound, 
-    RefreshCw, Search, Filter, Eye, User, Smile, Frown, 
+    RefreshCw, Search, Filter, User, Smile, Frown, 
     Landmark, BellOff, Repeat, MessageSquare, Hash, Edit, Plus, Trash2,
-    ChevronDown, ChevronUp, ChevronLeft, ChevronRight, Calendar, Clock,
+    ChevronDown, ChevronUp, ChevronLeft, ChevronRight,
     DoorOpen, X
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
