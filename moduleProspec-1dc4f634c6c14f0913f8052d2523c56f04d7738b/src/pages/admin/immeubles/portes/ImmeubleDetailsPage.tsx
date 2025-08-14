@@ -914,6 +914,7 @@ const DeletePorteModal = ({
                         variant="destructive" 
                         onClick={handleConfirm} 
                         disabled={loading}
+                        className="bg-gradient-to-r from-red-600 to-rose-600 hover:from-red-700 hover:to-rose-700 text-white"
                     >
                         {loading ? "Suppression..." : "Supprimer"}
                     </Button>
@@ -1111,10 +1112,11 @@ const ImmeubleDetailsPage = () => {
         const handlePorteDeleted = (data: { porteId: string }) => {
             setImmeuble(prev => {
                 if (!prev) return prev;
+                const updatedPortes = prev.portes.filter(p => p.id !== data.porteId);
                 return {
                     ...prev,
-                    portes: prev.portes.filter(p => p.id !== data.porteId),
-                    nbPortesTotal: prev.nbPortesTotal - 1
+                    portes: updatedPortes,
+                    nbPortesTotal: updatedPortes.length
                 };
             });
         };
@@ -1336,10 +1338,11 @@ const ImmeubleDetailsPage = () => {
             // Mise à jour locale
             setImmeuble(prev => {
                 if (!prev) return prev;
+                const updatedPortes = prev.portes.filter(p => p.id !== porte.id);
                 return {
                     ...prev,
-                    portes: prev.portes.filter(p => p.id !== porte.id),
-                    nbPortesTotal: prev.nbPortesTotal - 1
+                    portes: updatedPortes,
+                    nbPortesTotal: updatedPortes.length
                 };
             });
 
