@@ -7,6 +7,7 @@ import { Link } from "react-router-dom";
 import { ArrowUpDown, Eye, User, MapPin, Users, Trash2 } from "lucide-react"
 import { Button } from "@/components/ui-admin/button"
 import { Badge } from "@/components/ui-admin/badge"
+import { Checkbox } from "@/components/ui-admin/checkbox"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui-admin/tooltip"
 import { Avatar, AvatarFallback } from "@/components/ui-admin/avatar";
 import { cn } from "@/lib/utils";
@@ -54,10 +55,36 @@ const statusConfig = {
 export const createColumns = (
     onFocusOnImmeuble: (immeuble: Immeuble) => void = () => {},
     onFocusOnZone: (zoneId: string) => void = () => {},
-    onDeleteImmeuble: (immeubleId: string) => void = () => {}
-): ColumnDef<Immeuble>[] => [
+    onDeleteImmeuble: (immeubleId: string) => void = () => {},
+    isDeleteMode: boolean = false
+): ColumnDef<Immeuble>[] => {
 
-    {
+    const columns: ColumnDef<Immeuble>[] = [
+        // --- Colonne de sélection ---
+        ...(isDeleteMode ? [{
+            id: "select",
+            header: ({ table }: { table: any }) => (
+                <Checkbox
+                    checked={table.getIsAllPageRowsSelected() || (table.getIsSomePageRowsSelected() && "indeterminate")}
+                    onCheckedChange={(value) => table.toggleAllPageRowsSelected(!!value)}
+                    aria-label="Select all"
+                    onClick={(e) => e.stopPropagation()}
+                />
+            ),
+            cell: ({ row }: { row: any }) => (
+                <Checkbox
+                    checked={row.getIsSelected()}
+                    onCheckedChange={(value) => row.toggleSelected(!!value)}
+                    aria-label="Select row"
+                    onClick={(e) => e.stopPropagation()}
+                />
+            ),
+            enableSorting: false,
+            enableHiding: false,
+        }] : []),
+
+        // --- Colonnes de données ---
+        {
       accessorKey: "adresse",
       header: ({ column }) => <SortableHeader title="Adresse" column={column} />,
       cell: ({ row }) => {
@@ -275,4 +302,7 @@ export const createColumns = (
             )
         },
     },
-]
+    ];
+
+    return columns;
+}

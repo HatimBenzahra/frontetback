@@ -323,7 +323,7 @@ const ImmeublesPage = () => {
         setShowDeleteDialog(true);
     }, []);
     
-    const columns = useMemo(() => createColumns(handleSelectAndFocusImmeuble, handleSelectAndFocusZone, handleDeleteImmeuble), [handleSelectAndFocusImmeuble, handleSelectAndFocusZone, handleDeleteImmeuble]);
+    const columns = useMemo(() => createColumns(handleSelectAndFocusImmeuble, handleSelectAndFocusZone, handleDeleteImmeuble, isDeleteMode), [handleSelectAndFocusImmeuble, handleSelectAndFocusZone, handleDeleteImmeuble, isDeleteMode]);
     
     // Statistiques pour les cartes
     const stats = useMemo(() => {
@@ -674,17 +674,19 @@ const ImmeublesPage = () => {
                                         variant="destructive"
                                         size="sm"
                                         onClick={() => {
-                                            const selected = Object.keys(rowSelection)
-                                                .filter(k => (rowSelection as any)[k])
+                                            const selectedKeys = Object.keys(rowSelection).filter(k => rowSelection[k]);
+                                            const selected = selectedKeys
                                                 .map(k => Number(k))
                                                 .map(idx => filteredImmeubles[idx])
                                                 .filter(Boolean);
-                                            setItemsToDelete(selected);
+                                            if (selected.length > 0) {
+                                                setItemsToDelete(selected);
+                                            }
                                         }}
-                                        disabled={Object.keys(rowSelection).filter(k => (rowSelection as any)[k]).length === 0}
+                                        disabled={Object.keys(rowSelection).filter(k => rowSelection[k]).length === 0}
                                         className="bg-red-600 text-white hover:bg-red-700"
                                     >
-                                        Supprimer ({Object.keys(rowSelection).filter(k => (rowSelection as any)[k]).length})
+                                        Supprimer ({Object.keys(rowSelection).filter(k => rowSelection[k]).length})
                                     </Button>
                                     <Button variant="outline" size="sm" onClick={handleToggleDeleteMode}>Annuler</Button>
                                 </>
@@ -917,10 +919,11 @@ const ImmeublesPage = () => {
                     onAddEntity={undefined}
                     isDeleteMode={isDeleteMode}
                     onToggleDeleteMode={undefined}
+                    onConfirmDelete={undefined}
                     rowSelection={rowSelection}
                     setRowSelection={setRowSelection}
-                    onConfirmDelete={undefined}
-                    onRowClick={handleSelectAndFocusImmeuble}
+                    onRowClick={isDeleteMode ? undefined : handleSelectAndFocusImmeuble}
+                    customHeaderContent={isDeleteMode ? <div className="hidden" /> : undefined}
                     manualPagination
                     pageCount={Math.max(1, Math.ceil(totalCount / pageSize))}
                     pagination={{ pageIndex, pageSize }}

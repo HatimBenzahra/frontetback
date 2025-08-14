@@ -219,7 +219,7 @@ export function DataTable<TData extends { id: string }, TValue>({
                 </Button>
               )}
             </>
-          ) : (
+          ) : onToggleDeleteMode ? (
             <>
               <Button
                 variant="destructive"
@@ -233,7 +233,7 @@ export function DataTable<TData extends { id: string }, TValue>({
                 <XCircle className="mr-2 h-4 w-4" />Annuler
               </Button>
             </>
-          )}
+          ) : null}
         </div>
       </div>
 
