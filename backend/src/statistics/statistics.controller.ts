@@ -31,6 +31,26 @@ export class StatisticsController {
     return this.statisticsService.getManagerPerformanceHistory(id);
   }
 
+  @Get('dashboard')
+  getDashboardStats(@Query('period') period?: string) {
+    return this.statisticsService.getDashboardStats(period);
+  }
+
+  @Get('global-performance-chart')
+  getGlobalPerformanceChart(@Query('period') period?: string) {
+    return this.statisticsService.getGlobalPerformanceChart(period);
+  }
+
+  @Get('repassage-chart')
+  getRepassageChart(@Query('period') period?: string) {
+    return this.statisticsService.getRepassageChart(period);
+  }
+
+  @Get('commercials-progress')
+  getCommercialsProgress(@Query('period') period?: string) {
+    return this.statisticsService.getCommercialsProgress(period);
+  }
+
   @Get()
   getStatistics(
     @Query('period') period: PeriodType,

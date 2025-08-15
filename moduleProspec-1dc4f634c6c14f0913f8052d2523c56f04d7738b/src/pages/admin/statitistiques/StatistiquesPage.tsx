@@ -309,8 +309,9 @@ const StatistiquesPage = () => {
                                 title="Contrats par Équipe"
                                 data={currentData.charts.contratsParEquipe}
                                 xAxisDataKey="name"
-                                barDataKey="value"
-                                fillColor="hsl(var(--winvest-blue-moyen))"
+                                bars={[
+                                    { dataKey: 'value', fill: 'hsl(var(--winvest-blue-moyen))', name: 'Contrats' }
+                                ]}
                             />
                         </CardContent>
                     </Card>

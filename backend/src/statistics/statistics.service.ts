@@ -482,4 +482,727 @@ export class StatisticsService {
       throw error;
     }
   }
+
+  async getDashboardStats(period: string = 'month') {
+    const getDateRanges = (period: string) => {
+      const now = new Date();
+      let startDate: Date, endDate: Date;
+
+      switch (period) {
+        case 'week':
+          const currentDay = now.getDay();
+          const diff = now.getDate() - currentDay + (currentDay === 0 ? -6 : 1);
+          startDate = new Date(new Date().setDate(diff));
+          endDate = new Date(startDate);
+          endDate.setDate(startDate.getDate() + 6);
+          break;
+        case 'month':
+          startDate = new Date(now.getFullYear(), now.getMonth(), 1);
+          endDate = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+          break;
+        case 'quarter':
+          const currentQuarter = Math.floor(now.getMonth() / 3);
+          startDate = new Date(now.getFullYear(), currentQuarter * 3, 1);
+          endDate = new Date(now.getFullYear(), (currentQuarter + 1) * 3, 0);
+          break;
+        case 'year':
+          startDate = new Date(now.getFullYear(), 0, 1);
+          endDate = new Date(now.getFullYear(), 11, 31);
+          break;
+        default:
+          startDate = new Date(now.getFullYear(), now.getMonth(), 1);
+          endDate = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+      }
+
+      startDate.setHours(0, 0, 0, 0);
+      endDate.setHours(23, 59, 59, 999);
+      return { startDate, endDate };
+    };
+
+    const { startDate, endDate } = getDateRanges(period);
+
+    // Récupérer les historiques pour la période
+    const historiques = await this.prisma.historiqueProspection.findMany({
+      where: {
+        dateProspection: {
+          gte: startDate,
+          lte: endDate,
+        },
+      },
+      include: {
+        commercial: {
+          include: {
+            equipe: {
+              include: {
+                manager: true,
+              },
+            },
+          },
+        },
+      },
+    });
+
+    // Calculer les KPIs principaux
+    const stats = historiques.reduce(
+      (acc, h) => {
+        acc.portesVisitees += h.nbPortesVisitees;
+        acc.rdvPris += h.nbRdvPris;
+        acc.contratsSignes += h.nbContratsSignes;
+        acc.refus += h.nbRefus;
+        acc.absents += h.nbAbsents;
+        acc.curieux += h.nbCurieux;
+        return acc;
+      },
+      {
+        portesVisitees: 0,
+        rdvPris: 0,
+        contratsSignes: 0,
+        refus: 0,
+        absents: 0,
+        curieux: 0,
+      },
+    );
+
+    // Calculer les taux
+    const tauxOuverture = stats.portesVisitees > 0 ? ((stats.portesVisitees - stats.absents) / stats.portesVisitees) * 100 : 0;
+    const tauxRdv = stats.portesVisitees > 0 ? (stats.rdvPris / stats.portesVisitees) * 100 : 0;
+    const tauxSignature = stats.rdvPris > 0 ? (stats.contratsSignes / stats.rdvPris) * 100 : 0;
+
+    // Compter les commerciaux actifs
+    const commerciauxActifs = new Set(historiques.map(h => h.commercialId)).size;
+
+    // Calculer les heures de prospection (estimation: 5 minutes par porte)
+    const heuresProspect = Math.round((stats.portesVisitees * 5) / 60);
+
+    // Performance moyenne (combinaison de plusieurs métriques)
+    const perfMoyenne = Math.round((tauxOuverture + tauxRdv + tauxSignature) / 3);
+
+    // Statistiques des managers
+    const managersStats = new Map();
+    historiques.forEach(h => {
+      if (h.commercial?.equipe?.manager) {
+        const manager = h.commercial.equipe.manager;
+        const key = manager.id;
+        if (!managersStats.has(key)) {
+          managersStats.set(key, {
+            id: key,
+            nom: `${manager.prenom} ${manager.nom}`,
+            rdv: 0,
+            contrats: 0,
+            portes: 0,
+          });
+        }
+        const managerData = managersStats.get(key);
+        managerData.rdv += h.nbRdvPris;
+        managerData.contrats += h.nbContratsSignes;
+        managerData.portes += h.nbPortesVisitees;
+      }
+    });
+
+    const managersArray = Array.from(managersStats.values());
+    const meilleurManager = managersArray.length > 0 
+      ? managersArray.reduce((best, current) => 
+          current.contrats > best.contrats ? current : best
+        ).nom
+      : 'Aucun';
+
+    const tauxConclusionMoyen = managersArray.length > 0
+      ? managersArray.reduce((sum, m) => sum + (m.rdv > 0 ? (m.contrats / m.rdv) * 100 : 0), 0) / managersArray.length
+      : 0;
+
+    const rdvMoyen = managersArray.length > 0
+      ? Math.round(managersArray.reduce((sum, m) => sum + m.rdv, 0) / managersArray.length)
+      : 0;
+
+    // Récupérer l'objectif global
+    const globalGoal = await this.prisma.globalGoal.findFirst({
+      where: { 
+        startDate: { lte: endDate }, 
+        endDate: { gte: startDate } 
+      },
+      orderBy: { startDate: 'desc' },
+    });
+
+    // Activité récente (dernières 20 entrées)
+    const activiteRecente = await this.prisma.historiqueProspection.findMany({
+      where: {
+        dateProspection: {
+          gte: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000), // Dernière semaine
+        },
+        OR: [
+          { nbContratsSignes: { gt: 0 } },
+          { nbRdvPris: { gt: 0 } },
+          { nbRefus: { gt: 0 } },
+        ],
+      },
+      include: {
+        commercial: true,
+      },
+      orderBy: {
+        dateProspection: 'desc',
+      },
+      take: 20,
+    });
+
+    // Données pour les graphiques
+    const portesTopeesData = await this.getPortesTopeesData(period, startDate, endDate);
+    const repartitionManagersData = managersArray.map(m => ({ name: m.nom, value: m.portes }));
+    const classementManagersGraphData = managersArray
+      .sort((a, b) => b.portes - a.portes)
+      .map(m => ({ name: m.nom.split(' ').pop(), value: m.portes }));
+
+    return {
+      stats: {
+        portesVisitees: stats.portesVisitees,
+        rdvPris: stats.rdvPris,
+        contratsSignes: stats.contratsSignes,
+        tauxOuverture: Math.round(tauxOuverture * 10) / 10,
+        tauxRdv: Math.round(tauxRdv * 10) / 10,
+        tauxSignature: Math.round(tauxSignature * 10) / 10,
+        perfMoyenne,
+        commerciauxActifs,
+        heuresProspect,
+      },
+      managerStats: {
+        meilleurManager,
+        tauxConclusionMoyen: Math.round(tauxConclusionMoyen * 10) / 10,
+        rdvMoyen,
+        effectifTotal: managersArray.length,
+      },
+      objectifMensuel: {
+        value: stats.contratsSignes,
+        total: globalGoal?.goal || 30,
+        title: `Objectif Contrats (${period === 'week' ? 'semaine' : 'mois'})`,
+      },
+      activiteRecente: activiteRecente.map((item, index) => ({
+        id: index + 1,
+        commercial: `${item.commercial.prenom} ${item.commercial.nom}`,
+        action: item.nbContratsSignes > 0 ? 'Nouveau contrat' : 
+                item.nbRdvPris > 0 ? 'RDV pris' : 'Refus client',
+        type: item.nbContratsSignes > 0 ? 'CONTRAT' : 
+              item.nbRdvPris > 0 ? 'RDV' : 'REFUS',
+        temps: this.formatTimeAgo(item.dateProspection),
+      })),
+      portesTopeesData,
+      repartitionManagersData,
+      classementManagersGraphData,
+    };
+  }
+
+  private async getPortesTopeesData(period: string, startDate: Date, endDate: Date) {
+    if (period === 'week') {
+      // Données par jour pour la semaine
+      const days = ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim'];
+      const data = [];
+      
+      for (let i = 0; i < 7; i++) {
+        const dayStart = new Date(startDate);
+        dayStart.setDate(startDate.getDate() + i);
+        const dayEnd = new Date(dayStart);
+        dayEnd.setHours(23, 59, 59, 999);
+
+        const dayStats = await this.prisma.historiqueProspection.aggregate({
+          where: {
+            dateProspection: {
+              gte: dayStart,
+              lte: dayEnd,
+            },
+          },
+          _sum: {
+            nbPortesVisitees: true,
+            nbRdvPris: true,
+            nbRefus: true,
+          },
+        });
+
+        data.push({
+          name: days[i],
+          Visites: dayStats._sum.nbPortesVisitees || 0,
+          RDV: dayStats._sum.nbRdvPris || 0,
+          Refus: dayStats._sum.nbRefus || 0,
+        });
+      }
+      return data;
+    } else {
+      // Données par semaine pour le mois
+      const weeks = ['S1', 'S2', 'S3', 'S4'];
+      const data = [];
+      
+      for (let i = 0; i < 4; i++) {
+        const weekStart = new Date(startDate);
+        weekStart.setDate(startDate.getDate() + (i * 7));
+        const weekEnd = new Date(weekStart);
+        weekEnd.setDate(weekStart.getDate() + 6);
+        weekEnd.setHours(23, 59, 59, 999);
+
+        const weekStats = await this.prisma.historiqueProspection.aggregate({
+          where: {
+            dateProspection: {
+              gte: weekStart,
+              lte: weekEnd,
+            },
+          },
+          _sum: {
+            nbPortesVisitees: true,
+            nbRdvPris: true,
+            nbRefus: true,
+          },
+        });
+
+        data.push({
+          name: weeks[i],
+          Visites: weekStats._sum.nbPortesVisitees || 0,
+          RDV: weekStats._sum.nbRdvPris || 0,
+          Refus: weekStats._sum.nbRefus || 0,
+        });
+      }
+      return data;
+    }
+  }
+
+  private formatTimeAgo(date: Date): string {
+    const now = new Date();
+    const diffInMinutes = Math.floor((now.getTime() - date.getTime()) / (1000 * 60));
+    
+    if (diffInMinutes < 60) {
+      return `il y a ${diffInMinutes} min`;
+    } else if (diffInMinutes < 1440) {
+      const hours = Math.floor(diffInMinutes / 60);
+      return `il y a ${hours}h`;
+    } else if (diffInMinutes < 2880) {
+      return 'hier';
+    } else {
+      const days = Math.floor(diffInMinutes / 1440);
+      return `il y a ${days} jours`;
+    }
+  }
+
+  async getGlobalPerformanceChart(period: string = 'week') {
+    const getDateRanges = (period: string) => {
+      const now = new Date();
+      let startDate: Date, endDate: Date;
+
+      switch (period) {
+        case 'week':
+          const currentDay = now.getDay();
+          const diff = now.getDate() - currentDay + (currentDay === 0 ? -6 : 1);
+          startDate = new Date(new Date().setDate(diff));
+          endDate = new Date(startDate);
+          endDate.setDate(startDate.getDate() + 6);
+          break;
+        case 'month':
+          startDate = new Date(now.getFullYear(), now.getMonth(), 1);
+          endDate = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+          break;
+        case 'quarter':
+          const currentQuarter = Math.floor(now.getMonth() / 3);
+          startDate = new Date(now.getFullYear(), currentQuarter * 3, 1);
+          endDate = new Date(now.getFullYear(), (currentQuarter + 1) * 3, 0);
+          break;
+        case 'year':
+          startDate = new Date(now.getFullYear(), 0, 1);
+          endDate = new Date(now.getFullYear(), 11, 31);
+          break;
+        default:
+          startDate = new Date(now.getFullYear(), now.getMonth(), 1);
+          endDate = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+      }
+
+      startDate.setHours(0, 0, 0, 0);
+      endDate.setHours(23, 59, 59, 999);
+      return { startDate, endDate };
+    };
+
+    const { startDate, endDate } = getDateRanges(period);
+
+    const historiques = await this.prisma.historiqueProspection.findMany({
+      where: {
+        dateProspection: {
+          gte: startDate,
+          lte: endDate,
+        },
+      },
+      orderBy: {
+        dateProspection: 'asc',
+      },
+    });
+
+    if (period === 'week') {
+      // Données par jour pour la semaine
+      const dayNames = ['Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi', 'Dimanche'];
+      const data = [];
+      
+      for (let i = 0; i < 7; i++) {
+        const dayStart = new Date(startDate);
+        dayStart.setDate(startDate.getDate() + i);
+        const dayEnd = new Date(dayStart);
+        dayEnd.setHours(23, 59, 59, 999);
+
+        const dayHistoriques = historiques.filter(h => {
+          const histDate = new Date(h.dateProspection);
+          return histDate >= dayStart && histDate <= dayEnd;
+        });
+
+        const dayStats = dayHistoriques.reduce((acc, h) => {
+          acc.portesVisitees += h.nbPortesVisitees;
+          acc.contratsSignes += h.nbContratsSignes;
+          acc.rdvPris += h.nbRdvPris;
+          return acc;
+        }, { portesVisitees: 0, contratsSignes: 0, rdvPris: 0 });
+
+        data.push({
+          periode: dayNames[i],
+          'Portes Visitées': dayStats.portesVisitees,
+          'Contrats Signés': dayStats.contratsSignes,
+          'RDV Pris': dayStats.rdvPris,
+        });
+      }
+      return data;
+    } else if (period === 'month') {
+      // Données par semaine pour le mois
+      const weeks = ['Semaine 1', 'Semaine 2', 'Semaine 3', 'Semaine 4'];
+      const data = [];
+      
+      for (let i = 0; i < 4; i++) {
+        const weekStart = new Date(startDate);
+        weekStart.setDate(startDate.getDate() + (i * 7));
+        const weekEnd = new Date(weekStart);
+        weekEnd.setDate(weekStart.getDate() + 6);
+        weekEnd.setHours(23, 59, 59, 999);
+
+        const weekHistoriques = historiques.filter(h => {
+          const histDate = new Date(h.dateProspection);
+          return histDate >= weekStart && histDate <= weekEnd;
+        });
+
+        const weekStats = weekHistoriques.reduce((acc, h) => {
+          acc.portesVisitees += h.nbPortesVisitees;
+          acc.contratsSignes += h.nbContratsSignes;
+          acc.rdvPris += h.nbRdvPris;
+          return acc;
+        }, { portesVisitees: 0, contratsSignes: 0, rdvPris: 0 });
+
+        data.push({
+          periode: weeks[i],
+          'Portes Visitées': weekStats.portesVisitees,
+          'Contrats Signés': weekStats.contratsSignes,
+          'RDV Pris': weekStats.rdvPris,
+        });
+      }
+      return data;
+    } else if (period === 'year') {
+      // Données par mois pour l'année
+      const months = ['Jan', 'Fév', 'Mar', 'Avr', 'Mai', 'Jun', 'Jul', 'Aoû', 'Sep', 'Oct', 'Nov', 'Déc'];
+      const data = [];
+      
+      for (let i = 0; i < 12; i++) {
+        const monthStart = new Date(startDate.getFullYear(), i, 1);
+        const monthEnd = new Date(startDate.getFullYear(), i + 1, 0);
+        monthEnd.setHours(23, 59, 59, 999);
+
+        const monthHistoriques = historiques.filter(h => {
+          const histDate = new Date(h.dateProspection);
+          return histDate >= monthStart && histDate <= monthEnd;
+        });
+
+        const monthStats = monthHistoriques.reduce((acc, h) => {
+          acc.portesVisitees += h.nbPortesVisitees;
+          acc.contratsSignes += h.nbContratsSignes;
+          acc.rdvPris += h.nbRdvPris;
+          return acc;
+        }, { portesVisitees: 0, contratsSignes: 0, rdvPris: 0 });
+
+        data.push({
+          periode: months[i],
+          'Portes Visitées': monthStats.portesVisitees,
+          'Contrats Signés': monthStats.contratsSignes,
+          'RDV Pris': monthStats.rdvPris,
+        });
+      }
+      return data;
+    }
+
+    return [];
+  }
+
+  async getRepassageChart(period: string = 'week') {
+    const getDateRanges = (period: string) => {
+      const now = new Date();
+      let startDate: Date, endDate: Date;
+
+      switch (period) {
+        case 'week':
+          const currentDay = now.getDay();
+          const diff = now.getDate() - currentDay + (currentDay === 0 ? -6 : 1);
+          startDate = new Date(new Date().setDate(diff));
+          endDate = new Date(startDate);
+          endDate.setDate(startDate.getDate() + 6);
+          break;
+        case 'month':
+          startDate = new Date(now.getFullYear(), now.getMonth(), 1);
+          endDate = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+          break;
+        case 'quarter':
+          const currentQuarter = Math.floor(now.getMonth() / 3);
+          startDate = new Date(now.getFullYear(), currentQuarter * 3, 1);
+          endDate = new Date(now.getFullYear(), (currentQuarter + 1) * 3, 0);
+          break;
+        case 'year':
+          startDate = new Date(now.getFullYear(), 0, 1);
+          endDate = new Date(now.getFullYear(), 11, 31);
+          break;
+        default:
+          startDate = new Date(now.getFullYear(), now.getMonth(), 1);
+          endDate = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+      }
+
+      startDate.setHours(0, 0, 0, 0);
+      endDate.setHours(23, 59, 59, 999);
+      return { startDate, endDate };
+    };
+
+    const { startDate, endDate } = getDateRanges(period);
+
+    // Compter les repassages (immeubles visités plusieurs fois)
+    const repassages = await this.prisma.historiqueProspection.groupBy({
+      by: ['immeubleId'],
+      where: {
+        dateProspection: {
+          gte: startDate,
+          lte: endDate,
+        },
+      },
+      _count: {
+        immeubleId: true,
+      },
+      having: {
+        immeubleId: {
+          _count: {
+            gt: 1,
+          },
+        },
+      },
+    });
+
+    // Récupérer les historiques avec les dates pour le groupement temporel
+    const historiquesRepassage = await this.prisma.historiqueProspection.findMany({
+      where: {
+        dateProspection: {
+          gte: startDate,
+          lte: endDate,
+        },
+        immeubleId: {
+          in: repassages.map(r => r.immeubleId),
+        },
+      },
+      orderBy: {
+        dateProspection: 'asc',
+      },
+    });
+
+    if (period === 'week') {
+      const dayNames = ['Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi', 'Dimanche'];
+      const data = [];
+      
+      for (let i = 0; i < 7; i++) {
+        const dayStart = new Date(startDate);
+        dayStart.setDate(startDate.getDate() + i);
+        const dayEnd = new Date(dayStart);
+        dayEnd.setHours(23, 59, 59, 999);
+
+        const dayRepassages = historiquesRepassage.filter(h => {
+          const histDate = new Date(h.dateProspection);
+          return histDate >= dayStart && histDate <= dayEnd;
+        });
+
+        // Compter les immeubles uniques repassés ce jour
+        const uniqueImmeubles = new Set(dayRepassages.map(h => h.immeubleId));
+
+        data.push({
+          periode: dayNames[i],
+          'Nombre de Repassages': uniqueImmeubles.size,
+        });
+      }
+      return data;
+    } else if (period === 'month') {
+      const weeks = ['Semaine 1', 'Semaine 2', 'Semaine 3', 'Semaine 4'];
+      const data = [];
+      
+      for (let i = 0; i < 4; i++) {
+        const weekStart = new Date(startDate);
+        weekStart.setDate(startDate.getDate() + (i * 7));
+        const weekEnd = new Date(weekStart);
+        weekEnd.setDate(weekStart.getDate() + 6);
+        weekEnd.setHours(23, 59, 59, 999);
+
+        const weekRepassages = historiquesRepassage.filter(h => {
+          const histDate = new Date(h.dateProspection);
+          return histDate >= weekStart && histDate <= weekEnd;
+        });
+
+        const uniqueImmeubles = new Set(weekRepassages.map(h => h.immeubleId));
+
+        data.push({
+          periode: weeks[i],
+          'Nombre de Repassages': uniqueImmeubles.size,
+        });
+      }
+      return data;
+    } else if (period === 'year') {
+      const months = ['Jan', 'Fév', 'Mar', 'Avr', 'Mai', 'Jun', 'Jul', 'Aoû', 'Sep', 'Oct', 'Nov', 'Déc'];
+      const data = [];
+      
+      for (let i = 0; i < 12; i++) {
+        const monthStart = new Date(startDate.getFullYear(), i, 1);
+        const monthEnd = new Date(startDate.getFullYear(), i + 1, 0);
+        monthEnd.setHours(23, 59, 59, 999);
+
+        const monthRepassages = historiquesRepassage.filter(h => {
+          const histDate = new Date(h.dateProspection);
+          return histDate >= monthStart && histDate <= monthEnd;
+        });
+
+        const uniqueImmeubles = new Set(monthRepassages.map(h => h.immeubleId));
+
+        data.push({
+          periode: months[i],
+          'Nombre de Repassages': uniqueImmeubles.size,
+        });
+      }
+      return data;
+    }
+
+    return [];
+  }
+
+  async getCommercialsProgress(period: string = 'month') {
+    const getDateRanges = (period: string) => {
+      const now = new Date();
+      let startDate: Date, endDate: Date;
+
+      switch (period) {
+        case 'week':
+          const currentDay = now.getDay();
+          const diff = now.getDate() - currentDay + (currentDay === 0 ? -6 : 1);
+          startDate = new Date(new Date().setDate(diff));
+          endDate = new Date(startDate);
+          endDate.setDate(startDate.getDate() + 6);
+          break;
+        case 'month':
+          startDate = new Date(now.getFullYear(), now.getMonth(), 1);
+          endDate = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+          break;
+        case 'quarter':
+          const currentQuarter = Math.floor(now.getMonth() / 3);
+          startDate = new Date(now.getFullYear(), currentQuarter * 3, 1);
+          endDate = new Date(now.getFullYear(), (currentQuarter + 1) * 3, 0);
+          break;
+        case 'year':
+          startDate = new Date(now.getFullYear(), 0, 1);
+          endDate = new Date(now.getFullYear(), 11, 31);
+          break;
+        default:
+          startDate = new Date(now.getFullYear(), now.getMonth(), 1);
+          endDate = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+      }
+
+      startDate.setHours(0, 0, 0, 0);
+      endDate.setHours(23, 59, 59, 999);
+      return { startDate, endDate };
+    };
+
+    const { startDate, endDate } = getDateRanges(period);
+
+    // Récupérer l'objectif global pour la période
+    const globalGoal = await this.prisma.globalGoal.findFirst({
+      where: { 
+        startDate: { lte: endDate }, 
+        endDate: { gte: startDate } 
+      },
+      orderBy: { startDate: 'desc' },
+    });
+
+    // Récupérer tous les commerciaux avec leurs statistiques
+    const commerciaux = await this.prisma.commercial.findMany({
+      include: {
+        historiques: {
+          where: {
+            dateProspection: {
+              gte: startDate,
+              lte: endDate,
+            },
+          },
+        },
+        equipe: {
+          include: {
+            manager: true,
+          },
+        },
+      },
+      orderBy: {
+        nom: 'asc',
+      },
+    });
+
+    const objectifGlobal = globalGoal?.goal || 100;
+
+    const commercialsProgress = commerciaux.map(commercial => {
+      const stats = commercial.historiques.reduce(
+        (acc, h) => {
+          acc.contratsSignes += h.nbContratsSignes;
+          acc.portesVisitees += h.nbPortesVisitees;
+          acc.rdvPris += h.nbRdvPris;
+          return acc;
+        },
+        { contratsSignes: 0, portesVisitees: 0, rdvPris: 0 }
+      );
+
+      const progression = objectifGlobal > 0 ? (stats.contratsSignes / objectifGlobal) * 100 : 0;
+      const tauxConversion = stats.portesVisitees > 0 ? (stats.contratsSignes / stats.portesVisitees) * 100 : 0;
+
+      return {
+        id: commercial.id,
+        nom: commercial.nom,
+        prenom: commercial.prenom,
+        email: commercial.email,
+        equipe: commercial.equipe?.nom || 'Non assigné',
+        manager: commercial.equipe?.manager ? `${commercial.equipe.manager.prenom} ${commercial.equipe.manager.nom}` : 'Aucun',
+        stats: {
+          contratsSignes: stats.contratsSignes,
+          portesVisitees: stats.portesVisitees,
+          rdvPris: stats.rdvPris,
+          tauxConversion: Math.round(tauxConversion * 10) / 10,
+        },
+        objectif: {
+          cible: objectifGlobal,
+          atteint: stats.contratsSignes,
+          pourcentage: Math.min(Math.round(progression * 10) / 10, 100),
+          restant: Math.max(objectifGlobal - stats.contratsSignes, 0),
+        },
+        statut: progression >= 100 ? 'OBJECTIF_ATTEINT' : 
+                progression >= 75 ? 'EN_BONNE_VOIE' : 
+                progression >= 50 ? 'PROGRES_MOYEN' : 
+                progression >= 25 ? 'DEBUT_PROMETTEUR' : 'NEEDS_ATTENTION',
+      };
+    });
+
+    // Trier par progression décroissante
+    commercialsProgress.sort((a, b) => b.objectif.pourcentage - a.objectif.pourcentage);
+
+    return {
+      period,
+      globalGoal: globalGoal?.goal || 0,
+      objectifGlobal,
+      totalCommerciaux: commerciaux.length,
+      commercials: commercialsProgress,
+      summary: {
+        objectifsAtteints: commercialsProgress.filter(c => c.statut === 'OBJECTIF_ATTEINT').length,
+        enBonneVoie: commercialsProgress.filter(c => c.statut === 'EN_BONNE_VOIE').length,
+        needsAttention: commercialsProgress.filter(c => c.statut === 'NEEDS_ATTENTION').length,
+        progressionMoyenne: commercialsProgress.length > 0 
+          ? Math.round((commercialsProgress.reduce((sum, c) => sum + c.objectif.pourcentage, 0) / commercialsProgress.length) * 10) / 10 
+          : 0,
+      },
+    };
+  }
 }

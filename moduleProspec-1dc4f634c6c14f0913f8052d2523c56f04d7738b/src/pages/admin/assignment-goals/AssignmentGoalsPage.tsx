@@ -171,6 +171,7 @@ const AssignmentGoalsPage = () => {
           <GoalSettingCard
             onSetGlobalGoal={handleSetGlobalGoal}
             currentGlobalGoal={currentGlobalGoal}
+            totalCommerciaux={commercials.length}
           />
         </div>
 

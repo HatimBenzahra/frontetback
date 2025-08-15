@@ -33,6 +33,7 @@ import AssignmentGoalsPage from './pages/admin/assignment-goals/AssignmentGoalsP
 import GPSTrackingPage from './pages/admin/gps-tracking/GPSTrackingPage';
 import TranscriptionsPage from './pages/admin/transcriptions/TranscriptionsPage';
 import ReportsPage from './pages/admin/rapports/ReportsPage';
+import ParametresPage from './pages/admin/parametres/ParametresPage';
 
 // --- Pages Commercial ---
 import CommercialDashboardPage from './pages/commercial/dashboard/DashboardCommercial';
@@ -87,6 +88,7 @@ function App() {
             <Route path="transcriptions" element={<TranscriptionsPage />} />
             <Route path="rapports" element={<ReportsPage />} />
             <Route path="assignations-objectifs" element={<AssignmentGoalsPage />} />
+            <Route path="parametres" element={<ParametresPage />} />
           </Route>
 
           {/* --- Layout pour les commerciaux --- */}

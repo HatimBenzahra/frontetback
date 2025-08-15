@@ -51,6 +51,26 @@ const triggerHistoryUpdate = async (commercialId: string, immeubleId: string) =>
   }
 };
 
+const getDashboardStats = async (period: string = 'month') => {
+  const response = await axios.get(`${API_URL}/dashboard`, { params: { period } });
+  return response.data;
+};
+
+const getGlobalPerformanceChart = async (period: string = 'week') => {
+  const response = await axios.get(`${API_URL}/global-performance-chart`, { params: { period } });
+  return response.data;
+};
+
+const getRepassageChart = async (period: string = 'week') => {
+  const response = await axios.get(`${API_URL}/repassage-chart`, { params: { period } });
+  return response.data;
+};
+
+const getCommercialsProgress = async (period: string = 'month') => {
+  const response = await axios.get(`${API_URL}/commercials-progress`, { params: { period } });
+  return response.data;
+};
+
 export const statisticsService = {
   getStatistics,
   getStatsForCommercial,
@@ -58,4 +78,8 @@ export const statisticsService = {
   getStatsForManager,
   getManagerPerformanceHistory,
   triggerHistoryUpdate,
+  getDashboardStats,
+  getGlobalPerformanceChart,
+  getRepassageChart,
+  getCommercialsProgress,
 };

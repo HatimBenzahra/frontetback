@@ -12,9 +12,10 @@ interface GoalSettingCardProps {
   commercials?: Commercial[];
   onSetGlobalGoal: (goal: number, startDate?: string, durationMonths?: number) => Promise<void>;
   currentGlobalGoal?: { goal: number; startDate: string; endDate: string } | null;
+  totalCommerciaux?: number;
 }
 
-export const GoalSettingCard = ({ onSetGlobalGoal, currentGlobalGoal }: GoalSettingCardProps) => {
+export const GoalSettingCard = ({ onSetGlobalGoal, currentGlobalGoal, totalCommerciaux }: GoalSettingCardProps) => {
   const [goal, setGoal] = useState<number | string>(currentGlobalGoal?.goal ?? '');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [startDate, setStartDate] = useState<Date | undefined>(undefined);
@@ -96,8 +97,19 @@ export const GoalSettingCard = ({ onSetGlobalGoal, currentGlobalGoal }: GoalSett
         </Button>
 
         {currentGlobalGoal && (
-          <div className="text-sm text-gray-600">
-            Objectif actuel: <strong>{currentGlobalGoal.goal}</strong> (du {new Date(currentGlobalGoal.startDate).toLocaleDateString()} au {new Date(currentGlobalGoal.endDate).toLocaleDateString()})
+          <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+            <div className="text-sm text-gray-700">
+              <div className="font-semibold text-green-800 mb-1">Objectif Global Actuel</div>
+              <div><strong className="text-green-700">{currentGlobalGoal.goal} contrats</strong></div>
+              <div className="text-xs text-gray-500 mt-1">
+                Du {new Date(currentGlobalGoal.startDate).toLocaleDateString()} au {new Date(currentGlobalGoal.endDate).toLocaleDateString()}
+              </div>
+              {totalCommerciaux && totalCommerciaux > 0 && (
+                <div className="text-xs text-gray-500 mt-1">
+                  Réparti entre {totalCommerciaux} commerciaux
+                </div>
+              )}
+            </div>
           </div>
         )}
       </CardContent>
