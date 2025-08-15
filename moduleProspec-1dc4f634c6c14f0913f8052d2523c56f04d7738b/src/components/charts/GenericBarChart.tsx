@@ -20,7 +20,7 @@ interface GenericBarChartProps {
 
 
 
-export const GenericBarChart = ({ title, data, xAxisDataKey, bars }: GenericBarChartProps) => {
+export const GenericBarChart = ({ title, data, xAxisDataKey, bars = [] }: GenericBarChartProps) => {
   return (
     <Card className="h-full">
       <CardHeader><CardTitle>{title}</CardTitle></CardHeader>
@@ -52,7 +52,7 @@ export const GenericBarChart = ({ title, data, xAxisDataKey, bars }: GenericBarC
               contentStyle={{ backgroundColor: 'hsl(var(--background))', borderColor: 'hsl(var(--border))' }} 
             />
             <Legend />
-            {bars.map((bar) => (
+            {bars?.map((bar) => (
               <Bar 
                 key={bar.dataKey}
                 dataKey={bar.dataKey} 
