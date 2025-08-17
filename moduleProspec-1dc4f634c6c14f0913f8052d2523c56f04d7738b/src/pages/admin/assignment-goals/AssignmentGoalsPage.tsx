@@ -6,11 +6,13 @@ import { toast } from 'sonner';
 import { commercialService } from '@/services/commercial.service';
 import { zoneService } from '@/services/zone.service';
 import { managerService } from '@/services/manager.service';
+import { equipeService } from '@/services/equipe.service';
 import { assignmentGoalsService } from '@/services/assignment-goals.service';
 
 // Types
 import { AssignmentType } from '@/types/enums';
 import type { Commercial, Manager, Zone } from '@/types/types';
+import type { EquipeFromApi } from '@/services/equipe.service';
 
 // Composants enfants
 import { ZoneAssignmentCard } from '@/components/page-components/ZoneAssignmentCard';
@@ -21,6 +23,7 @@ import { ZoneMapViewer } from '@/components/page-components/ZoneMapViewer';
 type AssignmentData = {
   commercials: Commercial[];
   managers: Manager[];
+  equipes: EquipeFromApi[];
   zones: Zone[];
 };
 
@@ -43,9 +46,10 @@ const AssignmentGoalsPage = () => {
   const [data, setData] = useState<AssignmentData>({
     commercials: [],
     managers: [],
+    equipes: [],
     zones: [],
   });
-  const { commercials, managers, zones } = data;
+  const { commercials, managers, equipes, zones } = data;
 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -57,10 +61,11 @@ const AssignmentGoalsPage = () => {
     const fetchData = async () => {
       setLoading(true);
       try {
-        const [commercialsData, zonesData, managersData, historyData, globalGoal] = await Promise.all([
+        const [commercialsData, zonesData, managersData, equipesData, historyData, globalGoal] = await Promise.all([
           commercialService.getCommerciaux(),
           zoneService.getZones(),
           managerService.getManagers(),
+          equipeService.getEquipes(),
           assignmentGoalsService.getAssignmentHistory(),
           assignmentGoalsService.getCurrentGlobalGoal(),
         ]);
@@ -68,6 +73,7 @@ const AssignmentGoalsPage = () => {
         setData({
           commercials: commercialsData,
           managers: managersData,
+          equipes: equipesData,
           zones: mapApiZonesToUiZones(zonesData),
         });
         setAssignmentHistory(historyData || []);
@@ -96,7 +102,15 @@ const AssignmentGoalsPage = () => {
     durationMonths?: number,
   ) => {
     try {
-      await assignmentGoalsService.assignZone(zoneId, assigneeId, assigneeType, startDate, durationMonths);
+      await assignmentGoalsService.assignZone(
+        zoneId, 
+        assigneeId, 
+        assigneeType, 
+        startDate, 
+        durationMonths,
+        'admin-user', // Pour l'instant, on utilise un ID générique
+        'Administrateur' // Pour l'instant, on utilise un nom générique
+      );
       toast.success('Zone assignée avec succès!', {
         description: `La zone a été assignée à l'${assigneeType}.`,
       });
@@ -104,7 +118,7 @@ const AssignmentGoalsPage = () => {
       const refreshed = await assignmentGoalsService.getAssignmentHistory(selectedZone?.id);
       setAssignmentHistory(refreshed || []);
     } catch (err) {
-      console.error('Erreur lors de l’assignation de la zone:', err);
+      console.error('Erreur lors de l\'assignation de la zone:', err);
       toast.error("Erreur lors de l'assignation de la zone.");
     }
   };
@@ -165,6 +179,7 @@ const AssignmentGoalsPage = () => {
             zones={zones}
             commercials={commercials}
             managers={managers}
+            equipes={equipes}
             onAssign={handleAssignZone}
             onZoneSelect={handleSelectZone}
           />
@@ -188,7 +203,8 @@ const AssignmentGoalsPage = () => {
                 <thead>
                   <tr className="bg-[hsl(var(--winvest-blue-moyen))]/10 text-[hsl(var(--winvest-blue-moyen))]">
                     <th className="px-4 py-2 text-left text-xs font-semibold uppercase tracking-wider">Zone</th>
-                    <th className="px-4 py-2 text-left text-xs font-semibold uppercase tracking-wider">Type</th>
+                    <th className="px-4 py-2 text-left text-xs font-semibold uppercase tracking-wider">Assigné à</th>
+                    <th className="px-4 py-2 text-left text-xs font-semibold uppercase tracking-wider">Assigné par</th>
                     <th className="px-4 py-2 text-left text-xs font-semibold uppercase tracking-wider">Début</th>
                     <th className="px-4 py-2 text-left text-xs font-semibold uppercase tracking-wider">Fin</th>
                     <th className="px-4 py-2 text-left text-xs font-semibold uppercase tracking-wider">Durée</th>
@@ -209,10 +225,14 @@ const AssignmentGoalsPage = () => {
                       <tr key={h.id} className="hover:bg-[hsl(var(--winvest-blue-moyen))]/5 transition-colors">
                         <td className="px-4 py-3 whitespace-nowrap font-medium text-gray-900">{h.zoneName || h.zoneId}</td>
                         <td className="px-4 py-3 whitespace-nowrap">
-                          <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs border ${typeColor}`}>
-                            {h.assignedToType}
-                          </span>
+                          <div className="flex flex-col">
+                            <span className="font-medium text-gray-900">{h.assigneeName}</span>
+                            <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs border ${typeColor} w-fit mt-1`}>
+                              {h.assignedToType}
+                            </span>
+                          </div>
                         </td>
+                        <td className="px-4 py-3 whitespace-nowrap text-gray-700">{h.assignedByUserName}</td>
                         <td className="px-4 py-3 whitespace-nowrap text-gray-700">{start.toLocaleDateString('fr-FR')}</td>
                         <td className="px-4 py-3 whitespace-nowrap text-gray-700">{end ? end.toLocaleDateString('fr-FR') : '-'}</td>
                         <td className="px-4 py-3 whitespace-nowrap">
@@ -225,7 +245,7 @@ const AssignmentGoalsPage = () => {
                   })}
                   {assignmentHistory.length === 0 && (
                     <tr>
-                      <td colSpan={5} className="text-center text-gray-500 px-4 py-6">Aucun historique</td>
+                      <td colSpan={6} className="text-center text-gray-500 px-4 py-6">Aucun historique</td>
                     </tr>
                   )}
                 </tbody>

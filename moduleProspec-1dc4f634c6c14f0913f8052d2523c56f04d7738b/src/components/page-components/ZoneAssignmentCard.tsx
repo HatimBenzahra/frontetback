@@ -8,11 +8,13 @@ import { MapPin, Loader2, Calendar as CalendarIcon } from 'lucide-react';
 import { fr } from 'date-fns/locale';
 import { AssignmentType } from '@/types/enums';
 import type { Commercial, Manager, Zone } from '@/types/types';
+import type { EquipeFromApi } from '@/services/equipe.service';
 
 interface ZoneAssignmentCardProps {
   zones: Zone[];
   commercials: Commercial[];
   managers: Manager[];
+  equipes: EquipeFromApi[];
   onAssign: (
     zoneId: string,
     assigneeId: string,
@@ -23,7 +25,7 @@ interface ZoneAssignmentCardProps {
   onZoneSelect: (zoneId: string) => void;
 }
 
-export const ZoneAssignmentCard = ({ zones, commercials, managers, onAssign, onZoneSelect }: ZoneAssignmentCardProps) => {
+export const ZoneAssignmentCard = ({ zones, commercials, managers, equipes, onAssign, onZoneSelect }: ZoneAssignmentCardProps) => {
   const [selectedZone, setSelectedZone] = useState('');
   const [assigneeType, setAssigneeType] = useState<AssignmentType>(AssignmentType.COMMERCIAL);
   const [assigneeId, setAssigneeId] = useState('');
@@ -32,7 +34,11 @@ export const ZoneAssignmentCard = ({ zones, commercials, managers, onAssign, onZ
   const [startDate, setStartDate] = useState<Date | undefined>(undefined);
   const [isStartOpen, setIsStartOpen] = useState(false);
 
-  const assigneeOptions = assigneeType === AssignmentType.COMMERCIAL ? commercials : managers;
+  const assigneeOptions = assigneeType === AssignmentType.COMMERCIAL 
+    ? commercials 
+    : assigneeType === AssignmentType.MANAGER 
+    ? managers 
+    : equipes;
   const isFormValid = selectedZone && assigneeId && assigneeType && (typeof durationMonths === 'number' && durationMonths > 0);
 
   const handleSubmit = async () => {
@@ -64,7 +70,7 @@ export const ZoneAssignmentCard = ({ zones, commercials, managers, onAssign, onZ
         <CardTitle className="flex items-center text-blue-600">
           <MapPin className="mr-3 h-6 w-6" /> Assignation de Zone
         </CardTitle>
-        <CardDescription>Assignez une zone à un commercial ou manager.</CardDescription>
+        <CardDescription>Assignez une zone à un commercial, manager ou équipe.</CardDescription>
       </CardHeader>
       <CardContent className="space-y-6">
         {/* Sélecteur de Zone */}
@@ -78,7 +84,7 @@ export const ZoneAssignmentCard = ({ zones, commercials, managers, onAssign, onZ
             </Select>
         </div>
 
-        {/* Sélecteur de Type (Commercial/Manager) */}
+        {/* Sélecteur de Type (Commercial/Manager/Équipe) */}
         <div className="space-y-2">
             <label className="text-sm font-medium">Assigner à un</label>
             <Select onValueChange={handleTypeChange} value={assigneeType}>
@@ -86,17 +92,27 @@ export const ZoneAssignmentCard = ({ zones, commercials, managers, onAssign, onZ
                 <SelectContent>
                     <SelectItem value={AssignmentType.COMMERCIAL}>Commercial</SelectItem>
                     <SelectItem value={AssignmentType.MANAGER}>Manager</SelectItem>
+                    <SelectItem value={AssignmentType.EQUIPE}>Équipe</SelectItem>
                 </SelectContent>
             </Select>
         </div>
 
         {/* Sélecteur de Personne */}
         <div className="space-y-2">
-            <label className="text-sm font-medium">{assigneeType === AssignmentType.COMMERCIAL ? 'Commercial' : 'Manager'}</label>
+            <label className="text-sm font-medium">
+              {assigneeType === AssignmentType.COMMERCIAL ? 'Commercial' : 
+               assigneeType === AssignmentType.MANAGER ? 'Manager' : 'Équipe'}
+            </label>
             <Select onValueChange={setAssigneeId} value={assigneeId} disabled={!assigneeType}>
-                <SelectTrigger><SelectValue placeholder={`Sélectionner un ${assigneeType.toLowerCase()}`} /></SelectTrigger>
+                <SelectTrigger><SelectValue placeholder={`Sélectionner ${assigneeType === AssignmentType.EQUIPE ? 'une équipe' : `un ${assigneeType.toLowerCase()}`}`} /></SelectTrigger>
                 <SelectContent>
-                    {assigneeOptions.map(p => <SelectItem key={p.id} value={p.id}>{p.prenom} {p.nom}</SelectItem>)}
+                    {assigneeOptions.map(p => (
+                      <SelectItem key={p.id} value={p.id}>
+                        {assigneeType === AssignmentType.EQUIPE 
+                          ? (p as EquipeFromApi).nom 
+                          : `${(p as Commercial | Manager).prenom} ${(p as Commercial | Manager).nom}`}
+                      </SelectItem>
+                    ))}
                 </SelectContent>
             </Select>
         </div>

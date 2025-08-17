@@ -210,6 +210,8 @@ model ZoneAssignmentHistory {
   zoneId           String
   assignedToType   AssignmentType
   assignedToId     String
+  assignedByUserId String?
+  assignedByUserName String?
   startDate        DateTime       @default(now())
   endDate          DateTime?
   createdAt        DateTime       @default(now())

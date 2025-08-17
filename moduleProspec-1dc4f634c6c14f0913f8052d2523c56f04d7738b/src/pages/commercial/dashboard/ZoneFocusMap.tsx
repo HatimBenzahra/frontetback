@@ -1,7 +1,7 @@
 // src/pages/commercial/ZoneFocusMap.tsx
 import Map, { Marker, Popup, Source, Layer, NavigationControl, FullscreenControl, useControl } from 'react-map-gl';
 import 'mapbox-gl/dist/mapbox-gl.css';
-import { Building, MapPin, Pin } from 'lucide-react';
+import { Building, MapPin, Pin, Clock } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useState, useRef, useEffect } from 'react';
 import type { MapRef } from 'react-map-gl';
@@ -133,12 +133,15 @@ interface ZoneFocusMapProps {
     latlng: [number, number];
     radius: number;
     color: string;
+    createdAt?: string;
+    typeAssignation?: string;
   };
   immeubles: ImmeubleFromApi[];
+  assignmentHistory?: any[];
   className?: string;
 }
 
-export const ZoneFocusMap = ({ zone, immeubles, className }: ZoneFocusMapProps) => {
+export const ZoneFocusMap = ({ zone, immeubles, assignmentHistory = [], className }: ZoneFocusMapProps) => {
   const [selectedImmeuble, setSelectedImmeuble] = useState<ImmeubleFromApi | null>(null);
   const [show3D, setShow3D] = useState(false);
   const [isMapLocked, setIsMapLocked] = useState(true); // Map locked by default
@@ -169,7 +172,7 @@ export const ZoneFocusMap = ({ zone, immeubles, className }: ZoneFocusMapProps) 
   return (
     <>
 
-      <div className={cn("relative z-10 h-full min-h-[500px] w-full rounded-lg overflow-hidden border-2 border-[hsl(var(--winvest-blue-clair))] flex flex-col", className)}>
+      <div className={cn("relative z-10 h-full w-full rounded-lg overflow-hidden border-2 border-[hsl(var(--winvest-blue-clair))] flex flex-col", className)}>
           <Map
               ref={mapRef}
               initialViewState={{
@@ -276,19 +279,76 @@ export const ZoneFocusMap = ({ zone, immeubles, className }: ZoneFocusMapProps) 
                   </Popup>
               )}
           </Map>
-          <div className="p-4 bg-white border-t border-gray-200 flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                  <MapPin className="h-5 w-5 text-primary" />
-                  <p className="text-sm font-medium text-gray-700">
-                      Centre de la zone : <strong>{zone.nom}</strong>
-                  </p>
+          <div className="p-3 bg-white border-t border-gray-200 flex-shrink-0">
+              <div className="flex items-center justify-between mb-2">
+                  <div className="flex items-center gap-2">
+                      <MapPin className="h-4 w-4 text-blue-600" />
+                      <h3 className="text-base font-semibold text-gray-900">{zone.nom}</h3>
+                  </div>
+                  <button
+                      onClick={handleGoToZone}
+                      className="px-3 py-1.5 bg-blue-600 text-white rounded-md text-xs font-medium hover:bg-blue-700 transition-colors disabled:bg-gray-400"
+                  >
+                      Y aller
+                  </button>
               </div>
-              <button
-                  onClick={handleGoToZone}
-                  className="px-4 py-2 bg-blue-600 text-white rounded-md text-sm font-medium hover:bg-blue-700 transition-colors disabled:bg-gray-400"
-              >
-                  Y aller
-              </button>
+              
+              {assignmentHistory.length > 0 && (
+                  <div className="space-y-3">
+                      <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-2">
+                              <Clock className="h-4 w-4 text-blue-600" />
+                              <span className="text-sm font-medium text-gray-900">Durée de prospection</span>
+                          </div>
+                          <div className="text-xs text-gray-500">
+                              {(() => {
+                                  const start = new Date(assignmentHistory[0].startDate);
+                                  const end = assignmentHistory[0].endDate ? new Date(assignmentHistory[0].endDate) : new Date();
+                                  const now = new Date();
+                                  const totalDays = Math.ceil((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24));
+                                  const elapsedDays = Math.ceil((now.getTime() - start.getTime()) / (1000 * 60 * 60 * 24));
+                                  const remainingDays = Math.max(0, totalDays - elapsedDays);
+                                  return remainingDays > 0 ? `${remainingDays} jours restants` : 'Période terminée';
+                              })()}
+                          </div>
+                      </div>
+                      
+                      <div className="space-y-2">
+                          <div className="flex justify-between text-xs text-gray-600">
+                              <span>{new Date(assignmentHistory[0].startDate).toLocaleDateString('fr-FR')}</span>
+                              <span>{assignmentHistory[0].endDate ? new Date(assignmentHistory[0].endDate).toLocaleDateString('fr-FR') : 'En cours'}</span>
+                          </div>
+                          
+                          <div className="w-full bg-gray-200 rounded-full h-2">
+                              <div 
+                                  className="bg-blue-600 h-2 rounded-full transition-all duration-500"
+                                  style={{
+                                      width: `${(() => {
+                                          const start = new Date(assignmentHistory[0].startDate);
+                                          const end = assignmentHistory[0].endDate ? new Date(assignmentHistory[0].endDate) : new Date();
+                                          const now = new Date();
+                                          const totalDays = Math.max(1, Math.ceil((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24)));
+                                          const elapsedDays = Math.max(0, Math.ceil((now.getTime() - start.getTime()) / (1000 * 60 * 60 * 24)));
+                                          return Math.min(100, Math.max(0, (elapsedDays / totalDays) * 100));
+                                      })()}%`
+                                  }}
+                              />
+                          </div>
+                          
+                          <div className="text-xs text-center text-gray-600">
+                              {(() => {
+                                  const start = new Date(assignmentHistory[0].startDate);
+                                  const end = assignmentHistory[0].endDate ? new Date(assignmentHistory[0].endDate) : new Date();
+                                  const now = new Date();
+                                  const totalDays = Math.max(1, Math.ceil((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24)));
+                                  const elapsedDays = Math.max(0, Math.ceil((now.getTime() - start.getTime()) / (1000 * 60 * 60 * 24)));
+                                  const percentage = Math.min(100, Math.max(0, Math.round((elapsedDays / totalDays) * 100)));
+                                  return `${percentage}% accompli (${Math.min(elapsedDays, totalDays)}/${totalDays} jours)`;
+                              })()}
+                          </div>
+                      </div>
+                  </div>
+              )}
           </div>
       </div>
     </>

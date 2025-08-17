@@ -16,6 +16,8 @@ export class AssignmentGoalsService {
     assignmentType: AssignmentType,
     startDate?: Date,
     durationMonths?: number,
+    assignedByUserId?: string,
+    assignedByUserName?: string,
   ) {
     const zone = await this.prisma.zone.findUnique({ where: { id: zoneId } });
     if (!zone) {
@@ -85,6 +87,8 @@ export class AssignmentGoalsService {
         zoneId,
         assignedToType: assignmentType,
         assignedToId: assigneeId,
+        assignedByUserId,
+        assignedByUserName,
         startDate: start,
         endDate: end,
       },
@@ -145,15 +149,52 @@ export class AssignmentGoalsService {
       orderBy: { startDate: 'desc' },
       include: { zone: true },
     });
-    return histories.map((h) => ({
-      id: h.id,
-      zoneId: h.zoneId,
-      zoneName: h.zone?.nom,
-      assignedToType: h.assignedToType,
-      assignedToId: h.assignedToId,
-      startDate: h.startDate,
-      endDate: h.endDate,
-    }));
+
+    const enrichedHistories = await Promise.all(
+      histories.map(async (h) => {
+        let assigneeName = '';
+        
+        switch (h.assignedToType) {
+          case 'COMMERCIAL':
+            const commercial = await this.prisma.commercial.findUnique({
+              where: { id: h.assignedToId },
+              select: { nom: true, prenom: true },
+            });
+            assigneeName = commercial ? `${commercial.prenom} ${commercial.nom}` : 'Commercial inconnu';
+            break;
+          case 'EQUIPE':
+            const equipe = await this.prisma.equipe.findUnique({
+              where: { id: h.assignedToId },
+              select: { nom: true },
+            });
+            assigneeName = equipe ? `Équipe ${equipe.nom}` : 'Équipe inconnue';
+            break;
+          case 'MANAGER':
+            const manager = await this.prisma.manager.findUnique({
+              where: { id: h.assignedToId },
+              select: { nom: true, prenom: true },
+            });
+            assigneeName = manager ? `${manager.prenom} ${manager.nom}` : 'Manager inconnu';
+            break;
+        }
+
+        return {
+          id: h.id,
+          zoneId: h.zoneId,
+          zoneName: h.zone?.nom,
+          assignedToType: h.assignedToType,
+          assignedToId: h.assignedToId,
+          assigneeName,
+          assignedByUserId: h.assignedByUserId,
+          assignedByUserName: h.assignedByUserName || 'Système',
+          startDate: h.startDate,
+          endDate: h.endDate,
+          createdAt: h.createdAt,
+        };
+      })
+    );
+
+    return enrichedHistories;
   }
 
   async getAssignedZonesForManager(managerId: string) {
@@ -164,9 +205,32 @@ export class AssignmentGoalsService {
   }
 
   async getAssignedZonesForCommercial(commercialId: string) {
+    // Récupérer d'abord les informations du commercial pour connaître son équipe
+    const commercial = await this.prisma.commercial.findUnique({
+      where: { id: commercialId },
+      select: { equipeId: true, managerId: true },
+    });
+
+    if (!commercial) {
+      throw new NotFoundException(`Commercial with ID ${commercialId} not found`);
+    }
+
+    // Chercher les zones assignées directement au commercial OU à son équipe OU à son manager
+    const whereConditions: any[] = [
+      { commercialId: commercialId }, // Zones assignées directement au commercial
+    ];
+
+    if (commercial.equipeId) {
+      whereConditions.push({ equipeId: commercial.equipeId }); // Zones assignées à son équipe
+    }
+
+    if (commercial.managerId) {
+      whereConditions.push({ managerId: commercial.managerId }); // Zones assignées à son manager
+    }
+
     return this.prisma.zone.findMany({
-      where: { commercialId: commercialId },
-      include: { manager: true, equipe: true },
+      where: { OR: whereConditions },
+      include: { manager: true, equipe: true, commercial: true },
     });
   }
 

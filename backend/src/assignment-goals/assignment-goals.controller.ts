@@ -15,6 +15,8 @@ export class AssignmentGoalsController {
     @Body('assignmentType') assignmentType: AssignmentType,
     @Body('startDate') startDate?: string,
     @Body('durationMonths') durationMonths?: number,
+    @Body('assignedByUserId') assignedByUserId?: string,
+    @Body('assignedByUserName') assignedByUserName?: string,
   ) {
     return this.assignmentGoalsService.assignZone(
       zoneId,
@@ -22,6 +24,8 @@ export class AssignmentGoalsController {
       assignmentType,
       startDate ? new Date(startDate) : undefined,
       durationMonths,
+      assignedByUserId,
+      assignedByUserName,
     );
   }
 

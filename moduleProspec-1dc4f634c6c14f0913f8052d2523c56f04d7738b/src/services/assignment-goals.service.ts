@@ -15,11 +15,15 @@ const assignZone = async (
   assigneeId: string,
   assigneeType: AssignmentType,
   startDate?: string,
-  durationMonths?: number
+  durationMonths?: number,
+  assignedByUserId?: string,
+  assignedByUserName?: string
 ) => {
   const payload: any = { zoneId, assigneeId, assignmentType: assigneeType };
   if (startDate) payload.startDate = startDate;
   if (durationMonths && durationMonths > 0) payload.durationMonths = durationMonths;
+  if (assignedByUserId) payload.assignedByUserId = assignedByUserId;
+  if (assignedByUserName) payload.assignedByUserName = assignedByUserName;
   const response = await axios.post(`${API_URL}/assign-zone`, payload);
   return response.data;
 };

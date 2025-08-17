@@ -23,6 +23,13 @@ interface ZoneData {
     longitude: number;
     rayonMetres: number;
     couleur: string;
+    createdAt: string;
+    typeAssignation: string;
+    assignmentHistory?: {
+        startDate: string;
+        endDate: string | null;
+        assignedToType: string;
+    }[];
 }
 
 // --- Animation Variants ---
@@ -77,6 +84,7 @@ const CommercialDashboardPage = () => {
     const [stats, setStats] = useState<any>(null);
     const [history, setHistory] = useState<any[]>([]);
     const [assignedZone, setAssignedZone] = useState<ZoneData | null>(null);
+    const [zoneAssignmentHistory, setZoneAssignmentHistory] = useState<any[]>([]);
     const [immeubles, setImmeubles] = useState<ImmeubleFromApi[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
@@ -100,7 +108,21 @@ const CommercialDashboardPage = () => {
                 ]);
                 setStats(statsData);
                 setHistory(historyData);
-                setAssignedZone(zonesData.length > 0 ? zonesData[0] : null);
+                // Prendre la zone la plus récente (triée par date de création)
+                const latestZone = zonesData.length > 0 
+                    ? zonesData.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())[0]
+                    : null;
+                setAssignedZone(latestZone);
+                
+                // Récupérer l'historique d'assignation de la zone
+                if (latestZone) {
+                    try {
+                        const historyData = await assignmentGoalsService.getAssignmentHistory(latestZone.id);
+                        setZoneAssignmentHistory(historyData || []);
+                    } catch (err) {
+                        console.error('Erreur lors de la récupération de l\'historique d\'assignation:', err);
+                    }
+                }
                 setImmeubles(immeublesData);
             } catch (err) {
                 console.error('Erreur lors du chargement des données du commercial:', err);
@@ -207,7 +229,7 @@ const CommercialDashboardPage = () => {
                             </Card>
                         </motion.div>
                         <motion.div variants={itemVariants}>
-                             <Card className="h-[450px] w-full overflow-hidden rounded-2xl bg-white border border-slate-200 shadow-sm p-2">
+                             <Card className="h-[550px] w-full overflow-hidden rounded-2xl bg-white border border-slate-200 shadow-sm p-2">
                                 {assignedZone ? (
                                     <ZoneFocusMap
                                         zone={{
@@ -215,8 +237,11 @@ const CommercialDashboardPage = () => {
                                             latlng: [assignedZone.latitude, assignedZone.longitude],
                                             radius: assignedZone.rayonMetres,
                                             color: assignedZone.couleur,
+                                            createdAt: assignedZone.createdAt,
+                                            typeAssignation: assignedZone.typeAssignation,
                                         }}
                                         immeubles={immeubles}
+                                        assignmentHistory={zoneAssignmentHistory}
                                     />
                                 ) : (
                                     <NoZoneAssigned />
