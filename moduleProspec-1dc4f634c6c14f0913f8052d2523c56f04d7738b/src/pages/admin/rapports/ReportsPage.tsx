@@ -126,10 +126,7 @@ export default function ReportsPage() {
   const showTranscriptionFilter = useMemo(() => resource === 'transcriptions', [resource]);
   const showStatsFilters = useMemo(() => resource === 'statistics', [resource]);
   
-  // Show skeleton during initial data loading
-  if (initialLoading && (showTranscriptionFilter || showStatsFilters)) {
-    return <AdminPageSkeleton hasHeader hasCards hasFilters cardsCount={4} />;
-  }
+
 
   // Load data for dropdowns
   useEffect(() => {
@@ -298,6 +295,11 @@ const onDownload = async () => {
     { value: 'quarter', label: 'Ce Trimestre', icon: Calendar },
     { value: 'year', label: 'Cette Année', icon: Calendar }
   ];
+
+  // Show skeleton during initial data loading
+  if (initialLoading && (showTranscriptionFilter || showStatsFilters)) {
+    return <AdminPageSkeleton hasHeader hasCards hasFilters cardsCount={4} />;
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50 p-6">
