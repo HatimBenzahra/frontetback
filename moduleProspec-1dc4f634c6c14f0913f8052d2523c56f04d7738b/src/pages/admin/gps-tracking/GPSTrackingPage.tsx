@@ -6,7 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '../../../components/ui
 import { Badge } from '../../../components/ui-admin/badge';
 import { Button } from '../../../components/ui-admin/button';
 import { Avatar, AvatarFallback } from '../../../components/ui-admin/avatar';
-import { MapPin, Activity, User, WifiOff, Signal, Search, X } from 'lucide-react';
+import { MapPin, User, WifiOff, Signal, Search, X } from 'lucide-react';
 import { commercialService } from '../../../services/commercial.service';
 import { useSocket } from '../../../hooks/useSocket';
 import { useNavigate } from 'react-router-dom';

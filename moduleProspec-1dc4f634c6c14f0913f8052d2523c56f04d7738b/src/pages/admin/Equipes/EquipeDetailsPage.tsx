@@ -6,7 +6,6 @@ import { createColumns as createCommerciauxColumns } from "../commerciaux/commer
 import { DataTable } from "@/components/data-table/DataTable";
 import { Button } from "@/components/ui-admin/button";
 import { ArrowLeft, Users, CheckCircle, Briefcase, Target, Trophy } from "lucide-react";
-import { Skeleton } from "@/components/ui-admin/skeleton";
 import StatCard from "@/components/ui-admin/StatCard";
 import { GenericLineChart } from "@/components/charts/GenericLineChart";
 import { equipeService, type EquipeDetailsFromApi } from "@/services/equipe.service";

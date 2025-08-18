@@ -10,7 +10,6 @@ import type { RowSelectionState } from "@tanstack/react-table";
 import { ViewToggleContainer } from "@/components/ui-admin/ViewToggleContainer";
 import { immeubleService } from "@/services/immeuble.service";
 import { zoneService } from "@/services/zone.service";
-import { Skeleton } from "@/components/ui-admin/skeleton";
 import { useSocket } from "@/hooks/useSocket";
 import { Card, CardContent } from "@/components/ui-admin/card";
 import { Badge } from "@/components/ui-admin/badge";

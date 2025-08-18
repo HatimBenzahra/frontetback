@@ -4,7 +4,6 @@ import type { RowSelectionState } from "@tanstack/react-table";
 import { ArrowLeft, Briefcase, CheckCircle, Target, Users, User, Mail, Phone } from 'lucide-react';
 
 import { Button } from '@/components/ui-admin/button';
-import { Skeleton } from '@/components/ui-admin/skeleton';
 import StatCard from '@/components/ui-admin/StatCard';
 import { DataTable } from "@/components/data-table/DataTable";
 import { GenericLineChart } from '@/components/charts/GenericLineChart';

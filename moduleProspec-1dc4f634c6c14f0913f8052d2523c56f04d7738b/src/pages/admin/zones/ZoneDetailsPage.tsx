@@ -3,7 +3,6 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { zoneService, type ZoneDetailsFromApi } from '@/services/zone.service';
 import { Button } from '@/components/ui-admin/button';
 import { ArrowLeft, MapPin, Building, CheckCircle, Briefcase } from 'lucide-react';
-import { Skeleton } from '@/components/ui-admin/skeleton';
 import StatCard from '@/components/ui-admin/StatCard';
 import { ZoneMap } from './ZoneMap';
 import type { Zone as ZoneTableType } from './columns';

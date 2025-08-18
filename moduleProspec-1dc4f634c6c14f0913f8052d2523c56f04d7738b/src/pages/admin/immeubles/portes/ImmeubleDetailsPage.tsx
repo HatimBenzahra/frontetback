@@ -13,7 +13,6 @@ import { motion, AnimatePresence } from 'framer-motion';
 
 import { Button } from '@/components/ui-admin/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui-admin/card';
-import { Skeleton } from '@/components/ui-admin/skeleton';
 import { ScrollArea } from '@/components/ui-admin/scroll-area';
 import { Input } from '@/components/ui-admin/input';
 import { Badge } from '@/components/ui-admin/badge';
