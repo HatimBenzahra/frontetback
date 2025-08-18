@@ -63,15 +63,15 @@ export const GoalSettingCard = ({ onSetGlobalGoal, currentGlobalGoal, totalComme
   };
   
   return (
-     <Card className="shadow-lg hover:shadow-xl transition-all duration-300 border-0 bg-gradient-to-br from-white to-green-50">
-      <CardHeader className="bg-gradient-to-r from-green-600 to-emerald-600 text-white rounded-t-lg">
+     <Card className="shadow-lg hover:shadow-xl transition-all duration-300 border-0 bg-gradient-to-br from-white to-blue-50">
+      <CardHeader className="bg-gradient-to-r from-blue-600 to-blue-700 text-white rounded-t-lg">
         <CardTitle className="flex items-center text-white">
           <div className="p-2 bg-white/20 rounded-lg mr-3">
             <Target className="h-6 w-6" />
           </div>
           <div>
             <div className="text-lg font-bold">Objectif Global</div>
-            <div className="text-green-100 text-sm font-normal">Définition des cibles commerciales</div>
+            <div className="text-blue-100 text-sm font-normal">Définition des cibles commerciales</div>
           </div>
         </CardTitle>
       </CardHeader>
@@ -79,7 +79,7 @@ export const GoalSettingCard = ({ onSetGlobalGoal, currentGlobalGoal, totalComme
         {/* Slider de l'objectif */}
         <div className="space-y-4">
             <label className="text-sm font-semibold text-gray-700 flex items-center">
-              <Target className="h-4 w-4 mr-2 text-green-600" />
+              <Target className="h-4 w-4 mr-2 text-blue-600" />
               Objectif par commercial (nombre de contrats)
             </label>
             
@@ -91,32 +91,32 @@ export const GoalSettingCard = ({ onSetGlobalGoal, currentGlobalGoal, totalComme
                     type="number"
                     value={tempGoal}
                     onChange={handleGoalInputChange}
-                    className="text-4xl font-bold text-green-700 text-center w-32 h-16 border-2 border-green-300 focus:border-green-500"
+                    className="text-4xl font-bold text-blue-700 text-center w-32 h-16 border-2 border-blue-300 focus:border-blue-500"
                     min="1"
                     max="9999"
                     autoFocus
                   />
                   <button
                     onClick={handleGoalEdit}
-                    className="p-2 text-green-600 hover:text-green-700 hover:bg-green-50 rounded-lg transition-colors"
+                    className="p-2 text-blue-600 hover:text-blue-700 hover:bg-blue-50 rounded-lg transition-colors"
                   >
                     <Save className="h-5 w-5" />
                   </button>
                 </div>
               ) : (
                 <div className="flex items-center justify-center gap-2 mb-2">
-                  <div className="text-4xl font-bold text-green-700 cursor-pointer hover:text-green-800 transition-colors" onClick={handleGoalEdit}>
+                  <div className="text-4xl font-bold text-blue-700 cursor-pointer hover:text-blue-800 transition-colors" onClick={handleGoalEdit}>
                     {goal}
                   </div>
                   <button
                     onClick={handleGoalEdit}
-                    className="p-2 text-green-600 hover:text-green-700 hover:bg-green-50 rounded-lg transition-colors"
+                    className="p-2 text-blue-600 hover:text-blue-700 hover:bg-blue-50 rounded-lg transition-colors"
                   >
                     <Edit3 className="h-5 w-5" />
                   </button>
                 </div>
               )}
-              <div className="text-sm text-green-600 font-medium">contrats par commercial</div>
+              <div className="text-sm text-blue-600 font-medium">contrats par commercial</div>
             </div>
             
             {/* Slider */}
@@ -147,8 +147,8 @@ export const GoalSettingCard = ({ onSetGlobalGoal, currentGlobalGoal, totalComme
                   onClick={() => setGoal(value)}
                   className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-all duration-200 ${
                     goal === value
-                      ? 'bg-green-500 text-white shadow-md'
-                      : 'bg-green-100 text-green-700 hover:bg-green-200'
+                      ? 'bg-blue-500 text-white shadow-md'
+                      : 'bg-blue-100 text-blue-700 hover:bg-blue-200'
                   }`}
                 >
                   {value}
@@ -160,13 +160,13 @@ export const GoalSettingCard = ({ onSetGlobalGoal, currentGlobalGoal, totalComme
         {/* Date de début (obligatoire) */}
         <div className="space-y-3">
           <label className="text-sm font-semibold text-gray-700 flex items-center">
-            <CalendarIcon className="h-4 w-4 mr-2 text-green-600" />
+            <CalendarIcon className="h-4 w-4 mr-2 text-blue-600" />
             Date de début <span className="text-red-500">*</span>
           </label>
           <Popover open={isStartOpen} onOpenChange={setIsStartOpen}>
             <PopoverTrigger asChild>
-              <Button variant="outline" className="w-full justify-start text-left font-normal h-11 border-green-200 hover:border-green-500 hover:bg-green-50">
-                <CalendarIcon className="mr-2 h-4 w-4 text-green-600" />
+              <Button variant="outline" className="w-full justify-start text-left font-normal h-11 border-blue-200 hover:border-blue-500 hover:bg-blue-50">
+                <CalendarIcon className="mr-2 h-4 w-4 text-blue-600" />
                 {startDate ? (
                   <span className="font-medium">{startDate.toLocaleDateString('fr-FR')}</span>
                 ) : (
@@ -198,7 +198,7 @@ export const GoalSettingCard = ({ onSetGlobalGoal, currentGlobalGoal, totalComme
                 onClick={() => setDurationMonths(months)}
                 className={`p-3 rounded-lg border-2 transition-all duration-200 font-medium text-sm ${
                   durationMonths === months
-                    ? 'border-green-500 bg-green-50 text-green-700 shadow-md'
+                    ? 'border-blue-500 bg-blue-50 text-blue-700 shadow-md'
                     : 'border-gray-200 bg-white text-gray-600 hover:border-gray-300 hover:bg-gray-50'
                 }`}
               >
@@ -213,7 +213,7 @@ export const GoalSettingCard = ({ onSetGlobalGoal, currentGlobalGoal, totalComme
               value={durationMonths}
               onChange={(e) => setDurationMonths(e.target.value === '' ? '' : parseInt(e.target.value, 10))}
               placeholder="Durée personnalisée..."
-              className="w-full border border-gray-300 rounded-lg px-4 py-2.5 text-sm focus:border-green-500 focus:ring-1 focus:ring-green-500 transition-colors"
+                                className="w-full border border-gray-300 rounded-lg px-4 py-2.5 text-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-colors"
             />
           </div>
         </div>
@@ -221,7 +221,7 @@ export const GoalSettingCard = ({ onSetGlobalGoal, currentGlobalGoal, totalComme
         <Button 
           onClick={handleSubmit} 
           disabled={!isFormValid || isSubmitting} 
-          className="w-full bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white font-semibold py-3 h-12 rounded-lg shadow-lg hover:shadow-xl transition-all duration-200 transform hover:scale-[1.02]"
+          className="w-full bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white font-semibold py-3 h-12 rounded-lg shadow-lg hover:shadow-xl transition-all duration-200 transform hover:scale-[1.02]"
         >
           {isSubmitting ? (
             <>
@@ -237,26 +237,26 @@ export const GoalSettingCard = ({ onSetGlobalGoal, currentGlobalGoal, totalComme
         </Button>
 
         {currentGlobalGoal && (
-          <div className="bg-gradient-to-r from-green-50 to-emerald-50 border-2 border-green-200 rounded-xl p-6 shadow-inner">
+          <div className="bg-gradient-to-r from-blue-50 to-blue-100 border-2 border-blue-200 rounded-xl p-6 shadow-inner">
             <div className="flex items-start justify-between mb-4">
               <div className="flex items-center">
-                <div className="p-2 bg-green-500 rounded-lg mr-3">
+                <div className="p-2 bg-blue-500 rounded-lg mr-3">
                   <Target className="h-5 w-5 text-white" />
                 </div>
                 <div>
-                  <div className="font-bold text-green-800 text-lg">Objectif par Commercial</div>
-                  <div className="text-green-600 text-sm">Chaque commercial doit atteindre</div>
+                  <div className="font-bold text-blue-800 text-lg">Objectif par Commercial</div>
+                  <div className="text-blue-600 text-sm">Chaque commercial doit atteindre</div>
                 </div>
               </div>
               <div className="text-right">
-                <div className="text-3xl font-bold text-green-700">{currentGlobalGoal.goal}</div>
-                <div className="text-sm text-green-600 font-medium">contrats</div>
+                <div className="text-3xl font-bold text-blue-700">{currentGlobalGoal.goal}</div>
+                <div className="text-sm text-blue-600 font-medium">contrats</div>
               </div>
             </div>
             
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div className="bg-white rounded-lg p-3 border border-green-200">
-                <div className="text-xs text-green-600 font-medium uppercase tracking-wide">Période</div>
+              <div className="bg-white rounded-lg p-3 border border-blue-200">
+                <div className="text-xs text-blue-600 font-medium uppercase tracking-wide">Période</div>
                 <div className="text-sm font-semibold text-gray-800 mt-1">
                   Du {new Date(currentGlobalGoal.startDate).toLocaleDateString('fr-FR')}
                 </div>
@@ -266,12 +266,12 @@ export const GoalSettingCard = ({ onSetGlobalGoal, currentGlobalGoal, totalComme
               </div>
               
               {totalCommerciaux && totalCommerciaux > 0 && (
-                <div className="bg-white rounded-lg p-3 border border-green-200">
-                  <div className="text-xs text-green-600 font-medium uppercase tracking-wide">Impact Total</div>
+                <div className="bg-white rounded-lg p-3 border border-blue-200">
+                  <div className="text-xs text-blue-600 font-medium uppercase tracking-wide">Impact Total</div>
                   <div className="text-sm font-semibold text-gray-800 mt-1">
                     {totalCommerciaux} commerciaux
                   </div>
-                  <div className="text-lg font-bold text-green-700">
+                  <div className="text-lg font-bold text-blue-700">
                     {currentGlobalGoal.goal} contrats chacun
                   </div>
                   <div className="text-xs text-gray-500 mt-1">

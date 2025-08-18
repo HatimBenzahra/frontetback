@@ -17,7 +17,7 @@ import { AdminPageSkeleton } from '@/components/ui-admin/AdminPageSkeleton';
 
 // --- Imports des Icônes ---
 import { 
-    BarChart3, Briefcase, FileSignature, Target
+    BarChart3, Briefcase, FileSignature, Target, TrendingUp, Filter, X, RefreshCw
 } from 'lucide-react';
 import { managerService } from '@/services/manager.service';
 import { equipeService } from '@/services/equipe.service';
@@ -87,8 +87,6 @@ const StatistiquesPage = () => {
         fetchStatistics();
     }, [timeFilter, entityType, entityId]);
 
-    // removed old handlers (dropdown-based) no longer used after pill UI
-
     const currentData = useMemo(() => {
         if (!statsData) return null;
         
@@ -130,179 +128,266 @@ const StatistiquesPage = () => {
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.5 }}
-            className="space-y-8 p-8 bg-white min-h-screen font-sans"
+            className="space-y-8 p-6 bg-gradient-to-br from-white via-blue-50/60 to-blue-100/30 min-h-screen font-sans"
         >
-            <div className="flex flex-wrap gap-6 justify-between items-center pb-6 border-b border-gray-200 mb-5 mt-0.25">
-                <h1 className="text-4xl font-extrabold tracking-tight text-gray-900">Tableau de Bord des Statistiques</h1>
-                <div className="flex flex-col md:flex-row md:items-center gap-3 md:gap-6 w-full md:w-auto">
-                    <div className="flex flex-wrap gap-2" aria-label="Type d'entité">
-                        {[
-                            { value: 'ALL', label: 'Toutes' },
-                            { value: 'MANAGER', label: 'Managers' },
-                            { value: 'EQUIPE', label: 'Équipes' },
-                            { value: 'COMMERCIAL', label: 'Commerciaux' },
-                        ].map(opt => (
-                            <Button
-                                key={opt.value}
-                                variant="ghost"
-                                onClick={() => {
-                                    const selected = opt.value as StatEntityType | 'ALL';
-                                    if (entityType === selected) {
-                                        setEntityType('ALL');
-                                        setEntityId(undefined);
-                                    } else {
-                                        setEntityType(selected);
-                                        setEntityId(undefined);
-                                    }
-                                }}
-                                className={cn(
-                                    'rounded-full px-4 py-2 border',
-                                    entityType === (opt.value as any)
-                                        ? 'bg-[hsl(var(--winvest-blue-moyen))] text-white border-transparent'
-                                        : 'text-gray-700 border-gray-200 hover:bg-gray-100'
-                                )}
-                            >
-                                {opt.label}
-                            </Button>
-                        ))}
-                    </div>
-                    {entityType !== 'ALL' && (
-                        <div className="flex flex-wrap gap-2" aria-label="Sélection d'entité">
-                            <Button
-                                variant="ghost"
-                                onClick={() => setEntityId(undefined)}
-                                disabled={loadingEntities}
-                                className={cn(
-                                    'rounded-full px-4 py-2 border',
-                                    !entityId ? 'bg-gray-900 text-white border-transparent' : 'text-gray-700 border-gray-200 hover:bg-gray-100'
-                                )}
-                            >
-                                Tous
-                            </Button>
-                            {entities.map((e) => (
-                                <Button
-                                    key={e.id}
-                                    variant="ghost"
-                                    onClick={() => setEntityId(entityId === e.id ? undefined : e.id)}
-                                    className={cn(
-                                        'rounded-full px-4 py-2 border',
-                                        entityId === e.id
-                                            ? 'bg-[hsl(var(--winvest-blue-moyen))] text-white border-transparent'
-                                            : 'text-gray-700 border-gray-200 hover:bg-gray-100'
-                                    )}
-                                >
-                                    {e.nom}
-                                </Button>
-                            ))}
+            {/* Header moderne avec gradient */}
+            <div className="relative overflow-hidden bg-gradient-to-r from-blue-600 via-blue-700 to-blue-800 rounded-2xl p-8 text-white shadow-xl">
+                <div className="absolute inset-0 bg-black/10"></div>
+                <div className="relative z-10">
+                    <div className="flex flex-wrap gap-6 justify-between items-center">
+                        <div className="flex items-center gap-4">
+                            <div className="h-12 w-12 rounded-xl bg-white/20 backdrop-blur-sm flex items-center justify-center">
+                                <BarChart3 className="h-6 w-6" />
+                            </div>
+                            <div>
+                                <h1 className="text-3xl font-bold tracking-tight">Tableau de Bord des Statistiques</h1>
+                                <p className="text-blue-100 mt-1">Analysez les performances de votre équipe</p>
+                            </div>
                         </div>
-                    )}
-                </div>
-                <div className="flex flex-wrap items-center gap-2 p-1 bg-white rounded-xl shadow-sm border border-gray-200">
-                    <Button 
-                        variant='ghost' 
-                        onClick={() => setTimeFilter('WEEKLY')} 
-                        className={cn(
-                            "px-5 py-2 rounded-lg text-base font-medium transition-all duration-300", 
-                            timeFilter === 'WEEKLY' 
-                                ? 'bg-[hsl(var(--winvest-blue-moyen))] text-white shadow-md hover:bg-[hsl(var(--winvest-blue-moyen))] hover:text-white' 
-                                : 'text-gray-700 hover:bg-gray-100 hover:text-gray-900'
-                        )}
-                    >Cette semaine</Button>
-                    <Button 
-                        variant='ghost' 
-                        onClick={() => setTimeFilter('MONTHLY')} 
-                        className={cn(
-                            "px-5 py-2 rounded-lg text-base font-medium transition-all duration-300", 
-                            timeFilter === 'MONTHLY' 
-                                ? 'bg-[hsl(var(--winvest-blue-moyen))] text-white shadow-md hover:bg-[hsl(var(--winvest-blue-moyen))] hover:text-white' 
-                                : 'text-gray-700 hover:bg-gray-100 hover:text-gray-900'
-                        )}
-                    >Ce mois</Button>
-                    <Button 
-                        variant='ghost' 
-                        onClick={() => setTimeFilter('YEARLY')} 
-                        className={cn(
-                            "px-5 py-2 rounded-lg text-base font-medium transition-all duration-300", 
-                            timeFilter === 'YEARLY' 
-                                ? 'bg-[hsl(var(--winvest-blue-moyen))] text-white shadow-md hover:bg-[hsl(var(--winvest-blue-moyen))] hover:text-white' 
-                                : 'text-gray-700 hover:bg-gray-100 hover:text-gray-900'
-                        )}
-                    >Cette année</Button>
+                        <Button 
+                            variant="outline" 
+                            size="sm" 
+                            className="border-white/20 text-white hover:bg-white/10 backdrop-blur-sm"
+                            onClick={() => {
+                                setLoading(true);
+                                setError(null);
+                                // Recharger les données
+                                const fetchStatistics = async () => {
+                                    try {
+                                        const query = {
+                                            period: timeFilter,
+                                            ...(entityType !== 'ALL' && { entityType }),
+                                            ...(entityType !== 'ALL' && entityId && { entityId }),
+                                        };
+                                        const data = await statisticsService.getStatistics(query);
+                                        setStatsData(data);
+                                    } catch (err) {
+                                        setError("Impossible de charger les statistiques.");
+                                        console.error(err);
+                                    } finally {
+                                        setLoading(false);
+                                    }
+                                };
+                                fetchStatistics();
+                            }}
+                            disabled={loading}
+                        >
+                            <RefreshCw className={cn("h-4 w-4 mr-2", loading && "animate-spin")} />
+                            {loading ? "Actualisation..." : "Actualiser"}
+                        </Button>
+                    </div>
                 </div>
             </div>
 
-            {/* Barre des filtres actifs */}
-            <div className="flex flex-wrap items-center justify-between gap-4 bg-gray-50 border border-gray-200 rounded-xl px-4 py-3">
-                <div className="flex flex-wrap items-center gap-2">
-                    <span className="text-sm text-gray-600">Filtres actifs:</span>
-                    {/* Période */}
-                    <Badge variant="secondary">
-                        {timeFilter === 'WEEKLY' ? 'Cette semaine' : timeFilter === 'MONTHLY' ? 'Ce mois' : 'Cette année'}
-                    </Badge>
-                    {/* Type d'entité si non ALL */}
-                    {entityType !== 'ALL' && (
-                        <Badge variant="outline">
-                            {entityType === 'MANAGER' ? 'Manager' : entityType === 'EQUIPE' ? 'Équipe' : 'Commercial'}
-                            <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => {
-                                    setEntityType('ALL');
-                                    setEntityId(undefined);
-                                }}
-                                className="ml-1 h-5 px-1 text-xs rounded"
-                            >
-                                ×
-                            </Button>
-                        </Badge>
-                    )}
-                    {/* Entité spécifique */}
-                    {entityType !== 'ALL' && entityId && (
-                        <Badge variant="outline">
-                            {entities.find(e => e.id === entityId)?.nom || 'Sélection'}
-                            <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => setEntityId(undefined)}
-                                className="ml-1 h-5 px-1 text-xs rounded"
-                            >
-                                ×
-                            </Button>
-                        </Badge>
-                    )}
-                </div>
-                <div>
+            {/* Filtres modernes avec design glassmorphism */}
+            <div className="backdrop-blur bg-white/90 rounded-2xl p-6 shadow-lg border border-blue-100">
+                <div className="flex flex-wrap gap-4 justify-between items-center mb-6">
+                    <div className="flex items-center gap-2">
+                        <Filter className="h-5 w-5 text-blue-600" />
+                        <h3 className="text-lg font-semibold text-gray-900">Filtres</h3>
+                    </div>
                     <Button
                         variant="ghost"
+                        size="sm"
                         onClick={() => {
                             setTimeFilter('MONTHLY');
                             setEntityType('ALL');
                             setEntityId(undefined);
                         }}
-                        className="rounded-full border border-gray-200 hover:bg-gray-100"
+                        className="text-blue-600 hover:bg-blue-50 rounded-full"
                     >
-                        Réinitialiser les filtres
+                        <X className="h-4 w-4 mr-1" />
+                        Réinitialiser
                     </Button>
+                </div>
+
+                {/* Type d'entité */}
+                <div className="flex flex-wrap gap-2 mb-4">
+                    {[
+                        { value: 'ALL', label: 'Toutes', icon: '📊' },
+                        { value: 'MANAGER', label: 'Managers', icon: '👨‍💼' },
+                        { value: 'EQUIPE', label: 'Équipes', icon: '👥' },
+                        { value: 'COMMERCIAL', label: 'Commerciaux', icon: '👤' },
+                    ].map(opt => (
+                        <Button
+                            key={opt.value}
+                            variant="ghost"
+                            onClick={() => {
+                                const selected = opt.value as StatEntityType | 'ALL';
+                                if (entityType === selected) {
+                                    setEntityType('ALL');
+                                    setEntityId(undefined);
+                                } else {
+                                    setEntityType(selected);
+                                    setEntityId(undefined);
+                                }
+                            }}
+                            className={cn(
+                                'rounded-full px-4 py-2 border transition-all duration-200',
+                                entityType === (opt.value as any)
+                                    ? 'bg-blue-600 text-white border-blue-600 shadow-md'
+                                    : 'text-gray-700 border-gray-200 hover:bg-blue-50 hover:border-blue-200'
+                            )}
+                        >
+                            <span className="mr-2">{opt.icon}</span>
+                            {opt.label}
+                        </Button>
+                    ))}
+                </div>
+
+                {/* Sélection d'entité spécifique */}
+                {entityType !== 'ALL' && (
+                    <div className="flex flex-wrap gap-2 mb-4">
+                        <Button
+                            variant="ghost"
+                            onClick={() => setEntityId(undefined)}
+                            disabled={loadingEntities}
+                            className={cn(
+                                'rounded-full px-3 py-1.5 border text-sm transition-all duration-200',
+                                !entityId ? 'bg-gray-900 text-white border-gray-900 shadow-md' : 'text-gray-700 border-gray-200 hover:bg-gray-50'
+                            )}
+                        >
+                            Tous
+                        </Button>
+                        {entities.map((e) => (
+                            <Button
+                                key={e.id}
+                                variant="ghost"
+                                onClick={() => setEntityId(entityId === e.id ? undefined : e.id)}
+                                className={cn(
+                                    'rounded-full px-3 py-1.5 border text-sm transition-all duration-200',
+                                    entityId === e.id
+                                        ? 'bg-blue-600 text-white border-blue-600 shadow-md'
+                                        : 'text-gray-700 border-gray-200 hover:bg-blue-50 hover:border-blue-200'
+                                )}
+                            >
+                                {e.nom}
+                            </Button>
+                        ))}
+                    </div>
+                )}
+
+                {/* Période */}
+                <div className="flex flex-wrap items-center gap-2 p-1 bg-gray-50 rounded-xl border border-gray-200">
+                    {[
+                        { value: 'WEEKLY', label: 'Cette semaine' },
+                        { value: 'MONTHLY', label: 'Ce mois' },
+                        { value: 'YEARLY', label: 'Cette année' },
+                    ].map(period => (
+                        <Button 
+                            key={period.value}
+                            variant='ghost' 
+                            onClick={() => setTimeFilter(period.value as PeriodType)} 
+                            className={cn(
+                                "px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 border", 
+                                timeFilter === period.value 
+                                    ? 'bg-blue-600 text-white shadow-md hover:bg-blue-700 border-blue-600' 
+                                    : 'text-gray-700 hover:bg-white hover:text-gray-900 border-gray-300 bg-white'
+                            )}
+                        >
+                            {period.label}
+                        </Button>
+                    ))}
                 </div>
             </div>
 
-            <section className="mt-8">
-                <h2 className="text-2xl font-bold mb-6 text-gray-800">Indicateurs Clés de Performance (KPIs)</h2>
+            {/* Filtres actifs avec design moderne */}
+            {(entityType !== 'ALL' || entityId) && (
+                <div className="flex flex-wrap items-center justify-between gap-4 backdrop-blur bg-blue-50/80 border border-blue-200 rounded-xl px-4 py-3">
+                    <div className="flex flex-wrap items-center gap-2">
+                        <span className="text-sm font-medium text-blue-800">Filtres actifs:</span>
+                        <Badge variant="secondary" className="bg-blue-100 text-blue-800 border-blue-200">
+                            {timeFilter === 'WEEKLY' ? 'Cette semaine' : timeFilter === 'MONTHLY' ? 'Ce mois' : 'Cette année'}
+                        </Badge>
+                        {entityType !== 'ALL' && (
+                            <Badge variant="outline" className="border-blue-300 text-blue-700">
+                                {entityType === 'MANAGER' ? 'Manager' : entityType === 'EQUIPE' ? 'Équipe' : 'Commercial'}
+                                <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={() => {
+                                        setEntityType('ALL');
+                                        setEntityId(undefined);
+                                    }}
+                                    className="ml-1 h-5 px-1 text-xs rounded hover:bg-blue-100"
+                                >
+                                    ×
+                                </Button>
+                            </Badge>
+                        )}
+                        {entityType !== 'ALL' && entityId && (
+                            <Badge variant="outline" className="border-blue-300 text-blue-700">
+                                {entities.find(e => e.id === entityId)?.nom || 'Sélection'}
+                                <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={() => setEntityId(undefined)}
+                                    className="ml-1 h-5 px-1 text-xs rounded hover:bg-blue-100"
+                                >
+                                    ×
+                                </Button>
+                            </Badge>
+                        )}
+                    </div>
+                </div>
+            )}
+
+            {/* KPIs avec design moderne */}
+            <section className="space-y-6">
+                <div className="flex items-center gap-3">
+                    <div className="h-8 w-1 bg-gradient-to-b from-blue-600 to-blue-400 rounded-full"></div>
+                    <h2 className="text-2xl font-bold text-gray-900">Indicateurs Clés de Performance</h2>
+                </div>
                 <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
-                    <StatCard title="Contrats Signés" value={currentData.kpis.contratsSignes} Icon={FileSignature} color="text-emerald-600" />
-                    <StatCard title="RDV Pris" value={currentData.kpis.rdvPris} Icon={Briefcase} color="text-sky-600" />
-                    <StatCard title="Portes Visitées" value={currentData.kpis.portesVisitees} Icon={BarChart3} color="text-orange-600" />
-                    <StatCard title="Taux de Conclusion Global" value={currentData.kpis.tauxConclusionGlobal} Icon={Target} suffix="%" color="text-violet-600" />
+                    <motion.div
+                        initial={{ opacity: 0, y: 20 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ delay: 0.1 }}
+                    >
+                        <StatCard title="Contrats Signés" value={currentData.kpis.contratsSignes} Icon={FileSignature} color="text-emerald-600" />
+                    </motion.div>
+                    <motion.div
+                        initial={{ opacity: 0, y: 20 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ delay: 0.2 }}
+                    >
+                        <StatCard title="RDV Pris" value={currentData.kpis.rdvPris} Icon={Briefcase} color="text-sky-600" />
+                    </motion.div>
+                    <motion.div
+                        initial={{ opacity: 0, y: 20 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ delay: 0.3 }}
+                    >
+                        <StatCard title="Portes Visitées" value={currentData.kpis.portesVisitees} Icon={BarChart3} color="text-orange-600" />
+                    </motion.div>
+                    <motion.div
+                        initial={{ opacity: 0, y: 20 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ delay: 0.4 }}
+                    >
+                        <StatCard title="Taux de Conclusion" value={currentData.kpis.tauxConclusionGlobal} Icon={Target} suffix="%" color="text-violet-600" />
+                    </motion.div>
                 </div>
             </section>
 
-            <div className="grid grid-cols-1 gap-6 mt-8">
-                {/* Main Content Column (Charts) */}
-                <div className="space-y-6">
-                    <Card className="shadow-lg border border-gray-200 rounded-xl overflow-hidden transition-all duration-300 hover:shadow-xl">
-                        <CardHeader className="bg-gray-50 border-b border-gray-200 py-4 px-6">
-                            <CardTitle className="text-lg font-semibold text-gray-800">Contrats par Équipe</CardTitle>
-                            <CardDescription className="text-sm text-gray-600">Répartition des contrats signés par équipe.</CardDescription>
+            {/* Graphiques avec design moderne */}
+            <div className="grid grid-cols-1 gap-6">
+                <motion.div
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: 0.5 }}
+                >
+                    <Card className="backdrop-blur bg-white/90 shadow-lg border border-blue-100 rounded-2xl overflow-hidden transition-all duration-300 hover:shadow-xl">
+                        <CardHeader className="bg-gradient-to-r from-blue-50 to-blue-100/50 border-b border-blue-200 py-6 px-6">
+                            <div className="flex items-center gap-3">
+                                <div className="h-8 w-8 rounded-lg bg-blue-600 text-white flex items-center justify-center">
+                                    <TrendingUp className="h-4 w-4" />
+                                </div>
+                                <div>
+                                    <CardTitle className="text-lg font-semibold text-gray-900">Contrats par Équipe</CardTitle>
+                                    <CardDescription className="text-sm text-gray-600">Répartition des contrats signés par équipe</CardDescription>
+                                </div>
+                            </div>
                         </CardHeader>
                         <CardContent className="p-6">
                             <GenericBarChart
@@ -310,16 +395,29 @@ const StatistiquesPage = () => {
                                 data={currentData.charts.contratsParEquipe}
                                 xAxisDataKey="name"
                                 bars={[
-                                    { dataKey: 'value', fill: 'hsl(var(--winvest-blue-moyen))', name: 'Contrats' }
+                                    { dataKey: 'value', fill: '#2563eb', name: 'Contrats' }
                                 ]}
                             />
                         </CardContent>
                     </Card>
+                </motion.div>
 
-                    <Card className="shadow-lg border border-gray-200 rounded-xl overflow-hidden transition-all duration-300 hover:shadow-xl">
-                        <CardHeader className="bg-gray-50 border-b border-gray-200 py-4 px-6">
-                            <CardTitle className="text-lg font-semibold text-gray-800">Répartition des Contrats par Manager</CardTitle>
-                            <CardDescription className="text-sm text-gray-600">Pourcentage des contrats attribués à chaque manager.</CardDescription>
+                <motion.div
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: 0.6 }}
+                >
+                    <Card className="backdrop-blur bg-white/90 shadow-lg border border-blue-100 rounded-2xl overflow-hidden transition-all duration-300 hover:shadow-xl">
+                        <CardHeader className="bg-gradient-to-r from-blue-50 to-blue-100/50 border-b border-blue-200 py-6 px-6">
+                            <div className="flex items-center gap-3">
+                                <div className="h-8 w-8 rounded-lg bg-blue-600 text-white flex items-center justify-center">
+                                    <BarChart3 className="h-4 w-4" />
+                                </div>
+                                <div>
+                                    <CardTitle className="text-lg font-semibold text-gray-900">Répartition des Contrats par Manager</CardTitle>
+                                    <CardDescription className="text-sm text-gray-600">Pourcentage des contrats attribués à chaque manager</CardDescription>
+                                </div>
+                            </div>
                         </CardHeader>
                         <CardContent className="p-6">
                             <GenericPieChart
@@ -327,19 +425,41 @@ const StatistiquesPage = () => {
                                 data={currentData.charts.repartitionParManager}
                                 dataKey="value"
                                 nameKey="name"
-                                colors={['hsl(var(--winvest-blue-moyen))', 'hsl(var(--winvest-blue-clair))', 'hsl(var(--winvest-blue-nuit))', 'hsl(var(--winvest-blue-profond))']}
+                                colors={['#2563eb', '#3b82f6', '#60a5fa', '#93c5fd']}
                             />
                         </CardContent>
                     </Card>
-                </div>
+                </motion.div>
             </div>
 
-            <section className="mt-8">
-                <h2 className="text-2xl font-bold mb-6 text-gray-800">Classements</h2>
+            {/* Classements avec design moderne */}
+            <section className="space-y-6">
+                <div className="flex items-center gap-3">
+                    <div className="h-8 w-1 bg-gradient-to-b from-blue-600 to-blue-400 rounded-full"></div>
+                    <h2 className="text-2xl font-bold text-gray-900">Classements</h2>
+                </div>
                 <div className="grid gap-6 md:grid-cols-1 lg:grid-cols-3">
-                    <LeaderboardTable title="Top Managers" description="Basé sur le nombre de contrats signés par leurs équipes." data={currentData.leaderboards.managers} unit="Contrats" />
-                    <LeaderboardTable title="Top Équipes" description="Basé sur le nombre total de contrats signés." data={currentData.leaderboards.equipes} unit="Contrats" />
-                    <LeaderboardTable title="Top Commerciaux" description="Basé sur leurs contrats signés individuels." data={currentData.leaderboards.commerciaux} unit="Contrats" />
+                    <motion.div
+                        initial={{ opacity: 0, y: 20 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ delay: 0.7 }}
+                    >
+                        <LeaderboardTable title="Top Managers" description="Basé sur le nombre de contrats signés par leurs équipes." data={currentData.leaderboards.managers} unit="Contrats" />
+                    </motion.div>
+                    <motion.div
+                        initial={{ opacity: 0, y: 20 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ delay: 0.8 }}
+                    >
+                        <LeaderboardTable title="Top Équipes" description="Basé sur le nombre total de contrats signés." data={currentData.leaderboards.equipes} unit="Contrats" />
+                    </motion.div>
+                    <motion.div
+                        initial={{ opacity: 0, y: 20 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ delay: 0.9 }}
+                    >
+                        <LeaderboardTable title="Top Commerciaux" description="Basé sur leurs contrats signés individuels." data={currentData.leaderboards.commerciaux} unit="Contrats" />
+                    </motion.div>
                 </div>
             </section>
         </motion.div>

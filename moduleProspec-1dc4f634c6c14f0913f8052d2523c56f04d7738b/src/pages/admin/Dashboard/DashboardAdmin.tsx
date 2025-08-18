@@ -8,7 +8,7 @@ import StatCard from '@/components/ui-admin/StatCard';
 import { GenericBarChart } from '@/components/charts/GenericBarChart';
 import { Badge } from "@/components/ui-admin/badge";
 import { Button } from "@/components/ui-admin/button";
-import { ChevronLeft, ChevronRight } from 'lucide-react';
+import { ChevronLeft, ChevronRight, RefreshCw } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui-admin/card';
 
 // --- Imports des Icônes ---
@@ -19,7 +19,7 @@ import {
 
 // --- Imports des Settings ---
 import { useDashboardSettings } from '@/hooks/useDashboardSettings';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui-admin/select';
+// Remplacement du Select par un groupe de boutons segmentés pour un look plus moderne
 import { statisticsService } from '@/services/statistics.service';
 import { assignmentGoalsService } from '@/services/assignment-goals.service';
 import { Loader2 } from 'lucide-react';
@@ -65,6 +65,33 @@ const DashboardAdmin = () => {
     const [activityPage, setActivityPage] = useState(1);
     const activityItemsPerPage = 5;
     const [currentGlobalGoal, setCurrentGlobalGoal] = useState<any>(null);
+    // Rafraîchissement manuel pour afficher le skeleton
+    const handleManualRefresh = async () => {
+        try {
+            setLoading(true);
+            setError(null);
+            const [dashboardDataResp, chartsDataResp, progressDataResp, goalDataResp] = await Promise.all([
+                statisticsService.getDashboardStats(settings.defaultTimeFilter),
+                Promise.all([
+                    statisticsService.getGlobalPerformanceChart(chartPeriod),
+                    statisticsService.getRepassageChart(chartPeriod)
+                ]),
+                statisticsService.getCommercialsProgress(settings.defaultTimeFilter),
+                assignmentGoalsService.getCurrentGlobalGoal()
+            ]);
+            setDashboardData(dashboardDataResp);
+            setPerformanceData(chartsDataResp[0]);
+            setRepassageData(chartsDataResp[1]);
+            setCommercialsProgress(progressDataResp);
+            setCurrentGlobalGoal(goalDataResp);
+        } catch (err) {
+            setError('Erreur lors du chargement des données');
+            console.error('Error loading dashboard data:', err);
+        } finally {
+            setLoading(false);
+        }
+    };
+
 
 
 
@@ -189,12 +216,28 @@ const DashboardAdmin = () => {
     }
 
     return (
-        <div className="space-y-8 bg-zinc-50/50 p-4 sm:p-6 rounded-xl">
-            <div className="flex flex-wrap gap-4 justify-between items-center animate-in fade-in duration-500 border-b pb-4">
-                <h2 className="text-2xl font-semibold flex items-baseline gap-3 text-zinc-900">
-                    <BarChart3 className="h-6 w-6 text-primary self-center"/>
-                    <span>Statistiques - {getTimeFilterLabel(settings.defaultTimeFilter)}</span>
-                </h2>
+        <div className="space-y-8 bg-gradient-to-br from-white via-blue-50/60 to-blue-100/30 p-4 sm:p-6 rounded-2xl border border-blue-100">
+            <div className="flex flex-wrap gap-4 justify-between items-center animate-in fade-in duration-500 border-b border-blue-100/70 pb-4">
+                <div className="flex items-center gap-3">
+                  <div className="h-10 w-10 rounded-xl bg-blue-600/90 text-white flex items-center justify-center shadow-lg">
+                    <BarChart3 className="h-5 w-5"/>
+                  </div>
+                  <div>
+                    <h2 className="text-xl sm:text-2xl font-semibold text-zinc-900">Vue d’ensemble</h2>
+                    <p className="text-sm text-zinc-600">{getTimeFilterLabel(settings.defaultTimeFilter)}</p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    className="border-blue-200 text-blue-700 hover:bg-blue-50" 
+                    onClick={handleManualRefresh}
+                    disabled={loading}
+                  >
+                    <RefreshCw className={`h-4 w-4 mr-2 ${loading ? 'animate-spin' : ''}`} /> {loading ? 'Actualisation...' : 'Actualiser'}
+                  </Button>
+                </div>
             </div>
 
             {settings.statsVisibility.showCommercialStats && (
@@ -307,21 +350,22 @@ const DashboardAdmin = () => {
             )}
             
             {/* Filtres pour les graphiques */}
-            <section className="bg-white rounded-xl p-6 shadow-lg border border-gray-200">
+            <section className="backdrop-blur bg-white/90 rounded-2xl p-6 shadow-lg border border-blue-100">
                 <div className="flex items-center justify-between mb-4">
                     <h3 className="text-lg font-semibold text-gray-900">Analyses de Performance</h3>
-                    <div className="flex items-center gap-3">
-                        <label className="text-sm font-medium text-gray-700">Période :</label>
-                        <Select value={chartPeriod} onValueChange={setChartPeriod}>
-                            <SelectTrigger className="w-40">
-                                <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                                <SelectItem value="week">Cette semaine</SelectItem>
-                                <SelectItem value="month">Ce mois</SelectItem>
-                                <SelectItem value="year">Cette année</SelectItem>
-                            </SelectContent>
-                        </Select>
+                    <div className="flex items-center gap-2">
+                        <button
+                          onClick={() => setChartPeriod('week')}
+                          className={`px-3 py-1.5 rounded-full text-sm border transition-all ${chartPeriod==='week' ? 'bg-blue-600 text-white border-blue-600 shadow-sm' : 'bg-white text-blue-700 border-blue-200 hover:bg-blue-50'}`}
+                        >Semaine</button>
+                        <button
+                          onClick={() => setChartPeriod('month')}
+                          className={`px-3 py-1.5 rounded-full text-sm border transition-all ${chartPeriod==='month' ? 'bg-blue-600 text-white border-blue-600 shadow-sm' : 'bg-white text-blue-700 border-blue-200 hover:bg-blue-50'}`}
+                        >Mois</button>
+                        <button
+                          onClick={() => setChartPeriod('year')}
+                          className={`px-3 py-1.5 rounded-full text-sm border transition-all ${chartPeriod==='year' ? 'bg-blue-600 text-white border-blue-600 shadow-sm' : 'bg-white text-blue-700 border-blue-200 hover:bg-blue-50'}`}
+                        >Année</button>
                     </div>
                 </div>
 
@@ -337,7 +381,7 @@ const DashboardAdmin = () => {
                 ) : (
                     <div className="grid gap-6 md:grid-cols-2">
                         {settings.chartVisibility.showPerformanceChart && performanceData && (
-                            <Card className="bg-white border border-gray-200 shadow-sm">
+                            <Card className="bg-white/90 border border-blue-100 shadow-sm rounded-2xl">
                                 <CardHeader>
                                     <CardTitle>Performance Globale - {chartPeriod === 'week' ? 'Par Jour' : chartPeriod === 'month' ? 'Par Semaine' : 'Par Mois'}</CardTitle>
                                     <CardDescription>Activité de tous les commerciaux combinés</CardDescription>
@@ -358,7 +402,7 @@ const DashboardAdmin = () => {
                         )}
 
                         {settings.chartVisibility.showRepassageChart && repassageData && (
-                            <Card className="bg-white border border-gray-200 shadow-sm">
+                            <Card className="bg-white/90 border border-blue-100 shadow-sm rounded-2xl">
                                 <CardHeader>
                                     <CardTitle>Repassages - {chartPeriod === 'week' ? 'Par Jour' : chartPeriod === 'month' ? 'Par Semaine' : 'Par Mois'}</CardTitle>
                                     <CardDescription>Nombre d'immeubles repassés (visités plusieurs fois)</CardDescription>
@@ -381,13 +425,13 @@ const DashboardAdmin = () => {
             
             {/* Progress des commerciaux vers l'objectif global */}
             {settings.statsVisibility.showCommercialsProgress && (
-            <section className="bg-white rounded-xl p-6 shadow-lg border border-gray-200">
+            <section className="backdrop-blur bg-white/90 rounded-2xl p-6 shadow-lg border border-blue-100">
                 <div className="flex items-center justify-between mb-4">
                     <div>
                         <h3 className="text-lg font-semibold text-gray-900">Contribution à l'Objectif Global</h3>
                         {commercialsProgress && (
                             <div className="text-sm text-gray-600 mt-1">
-                                Objectif global: <span className="font-semibold text-green-600">{commercialsProgress.globalGoal} contrats</span>
+                                Objectif global: <span className="font-semibold text-blue-600">{commercialsProgress.globalGoal} contrats</span>
                             </div>
                         )}
                     </div>

@@ -4,6 +4,7 @@ import { toast } from 'sonner';
 import { Switch } from '@/components/ui-admin/switch';
 import { Label } from '@/components/ui-admin/label';
 import { useAuth } from '@/contexts/AuthContext';
+import { usePageBreadcrumb } from '@/hooks/usePageBreadcrumb';
 
 // Services
 import { commercialService } from '@/services/commercial.service';
@@ -69,6 +70,18 @@ export default function AssignmentGoalsPage() {
   const historyItemsPerPage = 10;
   
   const { user } = useAuth();
+
+  // Memoize subPages to keep stable reference
+  const breadcrumbSubPages = useMemo(
+    () => [{ label: activeTab === 'zone' ? 'Assignation de Zone' : 'Objectifs Globaux' }],
+    [activeTab]
+  );
+  // Utiliser le hook personnalisé pour les breadcrumbs
+  usePageBreadcrumb({
+    basePath: '/admin/assignations-objectifs',
+    pageTitle: 'Assignations & Objectifs',
+    subPages: breadcrumbSubPages
+  });
 
   // Calcul de la pagination pour les commerciaux
   const paginatedCommercials = useMemo(() => {
@@ -341,44 +354,33 @@ export default function AssignmentGoalsPage() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 to-blue-50/30 p-4 sm:p-6 lg:p-8">
-      <header className="mb-8">
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-          <div>
-            <h1 className="text-3xl font-bold tracking-tight text-gray-900 sm:text-4xl">
-              Assignations et Objectifs
-            </h1>
-            <p className="mt-2 text-lg text-gray-600">
-              Gérez les zones de prospection et fixez les objectifs de vos équipes.
-            </p>
-          </div>
-          
-          {/* Onglets pour basculer entre les modes */}
-          <div className="flex items-center bg-white rounded-lg p-2 shadow-sm border">
-            <button
-              onClick={() => setActiveTab('zone')}
-              className={`flex items-center space-x-2 px-6 py-3 rounded-lg font-medium transition-all duration-200 ${
-                activeTab === 'zone'
-                  ? 'bg-blue-50 text-blue-700 border-2 border-blue-200 shadow-sm'
-                  : 'text-gray-600 hover:text-gray-800 hover:bg-gray-50'
-              }`}
-            >
-              <Target className="h-4 w-4" />
-              <span>Assignation de Zone</span>
-            </button>
-            <button
-              onClick={() => setActiveTab('goal')}
-              className={`flex items-center space-x-2 px-6 py-3 rounded-lg font-medium transition-all duration-200 ${
-                activeTab === 'goal'
-                  ? 'bg-green-50 text-green-700 border-2 border-green-200 shadow-sm'
-                  : 'text-gray-600 hover:text-gray-800 hover:bg-gray-50'
-              }`}
-            >
-              <BarChart3 className="h-4 w-4" />
-              <span>Objectifs Globaux</span>
-            </button>
-          </div>
+      {/* Onglets pour basculer entre les modes */}
+      <div className="flex items-center justify-end mb-8">
+        <div className="flex items-center bg-white rounded-lg p-2 shadow-sm border">
+          <button
+            onClick={() => setActiveTab('zone')}
+            className={`flex items-center space-x-2 px-6 py-3 rounded-lg font-medium transition-all duration-200 ${
+              activeTab === 'zone'
+                ? 'bg-blue-50 text-blue-700 border-2 border-blue-200 shadow-sm'
+                : 'text-gray-600 hover:text-gray-800 hover:bg-gray-50'
+            }`}
+          >
+            <Target className="h-4 w-4" />
+            <span>Assignation de Zone</span>
+          </button>
+          <button
+            onClick={() => setActiveTab('goal')}
+            className={`flex items-center space-x-2 px-6 py-3 rounded-lg font-medium transition-all duration-200 ${
+              activeTab === 'goal'
+                ? 'bg-blue-50 text-blue-700 border-2 border-blue-200 shadow-sm'
+                : 'text-gray-600 hover:text-gray-800 hover:bg-gray-50'
+            }`}
+          >
+            <BarChart3 className="h-4 w-4" />
+            <span>Objectifs Globaux</span>
+          </button>
         </div>
-      </header>
+      </div>
 
       {/* Contenu avec transition */}
       <div className="transition-all duration-500 ease-in-out">
@@ -405,7 +407,6 @@ export default function AssignmentGoalsPage() {
                 <div className="px-6 py-4 bg-gradient-to-r from-[hsl(var(--winvest-blue-moyen))] to-blue-600 text-white rounded-t-xl">
                   <div className="flex items-center justify-between">
                     <div>
-                          <h2 className="text-lg font-semibold">Visualisation des Zones</h2>
                       <p className="text-sm opacity-90">
                             {selectedZone ? `Zone sélectionnée : ${selectedZone.nom}` : 'Vue d\'ensemble des zones'}
                       </p>
@@ -439,7 +440,6 @@ export default function AssignmentGoalsPage() {
                   <div className="px-6 py-4 bg-gradient-to-r from-[hsl(var(--winvest-blue-moyen))] to-blue-600 text-white rounded-t-xl">
                     <div className="flex items-center justify-between">
                       <div>
-                        <h2 className="text-lg font-semibold">Historique des Assignations</h2>
                         <p className="text-sm opacity-90">Suivi des périodes d'assignation par zone</p>
                       </div>
                       
@@ -666,11 +666,11 @@ export default function AssignmentGoalsPage() {
                               <ChevronRight className="h-4 w-4 ml-1" />
                             </button>
                           </div>
-                        </div>
-                      )}
                     </div>
-                  </div>
+                  )}
                 </div>
+              </div>
+            </div>
               </div>
             )}
           </div>
@@ -690,29 +690,29 @@ export default function AssignmentGoalsPage() {
               {/* Colonne de droite - État des commerciaux */}
               <div className="xl:col-span-2 space-y-6">
                 {/* En-tête avec statistiques */}
-                <div className="bg-gradient-to-br from-green-50 to-emerald-50 rounded-xl p-6 border border-green-200">
-                  <h3 className="text-lg font-semibold text-green-800 mb-4">État des Commerciaux</h3>
+                <div className="bg-gradient-to-br from-blue-50 to-blue-100 rounded-xl p-6 border border-blue-200">
+                  <h3 className="text-lg font-semibold text-blue-800 mb-4">État des Commerciaux</h3>
                   <div className="grid grid-cols-3 gap-4">
-                    <div className="bg-white rounded-lg p-4 border border-green-200">
-                      <div className="text-2xl font-bold text-green-600">{commercials.length}</div>
-                      <div className="text-sm text-green-700">Commerciaux actifs</div>
+                    <div className="bg-white rounded-lg p-4 border border-blue-200">
+                      <div className="text-2xl font-bold text-blue-600">{commercials.length}</div>
+                      <div className="text-sm text-blue-700">Commerciaux actifs</div>
                     </div>
-                    <div className="bg-white rounded-lg p-4 border border-green-200">
-                      <div className="text-2xl font-bold text-green-600">
+                    <div className="bg-white rounded-lg p-4 border border-blue-200">
+                      <div className="text-2xl font-bold text-blue-600">
                         {currentGlobalGoal ? currentGlobalGoal.goal : 0}
                       </div>
-                      <div className="text-sm text-green-700">Objectif par commercial</div>
+                      <div className="text-sm text-blue-700">Objectif par commercial</div>
                     </div>
-                    <div className="bg-white rounded-lg p-4 border border-green-200">
-                      <div className="text-2xl font-bold text-green-600">{zones.length}</div>
-                      <div className="text-sm text-green-700">Zones disponibles</div>
+                    <div className="bg-white rounded-lg p-4 border border-blue-200">
+                      <div className="text-2xl font-bold text-blue-600">{zones.length}</div>
+                      <div className="text-sm text-blue-700">Zones disponibles</div>
                     </div>
                     </div>
                   </div>
                   
                 {/* Liste des commerciaux avec pagination */}
-                <div className="bg-white rounded-xl border border-green-200 shadow-lg">
-                  <div className="px-6 py-4 bg-gradient-to-r from-green-600 to-emerald-600 text-white rounded-t-xl">
+                <div className="bg-white rounded-xl border border-blue-200 shadow-lg">
+                  <div className="px-6 py-4 bg-gradient-to-r from-blue-600 to-blue-700 text-white rounded-t-xl">
                     <div className="flex items-center justify-between">
                       <div>
                         <h2 className="text-lg font-semibold">Progression des Commerciaux</h2>
