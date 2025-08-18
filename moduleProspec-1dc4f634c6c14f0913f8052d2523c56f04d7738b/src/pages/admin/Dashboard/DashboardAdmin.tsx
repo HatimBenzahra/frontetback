@@ -7,6 +7,8 @@ import StatCard from '@/components/ui-admin/StatCard';
 
 import { GenericBarChart } from '@/components/charts/GenericBarChart';
 import { Badge } from "@/components/ui-admin/badge";
+import { Button } from "@/components/ui-admin/button";
+import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui-admin/card';
 
 // --- Imports des Icônes ---
@@ -19,8 +21,10 @@ import {
 import { useDashboardSettings } from '@/hooks/useDashboardSettings';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui-admin/select';
 import { statisticsService } from '@/services/statistics.service';
+import { assignmentGoalsService } from '@/services/assignment-goals.service';
 import { Loader2 } from 'lucide-react';
 import { CommercialProgressCard } from '@/components/ui-admin/CommercialProgressCard';
+import { CountdownCard } from '@/components/ui-admin/CountdownCard';
 
 // --- Types pour les données du tableau de bord ---
 type ActiviteRecenteItem = {
@@ -57,67 +61,89 @@ const DashboardAdmin = () => {
     const [chartPeriod, setChartPeriod] = useState<string>('week');
     const [chartsLoading, setChartsLoading] = useState(false);
     const [commercialsProgress, setCommercialsProgress] = useState<any>(null);
-    const [progressLoading, setProgressLoading] = useState(false);
+    const [activityPage, setActivityPage] = useState(1);
+    const activityItemsPerPage = 5;
+    const [currentGlobalGoal, setCurrentGlobalGoal] = useState<any>(null);
 
-    const fetchDashboardData = async (period: string) => {
-        try {
-            setLoading(true);
-            setError(null);
-            const data = await statisticsService.getDashboardStats(period);
-            setDashboardData(data);
-        } catch (err) {
-            setError('Erreur lors du chargement des données');
-            console.error('Error fetching dashboard data:', err);
-        } finally {
-            setLoading(false);
-        }
-    };
-
-    const fetchChartsData = async (period: string) => {
-        try {
-            setChartsLoading(true);
-            const [perfData, repassData] = await Promise.all([
-                statisticsService.getGlobalPerformanceChart(period),
-                statisticsService.getRepassageChart(period)
-            ]);
-            setPerformanceData(perfData);
-            setRepassageData(repassData);
-        } catch (err) {
-            console.error('Error fetching charts data:', err);
-        } finally {
-            setChartsLoading(false);
-        }
-    };
-
-    const fetchProgressData = async (period: string) => {
-        try {
-            setProgressLoading(true);
-            const progressData = await statisticsService.getCommercialsProgress(period);
-            setCommercialsProgress(progressData);
-        } catch (err) {
-            console.error('Error fetching progress data:', err);
-        } finally {
-            setProgressLoading(false);
-        }
-    };
 
 
     useEffect(() => {
-        fetchDashboardData(settings.defaultTimeFilter);
-        fetchChartsData(chartPeriod);
-        fetchProgressData(settings.defaultTimeFilter);
+        const loadAllData = async () => {
+            try {
+                setLoading(true);
+                setError(null);
+                
+                // Charger toutes les données en parallèle
+                const [dashboardData, chartsData, progressData, goalData] = await Promise.all([
+                    statisticsService.getDashboardStats(settings.defaultTimeFilter),
+                    Promise.all([
+                        statisticsService.getGlobalPerformanceChart(chartPeriod),
+                        statisticsService.getRepassageChart(chartPeriod)
+                    ]),
+                    statisticsService.getCommercialsProgress(settings.defaultTimeFilter),
+                    assignmentGoalsService.getCurrentGlobalGoal()
+                ]);
+                
+                // Mettre à jour tous les states
+                setDashboardData(dashboardData);
+                setPerformanceData(chartsData[0]);
+                setRepassageData(chartsData[1]);
+                setCommercialsProgress(progressData);
+                setCurrentGlobalGoal(goalData);
+                
+            } catch (err) {
+                setError('Erreur lors du chargement des données');
+                console.error('Error loading dashboard data:', err);
+            } finally {
+                setLoading(false);
+            }
+        };
+        
+        loadAllData();
     }, [settings.defaultTimeFilter]);
 
     useEffect(() => {
-        fetchChartsData(chartPeriod);
+        const loadChartsData = async () => {
+            try {
+                setChartsLoading(true);
+                const [perfData, repassData] = await Promise.all([
+                    statisticsService.getGlobalPerformanceChart(chartPeriod),
+                    statisticsService.getRepassageChart(chartPeriod)
+                ]);
+                setPerformanceData(perfData);
+                setRepassageData(repassData);
+            } catch (err) {
+                console.error('Error fetching charts data:', err);
+            } finally {
+                setChartsLoading(false);
+            }
+        };
+        
+        loadChartsData();
     }, [chartPeriod]);
 
     useEffect(() => {
         if (settings.autoRefresh && !loading) {
-            const timer = setInterval(() => {
-                fetchDashboardData(settings.defaultTimeFilter);
-                fetchChartsData(chartPeriod);
-                fetchProgressData(settings.defaultTimeFilter);
+            const timer = setInterval(async () => {
+                try {
+                    const [dashboardData, chartsData, progressData, goalData] = await Promise.all([
+                        statisticsService.getDashboardStats(settings.defaultTimeFilter),
+                        Promise.all([
+                            statisticsService.getGlobalPerformanceChart(chartPeriod),
+                            statisticsService.getRepassageChart(chartPeriod)
+                        ]),
+                        statisticsService.getCommercialsProgress(settings.defaultTimeFilter),
+                        assignmentGoalsService.getCurrentGlobalGoal()
+                    ]);
+                    
+                    setDashboardData(dashboardData);
+                    setPerformanceData(chartsData[0]);
+                    setRepassageData(chartsData[1]);
+                    setCommercialsProgress(progressData);
+                    setCurrentGlobalGoal(goalData);
+                } catch (err) {
+                    console.error('Error refreshing dashboard data:', err);
+                }
             }, settings.refreshInterval * 60 * 1000);
             return () => clearInterval(timer);
         }
@@ -150,7 +176,7 @@ const DashboardAdmin = () => {
                 <div className="flex flex-col items-center gap-4 text-red-600">
                     <p className="text-lg font-semibold">{error}</p>
                     <button 
-                        onClick={() => fetchDashboardData(settings.defaultTimeFilter)}
+                        onClick={() => window.location.reload()}
                         className="px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary/90"
                     >
                         Réessayer
@@ -210,24 +236,62 @@ const DashboardAdmin = () => {
             )}
 
             {settings.statsVisibility.showActivityFeed && (
-            <section className="animate-in fade-in-0 [animation-delay:300ms] duration-500 max-w-4xl">
-                <Card className="bg-white border border-gray-200 shadow-sm w-fit min-w-96">
-                    <CardHeader className="pb-3">
-                        <CardTitle className="text-lg font-semibold text-gray-900">Flux d'activité récent</CardTitle>
-                        <CardDescription className="text-sm text-gray-600">Les dernières actions importantes enregistrées</CardDescription>
-                    </CardHeader>
+            <section className="animate-in fade-in-0 [animation-delay:300ms] duration-500">
+                <div className="grid gap-6 grid-cols-1 lg:grid-cols-3">
+                    <Card className="bg-white border border-gray-200 shadow-sm">
+                        <CardHeader className="pb-3">
+                            <CardTitle className="text-lg font-semibold text-gray-900">Flux d'activité récent</CardTitle>
+                            <CardDescription className="text-sm text-gray-600">Les dernières actions importantes enregistrées</CardDescription>
+                        </CardHeader>
                     <CardContent className="pt-0">
                         {dashboardData.activiteRecente && dashboardData.activiteRecente.length > 0 ? (
                             <div className="space-y-3">
-                                {dashboardData.activiteRecente.map((item: ActiviteRecenteItem) => (
-                                    <div key={item.id} className="flex items-center gap-4 p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors">
-                                        <div className="flex items-center gap-3 flex-1">
-                                            <div className="font-medium text-gray-900 min-w-0">{item.commercial}</div>
-                                            <ActivityBadge type={item.type} />
-                                        </div>
-                                        <div className="text-sm text-gray-500 whitespace-nowrap">{item.temps}</div>
-                                    </div>
-                                ))}
+                                {(() => {
+                                    const startIndex = (activityPage - 1) * activityItemsPerPage;
+                                    const endIndex = startIndex + activityItemsPerPage;
+                                    const currentItems = dashboardData.activiteRecente.slice(startIndex, endIndex);
+                                    const totalPages = Math.ceil(dashboardData.activiteRecente.length / activityItemsPerPage);
+                                    
+                                    return (
+                                        <>
+                                            {currentItems.map((item: ActiviteRecenteItem) => (
+                                                <div key={item.id} className="flex items-center gap-4 p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors">
+                                                    <div className="flex items-center gap-3 flex-1">
+                                                        <div className="font-medium text-gray-900 min-w-0">{item.commercial}</div>
+                                                        <ActivityBadge type={item.type} />
+                                                    </div>
+                                                    <div className="text-sm text-gray-500 whitespace-nowrap">{item.temps}</div>
+                                                </div>
+                                            ))}
+                                            
+                                            {totalPages > 1 && (
+                                                <div className="flex items-center justify-between pt-4 border-t border-gray-200">
+                                                    <div className="text-sm text-gray-600">
+                                                        Page {activityPage} sur {totalPages} ({dashboardData.activiteRecente.length} éléments)
+                                                    </div>
+                                                    <div className="flex items-center gap-2">
+                                                        <Button
+                                                            variant="outline"
+                                                            size="sm"
+                                                            onClick={() => setActivityPage(prev => Math.max(1, prev - 1))}
+                                                            disabled={activityPage === 1}
+                                                        >
+                                                            <ChevronLeft className="h-4 w-4" />
+                                                        </Button>
+                                                        <Button
+                                                            variant="outline"
+                                                            size="sm"
+                                                            onClick={() => setActivityPage(prev => Math.min(totalPages, prev + 1))}
+                                                            disabled={activityPage === totalPages}
+                                                        >
+                                                            <ChevronRight className="h-4 w-4" />
+                                                        </Button>
+                                                    </div>
+                                                </div>
+                                            )}
+                                        </>
+                                    );
+                                })()}
                             </div>
                         ) : (
                             <div className="text-center py-8 text-gray-500">
@@ -236,7 +300,15 @@ const DashboardAdmin = () => {
                             </div>
                         )}
                     </CardContent>
-                </Card>
+                    </Card>
+                    
+                    <div className="lg:col-span-2">
+                        <CountdownCard 
+                            currentGlobalGoal={currentGlobalGoal}
+                            isLoading={loading}
+                        />
+                    </div>
+                </div>
             </section>
             )}
             
@@ -330,18 +402,11 @@ const DashboardAdmin = () => {
                     </div>
                 </div>
 
-                {progressLoading ? (
-                    <div className="h-80 bg-gray-100 rounded-lg animate-pulse flex items-center justify-center">
-                        <Loader2 className="h-8 w-8 animate-spin text-gray-400" />
-                        <span className="ml-2 text-gray-500">Chargement des données de progression...</span>
-                    </div>
-                ) : (
-                    <CommercialProgressCard 
-                        data={commercialsProgress || []} 
-                        title="" 
-                        loading={progressLoading}
-                    />
-                )}
+                <CommercialProgressCard 
+                    data={commercialsProgress || []} 
+                    title="" 
+                    loading={false}
+                />
             </section>
             )}
         </div>

@@ -1,6 +1,8 @@
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui-admin/card';
 import { Progress } from '@/components/ui-admin/progress';
-import { Trophy, User, Target } from 'lucide-react';
+import { Button } from '@/components/ui-admin/button';
+import { Trophy, User, Target, ChevronLeft, ChevronRight } from 'lucide-react';
+import { useState } from 'react';
 
 interface CommercialProgressData {
   id: string;
@@ -49,6 +51,8 @@ export const CommercialProgressCard = ({
   title = "Avancement des Commerciaux",
   loading = false 
 }: CommercialProgressCardProps) => {
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 5;
   if (loading) {
     return (
       <Card className="bg-white border border-gray-200 shadow-sm">
@@ -139,44 +143,84 @@ export const CommercialProgressCard = ({
             </div>
           </div>
 
-          {/* Individual progress */}
+          {/* Individual progress with pagination */}
           <div className="space-y-4">
-            {commercialsData.map((commercial, index) => (
-              <div key={commercial.id} className="space-y-2">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    {getRankIcon(index + 1)}
-                    <User className="h-4 w-4 text-gray-500" />
-                    <div className="flex flex-col">
-                      <span className="font-medium text-gray-900 truncate">
-                        {commercial.prenom} {commercial.nom}
-                      </span>
-                      <span className="text-xs text-gray-500">
-                        {commercial.equipe} • {commercial.manager}
-                      </span>
+            {(() => {
+              const startIndex = (currentPage - 1) * itemsPerPage;
+              const endIndex = startIndex + itemsPerPage;
+              const currentItems = commercialsData.slice(startIndex, endIndex);
+              const totalPages = Math.ceil(commercialsData.length / itemsPerPage);
+              
+              return (
+                <>
+                  {currentItems.map((commercial, index) => {
+                    const globalIndex = startIndex + index;
+                    return (
+                      <div key={commercial.id} className="space-y-2">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-2">
+                            {getRankIcon(globalIndex + 1)}
+                            <User className="h-4 w-4 text-gray-500" />
+                            <div className="flex flex-col">
+                              <span className="font-medium text-gray-900 truncate">
+                                {commercial.prenom} {commercial.nom}
+                              </span>
+                              <span className="text-xs text-gray-500">
+                                {commercial.equipe} • {commercial.manager}
+                              </span>
+                            </div>
+                          </div>
+                          <div className="text-right">
+                            <div className="font-semibold text-gray-900">
+                              {commercial.objectif.atteint}/{commercial.objectif.cible} contrats
+                            </div>
+                            <div className="text-xs text-gray-500">
+                              {Math.round(commercial.objectif.pourcentage)}% de l'objectif global
+                            </div>
+                          </div>
+                        </div>
+                        <div className="relative">
+                          <Progress 
+                            value={Math.min(commercial.objectif.pourcentage, 100)} 
+                            className="h-2"
+                          />
+                          <div 
+                            className={`absolute top-0 left-0 h-2 rounded-full transition-all duration-300 ${getProgressColor(commercial.objectif.pourcentage)}`}
+                            style={{ width: `${Math.min(commercial.objectif.pourcentage, 100)}%` }}
+                          />
+                        </div>
+                      </div>
+                    );
+                  })}
+                  
+                  {totalPages > 1 && (
+                    <div className="flex items-center justify-between pt-4 border-t border-gray-200">
+                      <div className="text-sm text-gray-600">
+                        Page {currentPage} sur {totalPages} ({commercialsData.length} commerciaux)
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                          disabled={currentPage === 1}
+                        >
+                          <ChevronLeft className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+                          disabled={currentPage === totalPages}
+                        >
+                          <ChevronRight className="h-4 w-4" />
+                        </Button>
+                      </div>
                     </div>
-                  </div>
-                  <div className="text-right">
-                    <div className="font-semibold text-gray-900">
-                      {commercial.objectif.atteint}/{commercial.objectif.cible} contrats
-                    </div>
-                    <div className="text-xs text-gray-500">
-                      {Math.round(commercial.objectif.pourcentage)}% de l'objectif global
-                    </div>
-                  </div>
-                </div>
-                <div className="relative">
-                  <Progress 
-                    value={Math.min(commercial.objectif.pourcentage, 100)} 
-                    className="h-2"
-                  />
-                  <div 
-                    className={`absolute top-0 left-0 h-2 rounded-full transition-all duration-300 ${getProgressColor(commercial.objectif.pourcentage)}`}
-                    style={{ width: `${Math.min(commercial.objectif.pourcentage, 100)}%` }}
-                  />
-                </div>
-              </div>
-            ))}
+                  )}
+                </>
+              );
+            })()}
           </div>
         </div>
       </CardContent>
