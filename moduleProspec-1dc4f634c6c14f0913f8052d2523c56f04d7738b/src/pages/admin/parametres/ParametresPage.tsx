@@ -323,51 +323,11 @@ const ParametresPage = () => {
               </div>
             </div>
 
-            {/* Reset Button */}
-            <div className="bg-gradient-to-r from-red-50 to-orange-50 rounded-xl p-6 border border-red-200/50">
-              <div className="flex items-center justify-between">
-                <div>
-                  <h4 className="text-lg font-semibold text-slate-800 mb-1">Zone de danger</h4>
-                  <p className="text-slate-600 text-sm">Cette action remettra tous les paramètres à leurs valeurs par défaut</p>
-                </div>
-                <Button 
-                  variant="outline" 
-                  onClick={resetSettings}
-                  className="flex items-center gap-2 border-red-300 text-red-700 hover:bg-red-50 hover:border-red-400 transition-all duration-200"
-                >
-                  <RotateCcw className="h-4 w-4" />
-                  Réinitialiser
-                </Button>
-              </div>
-            </div>
+
           </CardContent>
         </Card>
 
-        {/* Future Settings Sections */}
-        <Card className="bg-white/80 backdrop-blur-sm border-white/20 shadow-xl">
-          <CardHeader className="bg-gradient-to-r from-amber-500/10 to-orange-500/10 rounded-t-lg">
-            <CardTitle className="flex items-center gap-3 text-slate-800">
-              <div className="p-2 bg-gradient-to-br from-amber-500 to-orange-600 rounded-lg text-white">
-                <Settings className="h-5 w-5" />
-              </div>
-              Paramètres système
-            </CardTitle>
-            <CardDescription className="text-slate-600">
-              Configuration générale de l'application (à venir)
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="p-6">
-            <div className="bg-gradient-to-br from-amber-50 to-orange-50 rounded-xl p-8 border border-amber-200/50 text-center">
-              <div className="inline-flex items-center justify-center w-16 h-16 bg-gradient-to-br from-amber-500 to-orange-600 rounded-full mb-4">
-                <Settings className="h-8 w-8 text-white" />
-              </div>
-              <h3 className="text-lg font-semibold text-slate-800 mb-2">Prochainement disponible</h3>
-              <p className="text-slate-600 max-w-md mx-auto">
-                D'autres paramètres système seront ajoutés ici pour personnaliser davantage votre expérience d'administration.
-              </p>
-            </div>
-          </CardContent>
-        </Card>
+
       </div>
     </div>
   );
