@@ -54,6 +54,7 @@ export function DataTable<TData extends { id: string }, TValue>({
   const [sorting, setSorting] = React.useState<SortingState>([])
   const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>([])
   const [searchFocused, setSearchFocused] = React.useState(false)
+  const [paginationState, setPaginationState] = React.useState({ pageIndex: 0, pageSize: 10 })
   const navigate = useNavigate()
 
   const filterValue = filterColumnId ? (columnFilters.find(f => f.id === filterColumnId)?.value as string) ?? "" : "";
@@ -84,9 +85,14 @@ export function DataTable<TData extends { id: string }, TValue>({
     onColumnFiltersChange: setColumnFilters,
     onRowSelectionChange: setRowSelection,
     onPaginationChange: updater => {
-      if (!manualPagination) return; // internal controls if not manual
-      const next = typeof updater === 'function' ? updater((pagination ?? { pageIndex: 0, pageSize: 10 })) : updater;
-      onPaginationChange?.(next as { pageIndex: number; pageSize: number });
+      if (manualPagination) {
+        const next = typeof updater === 'function' ? updater((pagination ?? { pageIndex: 0, pageSize: 10 })) : updater;
+        onPaginationChange?.(next as { pageIndex: number; pageSize: number });
+      } else {
+        // For client-side pagination, update local state
+        const next = typeof updater === 'function' ? updater(paginationState) : updater;
+        setPaginationState(next);
+      }
     },
     getCoreRowModel: getCoreRowModel(),
     getPaginationRowModel: manualPagination ? undefined : getPaginationRowModel(),
@@ -96,8 +102,8 @@ export function DataTable<TData extends { id: string }, TValue>({
       sorting,
       columnFilters,
       rowSelection,
-      // Always provide a pagination object to avoid destructuring undefined
-      pagination: (pagination ?? { pageIndex: 0, pageSize: 10 }),
+      // Use local state for client-side pagination, external state for manual pagination
+      pagination: manualPagination ? (pagination ?? { pageIndex: 0, pageSize: 10 }) : paginationState,
     },
     manualFiltering: !!fullData,
     manualPagination,

@@ -3,6 +3,9 @@ import mapboxgl from 'mapbox-gl';
 import 'mapbox-gl/dist/mapbox-gl.css';
 import { Zone } from '@/types/types';
 
+// Configuration du token Mapbox
+mapboxgl.accessToken = import.meta.env.VITE_MAPBOX_ACCESS_TOKEN;
+
 interface MapComponentProps {
   zones: Zone[];
   focusedZoneId?: string | null;
@@ -66,50 +69,97 @@ const MapComponent: React.FC<MapComponentProps> = ({ zones, focusedZoneId, onLoa
   useEffect(() => {
     const map = mapRef.current;
     if (!map || !map.isStyleLoaded() || !zones) return;
+    
 
-    // Draw all zones
+    // Nettoyer et redessiner toutes les zones
     zones.forEach(zone => {
       const sourceId = `zone-source-${zone.id}`;
       const fillLayerId = `zone-fill-${zone.id}`;
       const outlineLayerId = `zone-outline-${zone.id}`;
 
-      if (map.getSource(sourceId)) {
-        map.removeLayer(fillLayerId);
-        map.removeLayer(outlineLayerId);
-        map.removeSource(sourceId);
+      // Nettoyer les couches existantes
+      try {
+        if (map.getLayer(fillLayerId)) map.removeLayer(fillLayerId);
+        if (map.getLayer(outlineLayerId)) map.removeLayer(outlineLayerId);
+        if (map.getSource(sourceId)) map.removeSource(sourceId);
+      } catch (error) {
+        console.warn('Erreur lors du nettoyage des couches:', error);
       }
 
-      const circleGeoJSON = createGeoJSONCircle([zone.latlng[0], zone.latlng[1]], zone.radius);
-      map.addSource(sourceId, { type: 'geojson', data: circleGeoJSON });
-      map.addLayer({ id: fillLayerId, type: 'fill', source: sourceId, paint: { 'fill-color': zone.color, 'fill-opacity': 0.2 } });
-      map.addLayer({ id: outlineLayerId, type: 'line', source: sourceId, paint: { 'line-color': zone.color, 'line-width': 2 } });
+      // Correction: latlng est [latitude, longitude] mais Mapbox attend [longitude, latitude]
+      const circleGeoJSON = createGeoJSONCircle([zone.latlng[1], zone.latlng[0]], zone.radius);
+      
+      try {
+        map.addSource(sourceId, { type: 'geojson', data: circleGeoJSON });
+        
+        // Couche de remplissage avec opacité variable selon le focus
+        map.addLayer({
+          id: fillLayerId,
+          type: 'fill',
+          source: sourceId,
+          paint: {
+            'fill-color': zone.color || '#3b82f6',
+            'fill-opacity': focusedZoneId === zone.id ? 0.4 : 0.2
+          }
+        });
+        
+        // Couche de contour avec épaisseur variable selon le focus
+        map.addLayer({
+          id: outlineLayerId,
+          type: 'line',
+          source: sourceId,
+          paint: {
+            'line-color': zone.color || '#3b82f6',
+            'line-width': focusedZoneId === zone.id ? 3 : 2,
+            'line-opacity': 1
+          }
+        });
+      } catch (error) {
+        console.error(`Erreur lors de l'ajout de la zone ${zone.id}:`, error);
+      }
     });
 
-    // Focus on a specific zone or fit all zones
-    if (focusedZoneId) {
-      const zone = zones.find(z => z.id === focusedZoneId);
-      if (zone) {
-        const circleGeoJSON = createGeoJSONCircle([zone.latlng[0], zone.latlng[1]], zone.radius);
-        const coordinates = circleGeoJSON.geometry.coordinates[0];
-        const bounds = new mapboxgl.LngLatBounds(coordinates[0] as mapboxgl.LngLatLike, coordinates[0] as mapboxgl.LngLatLike);
-        for (const coord of coordinates) {
-          bounds.extend(coord as mapboxgl.LngLatLike);
+    // Gérer le focus sur les zones
+    setTimeout(() => {
+      if (focusedZoneId) {
+        const zone = zones.find(z => z.id === focusedZoneId);
+        if (zone) {
+          // Correction: latlng est [latitude, longitude] mais Mapbox attend [longitude, latitude]
+          const circleGeoJSON = createGeoJSONCircle([zone.latlng[1], zone.latlng[0]], zone.radius);
+          const coordinates = circleGeoJSON.geometry.coordinates[0];
+          const bounds = new mapboxgl.LngLatBounds();
+          
+          for (const coord of coordinates) {
+            bounds.extend(coord as mapboxgl.LngLatLike);
+          }
+          
+          // Centrer sur la zone avec un padding approprié
+          map.fitBounds(bounds, { 
+            padding: 80, 
+            duration: 1500, 
+            maxZoom: 16
+          });
         }
-        map.fitBounds(bounds, { padding: 40, duration: 1000, maxZoom: 15 });
-      }
-    } else if (zones.length > 0) {
-      const bounds = new mapboxgl.LngLatBounds();
-      zones.forEach(zone => {
-        const circleGeoJSON = createGeoJSONCircle([zone.latlng[0], zone.latlng[1]], zone.radius);
-        const coordinates = circleGeoJSON.geometry.coordinates[0];
-        for (const coord of coordinates) {
-          bounds.extend(coord as mapboxgl.LngLatLike);
+      } else if (zones.length > 0) {
+        // Afficher toutes les zones
+        const bounds = new mapboxgl.LngLatBounds();
+        zones.forEach(zone => {
+          // Correction: latlng est [latitude, longitude] mais Mapbox attend [longitude, latitude]
+          const circleGeoJSON = createGeoJSONCircle([zone.latlng[1], zone.latlng[0]], zone.radius);
+          const coordinates = circleGeoJSON.geometry.coordinates[0];
+          for (const coord of coordinates) {
+            bounds.extend(coord as mapboxgl.LngLatLike);
+          }
+        });
+        
+        if (!bounds.isEmpty()) {
+          map.fitBounds(bounds, { 
+            padding: 60, 
+            duration: 1500 
+          });
         }
-      });
-      if (!bounds.isEmpty()) {
-        map.fitBounds(bounds, { padding: 50, duration: 1000 });
       }
-    }
+    }, 100); // Petit délai pour s'assurer que les couches sont ajoutées
 
   }, [zones, focusedZoneId]);
 
