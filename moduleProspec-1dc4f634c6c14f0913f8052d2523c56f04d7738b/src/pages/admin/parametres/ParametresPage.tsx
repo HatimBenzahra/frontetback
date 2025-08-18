@@ -1,15 +1,14 @@
-import { Settings, RotateCcw, BarChart3, Activity, Clock, Eye, Palette, Zap, Timer, Layers, ListOrdered } from 'lucide-react';
+import { Settings, BarChart3, Activity, Clock, Eye, Palette, Zap, Timer, Layers, ListOrdered } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui-admin/card';
 import { Label } from '@/components/ui-admin/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui-admin/select';
 import { Checkbox } from '@/components/ui-admin/checkbox';
-import { Button } from '@/components/ui-admin/button';
 import { useDashboardSettings } from '@/hooks/useDashboardSettings';
 import { TimeFilterType } from '@/types/dashboard-settings';
 import { AdminPageSkeleton } from '@/components/ui-admin/AdminPageSkeleton';
 
 const ParametresPage = () => {
-  const { settings, updateSettings, resetSettings, isLoading } = useDashboardSettings();
+  const { settings, updateSettings, isLoading } = useDashboardSettings();
 
   if (isLoading) {
     return <AdminPageSkeleton hasHeader hasCards cardsCount={3} />;
