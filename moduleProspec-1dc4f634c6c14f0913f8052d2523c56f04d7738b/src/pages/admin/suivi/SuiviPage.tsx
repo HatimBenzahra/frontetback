@@ -4,6 +4,7 @@ import { useSocket } from '@/hooks/useSocket';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui-admin/card';
 import { Button } from '@/components/ui-admin/button';
 import { Volume2, RefreshCw, Mic, CheckCircle2, Loader2, VolumeX } from 'lucide-react';
+import { AdminPageSkeleton } from '@/components/ui-admin/AdminPageSkeleton';
 
 type ActiveStream = { commercial_id: string; commercial_info?: any; socket_id: string };
 
@@ -11,6 +12,7 @@ const SuiviPage = () => {
   const { user } = useAuth();
   const socket = useSocket('audio-streaming');
   const [activeStreams, setActiveStreams] = useState<ActiveStream[]>([]);
+  const [isInitializing, setIsInitializing] = useState(true);
   const pcsRef = useRef<Map<string, RTCPeerConnection>>(new Map());
   const audioElsRef = useRef<Map<string, HTMLAudioElement>>(new Map());
   const [connectingIds, setConnectingIds] = useState<Set<string>>(new Set());
@@ -251,7 +253,13 @@ const SuiviPage = () => {
   };
 
   useEffect(() => {
+    // Simuler un délai d'initialisation pour la connexion WebSocket et permissions
+    const timer = setTimeout(() => {
+      setIsInitializing(false);
+    }, 1500);
+
     return () => {
+      clearTimeout(timer);
       leaveAll();
     };
   }, []);
@@ -261,6 +269,10 @@ const SuiviPage = () => {
     if (!q) return activeStreams;
     return activeStreams.filter(s => (s.commercial_info?.name || s.commercial_id).toLowerCase().includes(q));
   }, [activeStreams, query]);
+
+  if (isInitializing) {
+    return <AdminPageSkeleton hasHeader hasCards cardsCount={3} className="p-6" />;
+  }
 
   return (
     <div className="p-6">

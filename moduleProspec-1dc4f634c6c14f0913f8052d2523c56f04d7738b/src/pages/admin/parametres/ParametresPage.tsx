@@ -6,16 +6,13 @@ import { Checkbox } from '@/components/ui-admin/checkbox';
 import { Button } from '@/components/ui-admin/button';
 import { useDashboardSettings } from '@/hooks/useDashboardSettings';
 import { TimeFilterType } from '@/types/dashboard-settings';
+import { AdminPageSkeleton } from '@/components/ui-admin/AdminPageSkeleton';
 
 const ParametresPage = () => {
   const { settings, updateSettings, resetSettings, isLoading } = useDashboardSettings();
 
   if (isLoading) {
-    return (
-      <div className="flex items-center justify-center min-h-96">
-        <div className="animate-pulse h-96 bg-gray-100 rounded-lg w-full max-w-4xl" />
-      </div>
-    );
+    return <AdminPageSkeleton hasHeader hasCards cardsCount={3} />;
   }
 
   const timeFilterOptions: { value: TimeFilterType; label: string }[] = [

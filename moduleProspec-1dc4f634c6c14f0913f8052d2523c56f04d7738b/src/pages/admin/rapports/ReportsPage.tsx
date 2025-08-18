@@ -40,6 +40,7 @@ import { zoneService, ZoneFromApi } from '@/services/zone.service';
 import { commercialService, CommercialFromAPI } from '@/services/commercial.service';
 import type { DateRange } from 'react-day-picker';
 import type { Manager } from '@/types/types';
+import { AdminPageSkeleton } from '@/components/ui-admin/AdminPageSkeleton';
 
 const resources: { value: ExportResource; label: string; icon: any; description: string; color: string }[] = [
   { 
@@ -103,6 +104,7 @@ export default function ReportsPage() {
   
   // UI state
   const [loading, setLoading] = useState(false);
+  const [initialLoading, setInitialLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
   
@@ -123,10 +125,16 @@ export default function ReportsPage() {
 
   const showTranscriptionFilter = useMemo(() => resource === 'transcriptions', [resource]);
   const showStatsFilters = useMemo(() => resource === 'statistics', [resource]);
+  
+  // Show skeleton during initial data loading
+  if (initialLoading && (showTranscriptionFilter || showStatsFilters)) {
+    return <AdminPageSkeleton hasHeader hasCards hasFilters cardsCount={4} />;
+  }
 
   // Load data for dropdowns
   useEffect(() => {
     const loadData = async () => {
+      setInitialLoading(true);
       try {
         if (showTranscriptionFilter || showStatsFilters) {
           const [commercialsData, managersData, equipesData, zonesData] = await Promise.all([
@@ -146,6 +154,8 @@ export default function ReportsPage() {
         }
       } catch (error) {
         console.error('Error loading data:', error);
+      } finally {
+        setInitialLoading(false);
       }
     };
     loadData();

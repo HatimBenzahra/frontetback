@@ -17,6 +17,7 @@ import { Modal } from '@/components/ui-admin/Modal';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui-admin/card';
 
 import { statisticsService } from '@/services/statistics.service';
+import { AdminPageSkeleton } from '@/components/ui-admin/AdminPageSkeleton';
 
 interface ManagerDetails {
   id: string;
@@ -150,17 +151,7 @@ const ManagerDetailsPage = () => {
     };
     
     if (loading) {
-        return (
-            <div className="space-y-6 animate-pulse">
-                <Skeleton className="h-10 w-48" />
-                <Skeleton className="h-24 w-full" />
-                <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-                    <Skeleton className="h-28 rounded-lg" /><Skeleton className="h-28 rounded-lg" />
-                    <Skeleton className="h-28 rounded-lg" /><Skeleton className="h-28 rounded-lg" />
-                </div>
-                <Skeleton className="h-96 w-full" />
-            </div>
-        );
+        return <AdminPageSkeleton hasHeader hasCards hasTable hasCharts cardsCount={4} chartsCount={1} />;
     }
     
     if (!manager) return <div>Manager non trouvé.</div>;

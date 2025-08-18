@@ -11,6 +11,7 @@ import { commercialService } from '../../../services/commercial.service';
 import { useSocket } from '../../../hooks/useSocket';
 import { useNavigate } from 'react-router-dom';
 import 'mapbox-gl/dist/mapbox-gl.css';
+import { AdminPageSkeleton } from '@/components/ui-admin/AdminPageSkeleton';
 
 // Types
 interface LocationData {
@@ -572,20 +573,7 @@ const GPSTrackingPage: React.FC = () => {
   }, [onlineCommerciaux, selectedCommercial?.id]);
 
   if (loading) {
-    return (
-      <div className="h-[calc(100vh-4rem)] flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-50">
-        <Card className="p-8 shadow-xl border-0 bg-white/80 backdrop-blur-sm">
-          <div className="text-center">
-            <div className="relative">
-              <Activity className="h-12 w-12 animate-spin mx-auto text-blue-500 mb-4" />
-              <div className="absolute inset-0 h-12 w-12 bg-blue-100 rounded-full animate-ping opacity-30"></div>
-            </div>
-            <p className="text-gray-600 font-medium">Chargement des commerciaux...</p>
-            <p className="text-sm text-gray-500 mt-2">Connexion au système de tracking GPS</p>
-          </div>
-        </Card>
-      </div>
-    );
+    return <AdminPageSkeleton hasHeader hasCards cardsCount={3} className="h-[calc(100vh-4rem)]" />;
   }
 
   return (

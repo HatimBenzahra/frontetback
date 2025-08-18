@@ -11,6 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { equipeService } from "@/services/equipe.service";
 import { managerService } from "@/services/manager.service";
 import type { Manager } from '@/types/types';
+import { AdminPageSkeleton } from "@/components/ui-admin/AdminPageSkeleton";
 
 const EquipesPage = () => {
   const [data, setData] = useState<Equipe[]>([]);
@@ -162,7 +163,7 @@ const EquipesPage = () => {
   const columns = useMemo(() => createEquipesColumns(isDeleteMode, handleEditOpen), [isDeleteMode]);
 
   if (loading) {
-    return <div>Chargement des équipes...</div>;
+    return <AdminPageSkeleton hasHeader hasTable hasFilters />;
   }
 
   return (

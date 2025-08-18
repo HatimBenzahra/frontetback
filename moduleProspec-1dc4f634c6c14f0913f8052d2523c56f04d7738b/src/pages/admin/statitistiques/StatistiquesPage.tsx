@@ -13,7 +13,7 @@ import { Button } from '@/components/ui-admin/button';
 import { Badge } from '@/components/ui-admin/badge';
 import { cn } from '@/lib/utils';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui-admin/card';
-import { StatistiquesSkeleton } from './StatistiquesSkeleton';
+import { AdminPageSkeleton } from '@/components/ui-admin/AdminPageSkeleton';
 
 // --- Imports des Icônes ---
 import { 
@@ -121,7 +121,7 @@ const StatistiquesPage = () => {
         return { kpis, leaderboards, charts };
     }, [statsData]);
 
-    if (loading) return <StatistiquesSkeleton />;
+    if (loading) return <AdminPageSkeleton hasHeader hasCards hasCharts hasFilters cardsCount={4} chartsCount={2} />;
     if (error) return <div className="text-red-500">{error}</div>;
     if (!currentData) return <div>Aucune donnée disponible.</div>;
 

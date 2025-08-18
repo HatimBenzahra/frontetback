@@ -22,6 +22,7 @@ import { Building2, MapPin, Users, Filter, Eye, X, Search, BarChart3, ChevronDow
 import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
+import { AdminPageSkeleton } from "@/components/ui-admin/AdminPageSkeleton";
 import {
     AlertDialog,
     AlertDialogAction,
@@ -454,15 +455,7 @@ const ImmeublesPage = () => {
     const hasActiveFilters = statusFilter !== 'all' || zoneFilter !== 'all' || prospectingModeFilter !== 'all' || coverageFilter !== 'all' || searchTerm;
 
     if (loading) {
-        return (
-            <div className="p-4 sm:p-6 lg:p-8 space-y-6">
-                <div className="flex justify-between items-center">
-                    <Skeleton className="h-10 w-1/3" />
-                    <Skeleton className="h-10 w-32" />
-                </div>
-                <Skeleton className="h-96 w-full" />
-            </div>
-        )
+        return <AdminPageSkeleton hasHeader hasTable hasCards hasFilters cardsCount={4} />;
     }
 
     const tableComponent = (

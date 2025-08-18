@@ -14,6 +14,7 @@ import { Modal } from "@/components/ui-admin/Modal";
 import { managerService } from "@/services/manager.service";
 import { adminService } from "@/services/admin.service";
 import { toast } from "sonner";
+import { AdminPageSkeleton } from "@/components/ui-admin/AdminPageSkeleton";
 
 type ManagerWithEquipes = Manager & { equipes: any[] };
 
@@ -205,7 +206,7 @@ const ManagersPage = () => {
   const columns = useMemo(() => getColumns(isDeleteMode, handleEditOpen), [isDeleteMode]);
 
   if (loading) {
-      return <div>Chargement des managers...</div>;
+      return <AdminPageSkeleton hasHeader hasTable hasFilters />;
   }
 
   return (

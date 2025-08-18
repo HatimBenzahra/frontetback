@@ -7,6 +7,7 @@ import { Skeleton } from '@/components/ui-admin/skeleton';
 import StatCard from '@/components/ui-admin/StatCard';
 import { ZoneMap } from './ZoneMap';
 import type { Zone as ZoneTableType } from './columns';
+import { AdminPageSkeleton } from '@/components/ui-admin/AdminPageSkeleton';
 
 const ZoneDetailsPage = () => {
   const { zoneId } = useParams<{ zoneId: string }>();
@@ -32,16 +33,7 @@ const ZoneDetailsPage = () => {
   }, [zoneId]);
 
   if (loading) {
-    return (
-      <div className="space-y-6 animate-pulse">
-        <Skeleton className="h-10 w-48" />
-        <Skeleton className="h-24 w-full" />
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-          {[...Array(3)].map((_, i) => <Skeleton key={i} className="h-28 rounded-lg" />)}
-        </div>
-        <Skeleton className="h-96 w-full" />
-      </div>
-    );
+    return <AdminPageSkeleton hasHeader hasCards hasCharts cardsCount={3} chartsCount={1} />;
   }
 
   if (!zoneDetails) {

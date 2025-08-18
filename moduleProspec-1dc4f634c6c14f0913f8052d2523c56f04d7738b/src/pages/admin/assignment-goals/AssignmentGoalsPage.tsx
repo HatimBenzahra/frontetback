@@ -18,6 +18,7 @@ import type { EquipeFromApi } from '@/services/equipe.service';
 import { ZoneAssignmentCard } from '@/components/page-components/ZoneAssignmentCard';
 import { GoalSettingCard } from '@/components/page-components/GoalSettingCard';
 import { ZoneMapViewer } from '@/components/page-components/ZoneMapViewer';
+import { AdminPageSkeleton } from '@/components/ui-admin/AdminPageSkeleton';
 
 /* -------------------- Helpers -------------------- */
 type AssignmentData = {
@@ -144,11 +145,7 @@ const AssignmentGoalsPage = () => {
   };
 
   if (loading) {
-    return (
-      <div className="flex items-center justify-center min-h-screen">
-        <Loader2 className="h-16 w-16 animate-spin text-blue-500" />
-      </div>
-    );
+    return <AdminPageSkeleton hasHeader hasCards cardsCount={3} />;
   }
 
   if (error) {

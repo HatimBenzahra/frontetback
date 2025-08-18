@@ -3,6 +3,7 @@
 import { createContext, useContext, useState, useEffect } from 'react';
 import type { ReactNode } from 'react';
 import { authService } from '../services/auth.service';
+import { AdminPageSkeleton } from '@/components/ui-admin/AdminPageSkeleton';
 
 // Définir les types pour plus de sécurité
 type Role = 'admin' | 'manager' | 'directeur' | 'backoffice' | 'commercial';
@@ -77,7 +78,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   // Afficher un loading pendant l'initialisation
   if (isLoading) {
-    return <div>Loading...</div>;
+    return <AdminPageSkeleton hasHeader hasTable />;
   }
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

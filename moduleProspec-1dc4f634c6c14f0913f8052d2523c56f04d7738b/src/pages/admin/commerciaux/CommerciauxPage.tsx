@@ -16,6 +16,7 @@ import { equipeService } from "@/services/equipe.service";
 import { managerService } from "@/services/manager.service";
 import { adminService } from "@/services/admin.service";
 import { toast } from "sonner";
+import { AdminPageSkeleton } from "@/components/ui-admin/AdminPageSkeleton";
 
 import type { Commercial, Manager, EnrichedCommercial } from "@/types/types";
 
@@ -358,7 +359,7 @@ const CommerciauxPage = () => {
 
   /* ---------------------- UI ---------------------- */
   if (loading) {
-    return <div>Chargement des commerciaux...</div>;
+    return <AdminPageSkeleton hasHeader hasTable hasFilters />;
   }
 
   if (error) {

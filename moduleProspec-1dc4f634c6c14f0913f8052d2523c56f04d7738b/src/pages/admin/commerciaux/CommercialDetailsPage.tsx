@@ -33,6 +33,7 @@ import {
   TooltipTrigger,
 } from '@/components/ui-admin/tooltip';
 import { DataTable } from '@/components/data-table/DataTable';
+import { AdminPageSkeleton } from '@/components/ui-admin/AdminPageSkeleton';
 
 import type {
   HistoryEntry,
@@ -154,7 +155,7 @@ const CommercialDetailsPage = () => {
   );
 
   if (loading) {
-    return <div>Chargement des données...</div>;
+    return <AdminPageSkeleton hasHeader hasCards hasCharts cardsCount={4} chartsCount={1} />;
   }
 
   if (error) {

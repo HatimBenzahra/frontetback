@@ -15,6 +15,7 @@ import { managerService } from '@/services/manager.service';
 import { AssignmentType } from '@/types/enums';
 import { ViewToggleContainer } from '@/components/ui-admin/ViewToggleContainer';
 import type { Commercial, Manager } from '@/types/types';
+import { AdminPageSkeleton } from '@/components/ui-admin/AdminPageSkeleton';
 
 const ZonesPage = () => {
   const [view, setView] = useState<'table' | 'map'>('table');
@@ -160,7 +161,7 @@ const ZonesPage = () => {
 
   const zoneColumns = useMemo(() => createZoneColumns(isDeleteMode, handleEditClick), [isDeleteMode]);
 
-  if (loading) return <div>Chargement...</div>;
+  if (loading) return <AdminPageSkeleton hasHeader hasTable hasFilters />;
 
   const tableComponent = (
     <DataTable

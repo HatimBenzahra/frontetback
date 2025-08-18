@@ -15,6 +15,7 @@ import type { Commercial } from "@/types/types";
 import { Modal } from "@/components/ui-admin/Modal";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui-admin/select";
 import { Label } from "@/components/ui-admin/label";
+import { AdminPageSkeleton } from "@/components/ui-admin/AdminPageSkeleton";
 
 const EquipeDetailsPage = () => {
   const { equipeId } = useParams<{ equipeId: string }>();
@@ -55,17 +56,7 @@ const EquipeDetailsPage = () => {
   }, []);
 
   if (loading) {
-    return (
-        <div className="space-y-6 animate-pulse">
-            <Skeleton className="h-10 w-48" />
-            <Skeleton className="h-24 w-full" />
-            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-                {[...Array(4)].map((_, i) => <Skeleton key={i} className="h-28 rounded-lg" />)}
-            </div>
-            <Skeleton className="h-96 w-full" />
-            <Skeleton className="h-96 w-full" />
-        </div>
-    )
+    return <AdminPageSkeleton hasHeader hasCards hasTable hasCharts cardsCount={4} chartsCount={1} />;
   }
 
   if (!equipeDetails) {

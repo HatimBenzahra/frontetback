@@ -10,6 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { RefreshCw, Search, Copy, Download, Calendar, Clock, Building2, User, Filter, Mic, MicOff, Activity, Target, FileText } from 'lucide-react';
 import { type TranscriptionSession, transcriptionHistoryService } from '@/services/transcriptionHistory.service';
 import { API_BASE_URL } from '@/config';
+import { AdminPageSkeleton } from '@/components/ui-admin/AdminPageSkeleton';
 
 // Styles CSS personnalisés pour améliorer le scroll
 const scrollStyles = `
@@ -744,13 +745,7 @@ const TranscriptionsPage = () => {
 
               <CardContent className="p-0 flex-1 min-h-0 h-[calc(100%-140px)]">
                 {loadingHistory ? (
-                  <div className="text-center py-16">
-                    <div className="relative">
-                      <RefreshCw className="h-12 w-12 animate-spin mx-auto text-blue-500 mb-4" />
-                      <div className="absolute inset-0 h-12 w-12 bg-blue-100 rounded-full animate-ping opacity-30"></div>
-                    </div>
-                    <div className="text-gray-500 font-medium">Chargement...</div>
-                  </div>
+                    <AdminPageSkeleton hasTable tableRows={3} className="mt-4" />
                 ) : sessions.length === 0 ? (
                   <div className="text-center py-16">
                     <div className="p-4 bg-gray-100 rounded-full w-20 h-20 mx-auto mb-4 flex items-center justify-center">

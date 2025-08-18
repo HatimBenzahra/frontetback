@@ -25,6 +25,7 @@ import { assignmentGoalsService } from '@/services/assignment-goals.service';
 import { Loader2 } from 'lucide-react';
 import { CommercialProgressCard } from '@/components/ui-admin/CommercialProgressCard';
 import { CountdownCard } from '@/components/ui-admin/CountdownCard';
+import { AdminPageSkeleton } from '@/components/ui-admin/AdminPageSkeleton';
 
 // --- Types pour les données du tableau de bord ---
 type ActiviteRecenteItem = {
@@ -160,14 +161,7 @@ const DashboardAdmin = () => {
     };
 
     if (loading) {
-        return (
-            <div className="flex items-center justify-center min-h-96 bg-zinc-50/50 p-4 sm:p-6 rounded-xl">
-                <div className="flex flex-col items-center gap-4">
-                    <Loader2 className="h-8 w-8 animate-spin text-primary" />
-                    <p className="text-gray-600">Chargement des données du dashboard...</p>
-                </div>
-            </div>
-        );
+        return <AdminPageSkeleton hasHeader hasCards hasCharts cardsCount={6} chartsCount={3} />;
     }
 
     if (error) {

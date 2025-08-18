@@ -27,6 +27,7 @@ import { porteService } from '@/services/porte.service';
 import { useSocket } from '@/hooks/useSocket';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
+import { AdminPageSkeleton } from '@/components/ui-admin/AdminPageSkeleton';
 
 // Types
 interface Prospector {
@@ -1407,16 +1408,7 @@ const ImmeubleDetailsPage = () => {
     };
 
     if (loading) {
-        return (
-            <div className="space-y-6 animate-pulse">
-                <Skeleton className="h-10 w-48" />
-                <Skeleton className="h-40 w-full" />
-                <div className="grid lg:grid-cols-3 gap-6">
-                    <Skeleton className="lg:col-span-2 h-96" />
-                    <Skeleton className="lg:col-span-1 h-96" />
-                </div>
-            </div>
-        )
+        return <AdminPageSkeleton hasHeader hasCards hasTable cardsCount={4} />;
     }
     
     if (!immeuble) {
