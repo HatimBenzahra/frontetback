@@ -22,9 +22,11 @@ import {
 import { managerService } from '@/services/manager.service';
 import { equipeService } from '@/services/equipe.service';
 import { commercialService } from '@/services/commercial.service';
+import { useDashboardSettings } from '@/hooks/useDashboardSettings';
 
 const StatistiquesPage = () => {
-    const [timeFilter, setTimeFilter] = useState<PeriodType>('MONTHLY');
+    const { settings } = useDashboardSettings();
+    const [timeFilter, setTimeFilter] = useState<PeriodType>(settings.statisticsDefaultPeriod || 'MONTHLY');
     const [entityType, setEntityType] = useState<StatEntityType | 'ALL'>('ALL');
     const [entityId, setEntityId] = useState<string | undefined>(undefined);
     
@@ -63,6 +65,12 @@ const StatistiquesPage = () => {
 
         fetchEntities();
     }, [entityType]);
+
+    // Synchroniser la période par défaut avec les paramètres si l'utilisateur n'a pas encore interagi
+    useEffect(() => {
+        setTimeFilter(settings.statisticsDefaultPeriod || 'MONTHLY');
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [settings.statisticsDefaultPeriod]);
 
     useEffect(() => {
         const fetchStatistics = async () => {

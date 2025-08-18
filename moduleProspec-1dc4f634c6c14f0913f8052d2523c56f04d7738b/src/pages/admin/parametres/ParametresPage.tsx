@@ -1,4 +1,4 @@
-import { Settings, RotateCcw, BarChart3, Activity, Clock, Eye, Palette, Zap } from 'lucide-react';
+import { Settings, RotateCcw, BarChart3, Activity, Clock, Eye, Palette, Zap, Timer, Layers, ListOrdered } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui-admin/card';
 import { Label } from '@/components/ui-admin/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui-admin/select';
@@ -28,6 +28,14 @@ const ParametresPage = () => {
     { value: 10, label: '10 minutes' },
     { value: 30, label: '30 minutes' },
   ];
+
+  const chartPeriods = [
+    { value: 'week', label: 'Semaine' },
+    { value: 'month', label: 'Mois' },
+    { value: 'year', label: 'Année' },
+  ];
+
+  const activityPageSizes = [5, 10, 15, 20];
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50 p-4 sm:p-6 lg:p-8">
@@ -126,6 +134,60 @@ const ParametresPage = () => {
               </div>
             </div>
 
+            {/* Dashboard - Affichage avancé */}
+            <div className="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-xl p-6 border border-blue-200/50">
+              <div className="flex items-center gap-2 mb-6">
+                <Layers className="h-5 w-5 text-blue-600" />
+                <h3 className="text-lg font-semibold text-slate-800">Affichage du Dashboard</h3>
+              </div>
+              <div className="grid gap-6 md:grid-cols-2">
+                <div className="space-y-3">
+                  <Label className="text-slate-700 font-medium">Période par défaut des graphiques</Label>
+                  <Select 
+                    value={settings.chartDefaultPeriod}
+                    onValueChange={(value) => updateSettings({ chartDefaultPeriod: value as any })}
+                  >
+                    <SelectTrigger className="bg-white border-slate-200 hover:border-blue-300 transition-colors">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {chartPeriods.map(p => (
+                        <SelectItem key={p.value} value={p.value}>{p.label}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-3">
+                  <Label className="text-slate-700 font-medium">Éléments par page (activité récente)</Label>
+                  <Select 
+                    value={settings.activityItemsPerPage.toString()}
+                    onValueChange={(value) => updateSettings({ activityItemsPerPage: parseInt(value) })}
+                  >
+                    <SelectTrigger className="bg-white border-slate-200 hover:border-blue-300 transition-colors">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {activityPageSizes.map(n => (
+                        <SelectItem key={n} value={n.toString()}>{n}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-3 md:col-span-2">
+                  <div className="flex items-center space-x-3 p-4 bg-white rounded-lg border border-blue-200 hover:border-blue-300 transition-all duration-200 hover:shadow-md">
+                    <Checkbox 
+                      id="showCountdownCard"
+                      checked={settings.showCountdownCard}
+                      onCheckedChange={(checked) => updateSettings({ showCountdownCard: !!checked })}
+                      className="data-[state=checked]:bg-blue-600 data-[state=checked]:border-blue-600"
+                    />
+                    <Timer className="h-5 w-5 text-blue-600" />
+                    <Label htmlFor="showCountdownCard" className="text-slate-700 font-medium cursor-pointer">Afficher la carte de compte à rebours (Objectif global)</Label>
+                  </div>
+                </div>
+              </div>
+            </div>
+
             {/* Chart Visibility Settings */}
             <div className="bg-gradient-to-br from-green-50 to-emerald-50 rounded-xl p-6 border border-green-200/50">
               <div className="flex items-center gap-2 mb-6">
@@ -133,6 +195,19 @@ const ParametresPage = () => {
                 <h3 className="text-lg font-semibold text-slate-800">Affichage des graphiques</h3>
               </div>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="flex items-center space-x-3 p-4 bg-white rounded-lg border border-green-200 hover:border-green-300 transition-all duration-200 hover:shadow-md">
+                  <Checkbox 
+                    id="showChartsSection"
+                    checked={settings.chartVisibility.showChartsSection}
+                    onCheckedChange={(checked) => updateSettings({ 
+                      chartVisibility: { ...settings.chartVisibility, showChartsSection: !!checked }
+                    })}
+                    className="data-[state=checked]:bg-green-600 data-[state=checked]:border-green-600"
+                  />
+                  <BarChart3 className="h-5 w-5 text-green-600" />
+                  <Label htmlFor="showChartsSection" className="text-slate-700 font-medium cursor-pointer">Section Analyses de Performance</Label>
+                </div>
+                
                 <div className="flex items-center space-x-3 p-4 bg-white rounded-lg border border-green-200 hover:border-green-300 transition-all duration-200 hover:shadow-md">
                   <Checkbox 
                     id="showPerformanceChart"
@@ -157,6 +232,32 @@ const ParametresPage = () => {
                   />
                   <Activity className="h-5 w-5 text-green-600" />
                   <Label htmlFor="showRepassageChart" className="text-slate-700 font-medium cursor-pointer">Graphique des repassages</Label>
+                </div>
+              </div>
+            </div>
+
+            {/* Statistiques - Préférences */}
+            <div className="bg-gradient-to-br from-indigo-50 to-blue-50 rounded-xl p-6 border border-indigo-200/50">
+              <div className="flex items-center gap-2 mb-6">
+                <ListOrdered className="h-5 w-5 text-indigo-600" />
+                <h3 className="text-lg font-semibold text-slate-800">Statistiques</h3>
+              </div>
+              <div className="grid gap-6 md:grid-cols-2">
+                <div className="space-y-3">
+                  <Label className="text-slate-700 font-medium">Période par défaut de la page Statistiques</Label>
+                  <Select 
+                    value={settings.statisticsDefaultPeriod}
+                    onValueChange={(value) => updateSettings({ statisticsDefaultPeriod: value as any })}
+                  >
+                    <SelectTrigger className="bg-white border-slate-200 hover:border-blue-300 transition-colors">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="WEEKLY">Cette semaine</SelectItem>
+                      <SelectItem value="MONTHLY">Ce mois</SelectItem>
+                      <SelectItem value="YEARLY">Cette année</SelectItem>
+                    </SelectContent>
+                  </Select>
                 </div>
               </div>
             </div>

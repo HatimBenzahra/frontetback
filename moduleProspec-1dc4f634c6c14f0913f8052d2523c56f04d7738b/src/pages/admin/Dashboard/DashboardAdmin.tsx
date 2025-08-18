@@ -59,11 +59,11 @@ const DashboardAdmin = () => {
     const [error, setError] = useState<string | null>(null);
     const [performanceData, setPerformanceData] = useState<any>(null);
     const [repassageData, setRepassageData] = useState<any>(null);
-    const [chartPeriod, setChartPeriod] = useState<string>('week');
+    const [chartPeriod, setChartPeriod] = useState<string>(settings.chartDefaultPeriod || 'week');
     const [chartsLoading, setChartsLoading] = useState(false);
     const [commercialsProgress, setCommercialsProgress] = useState<any>(null);
     const [activityPage, setActivityPage] = useState(1);
-    const activityItemsPerPage = 5;
+    const activityItemsPerPage = settings.activityItemsPerPage || 5;
     const [currentGlobalGoal, setCurrentGlobalGoal] = useState<any>(null);
     // Rafraîchissement manuel pour afficher le skeleton
     const handleManualRefresh = async () => {
@@ -131,6 +131,8 @@ const DashboardAdmin = () => {
     }, [settings.defaultTimeFilter]);
 
     useEffect(() => {
+        // synchroniser le period par défaut des graphiques avec les paramètres
+        setChartPeriod(settings.chartDefaultPeriod || 'week');
         const loadChartsData = async () => {
             try {
                 setChartsLoading(true);
@@ -148,7 +150,7 @@ const DashboardAdmin = () => {
         };
         
         loadChartsData();
-    }, [chartPeriod]);
+    }, [chartPeriod, settings.chartDefaultPeriod]);
 
     useEffect(() => {
         if (settings.autoRefresh && !loading) {
@@ -339,17 +341,20 @@ const DashboardAdmin = () => {
                     </CardContent>
                     </Card>
                     
-                    <div className="lg:col-span-2">
-                        <CountdownCard 
-                            currentGlobalGoal={currentGlobalGoal}
-                            isLoading={loading}
-                        />
-                    </div>
+                    {settings.showCountdownCard && (
+                      <div className="lg:col-span-2">
+                          <CountdownCard 
+                              currentGlobalGoal={currentGlobalGoal}
+                              isLoading={loading}
+                          />
+                      </div>
+                    )}
                 </div>
             </section>
             )}
             
             {/* Filtres pour les graphiques */}
+            {settings.chartVisibility.showChartsSection && (
             <section className="backdrop-blur bg-white/90 rounded-2xl p-6 shadow-lg border border-blue-100">
                 <div className="flex items-center justify-between mb-4">
                     <h3 className="text-lg font-semibold text-gray-900">Analyses de Performance</h3>
@@ -422,6 +427,7 @@ const DashboardAdmin = () => {
                     </div>
                 )}
             </section>
+            )}
             
             {/* Progress des commerciaux vers l'objectif global */}
             {settings.statsVisibility.showCommercialsProgress && (
