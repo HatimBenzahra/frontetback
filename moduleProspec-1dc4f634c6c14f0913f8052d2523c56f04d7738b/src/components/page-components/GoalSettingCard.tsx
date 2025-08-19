@@ -4,6 +4,7 @@ import { Button } from '@/components/ui-admin/button';
 import { Input } from '@/components/ui-admin/input';
 
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui-admin/popover';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui-admin/tooltip';
 import { Calendar } from '@/components/ui-admin/calendar';
 import { Slider } from '@/components/ui-admin/slider';
 import { Target, Loader2, Calendar as CalendarIcon, Edit3, Save } from 'lucide-react';
@@ -21,7 +22,7 @@ interface GoalSettingCardProps {
 export const GoalSettingCard = ({ onSetGlobalGoal, currentGlobalGoal, totalCommerciaux }: GoalSettingCardProps) => {
   const [goal, setGoal] = useState<number>(currentGlobalGoal?.goal ?? 100);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [startDate, setStartDate] = useState<Date | undefined>(undefined);
+  const [startDate, setStartDate] = useState<Date | undefined>(startOfToday());
   const [durationMonths, setDurationMonths] = useState<number | string>(1);
   const [isStartOpen, setIsStartOpen] = useState(false);
   const [isEditingGoal, setIsEditingGoal] = useState(false);
@@ -63,6 +64,7 @@ export const GoalSettingCard = ({ onSetGlobalGoal, currentGlobalGoal, totalComme
   };
   
   return (
+    <TooltipProvider>
      <Card className="shadow-lg hover:shadow-xl transition-all duration-300 border-0 bg-gradient-to-br from-white to-blue-50">
       <CardHeader className="bg-gradient-to-r from-blue-600 to-blue-700 text-white rounded-t-lg">
         <CardTitle className="flex items-center text-white">
@@ -161,7 +163,15 @@ export const GoalSettingCard = ({ onSetGlobalGoal, currentGlobalGoal, totalComme
         <div className="space-y-3">
           <label className="text-sm font-semibold text-gray-700 flex items-center">
             <CalendarIcon className="h-4 w-4 mr-2 text-blue-600" />
-            Date de début <span className="text-red-500">*</span>
+            Date de début
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <span className="ml-1 text-red-500 text-lg font-bold cursor-help">!</span>
+              </TooltipTrigger>
+              <TooltipContent>
+                <p>Par défaut : aujourd'hui</p>
+              </TooltipContent>
+            </Tooltip>
           </label>
           <Popover open={isStartOpen} onOpenChange={setIsStartOpen}>
             <PopoverTrigger asChild>
@@ -284,5 +294,6 @@ export const GoalSettingCard = ({ onSetGlobalGoal, currentGlobalGoal, totalComme
         )}
       </CardContent>
     </Card>
+    </TooltipProvider>
   );
 }
