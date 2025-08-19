@@ -47,12 +47,12 @@ export const ImmeublesMap = (props: ImmeublesMapProps) => {
     const [mapLoaded, setMapLoaded] = useState(false);
     const [show3D, setShow3D] = useState(false);
     const statusColorMap: Partial<Record<Immeuble['status'], string>> = {
-        'Non commencé': '#64748b',
-        'À visiter': '#2563eb',
-        'À terminer': '#f59e0b',
-        'Terminé': '#10b981',
-        'RDV Pris': '#7c3aed',
-        // 'Inaccessible' non utilisé
+        'Non configuré': '#64748b',
+        'À commencer': '#eab308',
+        'En cours': '#2563eb',
+        'Complet': '#10b981',
+        // Pour les statuts avec compteurs (ex: "En cours (5/10)")
+        'En cours (': '#2563eb',
     };
 
     const Building3DIcon = ({ color = '#2563eb' }: { color?: string }) => (
@@ -230,11 +230,11 @@ export const ImmeublesMap = (props: ImmeublesMapProps) => {
 
                     <div className="space-y-2">
                         {([
-                            'Non commencé',
-                            'À visiter',
-                            'À terminer',
-                            'Terminé',
-                            'RDV Pris',
+                            'Non configuré',
+                            'À commencer',
+                            'En cours',
+                            'Complet',
+                            'En cours (',
                         ] as Immeuble['status'][]).map((s) => {
                             const count = validImmeubles.filter(i => i.status === s).length;
                             const color = statusColorMap[s] || '#64748b';
@@ -269,11 +269,11 @@ export const ImmeublesMap = (props: ImmeublesMapProps) => {
                             </div>
                             <div className="flex justify-between">
                                 <span>Terminés</span>
-                                <span className="font-medium text-emerald-600">{validImmeubles.filter(i => i.status === 'Terminé').length}</span>
+                                <span className="font-medium text-emerald-600">{validImmeubles.filter(i => i.status === 'Complet').length}</span>
                             </div>
                             <div className="flex justify-between">
                                 <span>À visiter</span>
-                                <span className="font-medium text-blue-600">{validImmeubles.filter(i => i.status === 'À visiter').length}</span>
+                                <span className="font-medium text-blue-600">{validImmeubles.filter(i => i.status === 'En cours').length}</span>
                             </div>
                         </div>
                     </div>

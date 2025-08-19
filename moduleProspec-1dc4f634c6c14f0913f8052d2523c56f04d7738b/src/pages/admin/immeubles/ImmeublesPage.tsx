@@ -34,6 +34,8 @@ import {
 } from "@/components/ui-admin/alert-dialog";
 import { Modal } from "@/components/ui-admin/Modal";
 import AddressInput from "@/components/ui-admin/AddressInput";
+import { buildingStatusMap } from "@/constants/building-status";
+import type { BuildingStatus } from "@/types/types";
 
 const ImmeublesPage = () => {
     const [view, setView] = useState<'table' | 'map'>('table');
@@ -125,6 +127,26 @@ const ImmeublesPage = () => {
         };
     }, [socket, pageIndex, pageSize]);
 
+    // Fonction pour déterminer le statut de prospection (identique au côté commercial)
+    const getProspectingStatus = (immeuble: any): { key: BuildingStatus; label: string; className: string; icon: any } => {
+        if (!immeuble.portes || immeuble.portes.length === 0) {
+            return { key: 'NON_CONFIGURE', ...buildingStatusMap.NON_CONFIGURE };
+        }
+        const visitedDoors = immeuble.portes.filter((porte: any) => porte.statut !== 'NON_VISITE').length;
+        if (visitedDoors === immeuble.nbPortesTotal) {
+            return { key: 'COMPLET', ...buildingStatusMap.COMPLET };
+        }
+        if (visitedDoors > 0) {
+            return {
+                key: 'EN_COURS',
+                label: `En cours (${visitedDoors}/${immeuble.nbPortesTotal})`,
+                className: buildingStatusMap.EN_COURS.className,
+                icon: buildingStatusMap.EN_COURS.icon
+            };
+        }
+        return { key: 'NON_COMMENCE', ...buildingStatusMap.NON_COMMENCE };
+    };
+
     const fetchData = async (pi = pageIndex, ps = pageSize) => {
         setLoading(true);
         try {
@@ -139,42 +161,15 @@ const ImmeublesPage = () => {
                 const portes = Array.isArray(imm.portes) ? imm.portes : [];
                 const historiques = Array.isArray(imm.historiques) ? imm.historiques : [];
                 
-                // Logique de détermination du statut basée sur l'état de prospection
-                let statusText: Immeuble['status'] = 'Non commencé';
-                
-                if (portes.length === 0) {
-                    statusText = 'Non commencé';
-                } else {
-                    const portesProspectees = portes.filter(p => p.statut !== 'NON_VISITE').length;
-                    const percentageCompleted = (portesProspectees / portes.length) * 100;
-                    
-                    // Vérifier d'abord les statuts spéciaux de l'API
-                    switch(imm.status) {
-                        case 'RDV_PRIS': 
-                            statusText = 'RDV Pris'; 
-                            break;
-                        case 'INACCESSIBLE': 
-                            statusText = 'Inaccessible'; 
-                            break;
-                        default:
-                            // Logique basée sur le pourcentage de completion
-                            if (percentageCompleted === 0) {
-                                statusText = prospecteurs.length > 0 ? 'À visiter' : 'Non commencé';
-                            } else if (percentageCompleted < 100) {
-                                statusText = 'À terminer';
-                            } else {
-                                statusText = 'Terminé';
-                            }
-                            break;
-                    }
-                }
+                // Utiliser la même logique que le côté commercial
+                const prospectingStatus = getProspectingStatus(imm);
                 
                 return {
                     id: imm.id,
                     adresse: imm.adresse,
                     ville: imm.ville,
                     codePostal: imm.codePostal,
-                    status: statusText,
+                    status: prospectingStatus.label as Immeuble['status'],
                     nbPortes: portes.length,
                     nbPortesProspectees: portes.filter(porte => porte.statut !== 'NON_VISITE').length,
                     prospectingMode: prospecteurs.length > 1 ? "Duo" : "Solo",

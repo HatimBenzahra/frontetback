@@ -11,13 +11,15 @@ import { Checkbox } from "@/components/ui-admin/checkbox"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui-admin/tooltip"
 import { Avatar, AvatarFallback } from "@/components/ui-admin/avatar";
 import { cn } from "@/lib/utils";
+import { buildingStatusMap } from "@/constants/building-status";
+import type { BuildingStatus } from "@/types/types";
 
 export type Immeuble = {
   id: string;
   adresse: string;
   ville: string;
   codePostal: string;
-  status: "Non commencé" | "À visiter" | "À terminer" | "Terminé" | "RDV Pris" | "Inaccessible";
+  status: string; // Utilise les labels de buildingStatusMap
   nbPortes: number;
   nbPortesProspectees: number;
   prospectingMode: "Solo" | "Duo";
@@ -43,13 +45,14 @@ const SortableHeader = ({ title, column }: { title: string, column: any }) => (
   </Button>
 )
 
-const statusConfig = {
-    "Non commencé": "bg-slate-50 text-slate-700 border-slate-200 shadow-sm",
-    "À visiter": "bg-blue-50 text-blue-700 border-blue-200 shadow-sm", 
-    "À terminer": "bg-amber-50 text-amber-700 border-amber-200 shadow-sm",
-    "Terminé": "bg-emerald-50 text-emerald-700 border-emerald-200 shadow-sm",
-    "RDV Pris": "bg-purple-50 text-purple-700 border-purple-200 shadow-sm",
-    "Inaccessible": "bg-red-50 text-red-700 border-red-200 shadow-sm",
+// Configuration des statuts cohérente avec le côté commercial
+const statusConfig: { [key: string]: string } = {
+    "Non configuré": buildingStatusMap.NON_CONFIGURE.className,
+    "À commencer": buildingStatusMap.NON_COMMENCE.className,
+    "En cours": buildingStatusMap.EN_COURS.className,
+    "Complet": buildingStatusMap.COMPLET.className,
+    // Pour les statuts avec compteurs (ex: "En cours (5/10)")
+    "En cours (": buildingStatusMap.EN_COURS.className,
 };
 
 export const createColumns = (
@@ -116,7 +119,11 @@ export const createColumns = (
     {
       accessorKey: "status",
       header: ({ column }) => <SortableHeader title="Statut" column={column} />,
-      cell: ({ row }) => <Badge variant="outline" className={statusConfig[row.original.status]}>{row.original.status}</Badge>
+      cell: ({ row }) => {
+        const status = row.original.status;
+        const className = statusConfig[status] || statusConfig["En cours ("] || "bg-gray-100 text-gray-800";
+        return <Badge variant="outline" className={className}>{status}</Badge>
+      }
     },
     {
         id: "couverture",
