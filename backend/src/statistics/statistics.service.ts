@@ -1144,7 +1144,8 @@ export class StatisticsService {
       },
     });
 
-    const objectifGlobal = globalGoal?.goal || 100;
+    // Ne pas utiliser de valeur par défaut si aucun objectif n'est défini
+    const objectifGlobal = globalGoal?.goal || 0;
 
     const commercialsProgress = commerciaux.map(commercial => {
       const stats = commercial.historiques.reduce(

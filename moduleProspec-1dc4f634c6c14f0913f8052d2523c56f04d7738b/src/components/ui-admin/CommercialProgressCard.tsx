@@ -94,6 +94,30 @@ export const CommercialProgressCard = ({
     );
   }
 
+  // Gérer le cas où aucun objectif global n'est défini
+  if (!data.globalGoal || data.globalGoal === 0) {
+    return (
+      <Card className="bg-white border border-gray-200 shadow-sm">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Target className="h-5 w-5 text-blue-500" />
+            {title}
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="text-center py-8">
+            <div className="text-amber-600 font-semibold mb-2">
+              Aucun objectif global défini
+            </div>
+            <div className="text-sm text-gray-500">
+              Définissez un objectif global pour voir la progression des commerciaux
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
+
   const getProgressColor = (percentage: number) => {
     if (percentage >= 100) return 'bg-emerald-500';
     if (percentage >= 75) return 'bg-green-500';

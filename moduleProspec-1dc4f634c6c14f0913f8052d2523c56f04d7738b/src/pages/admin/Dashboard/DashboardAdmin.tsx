@@ -445,7 +445,11 @@ const DashboardAdmin = () => {
                         <h3 className="text-lg font-semibold text-gray-900">Contribution à l'Objectif Global</h3>
                         {commercialsProgress && (
                             <div className="text-sm text-gray-600 mt-1">
-                                Objectif global: <span className="font-semibold text-blue-600">{commercialsProgress.globalGoal} contrats</span>
+                                {commercialsProgress.globalGoal > 0 ? (
+                                    <>Objectif global: <span className="font-semibold text-blue-600">{commercialsProgress.globalGoal} contrats</span></>
+                                ) : (
+                                    <span className="font-semibold text-amber-600">Aucun objectif global défini</span>
+                                )}
                             </div>
                         )}
                     </div>
