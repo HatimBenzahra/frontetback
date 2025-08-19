@@ -65,6 +65,7 @@ const DashboardAdmin = () => {
     const [activityPage, setActivityPage] = useState(1);
     const activityItemsPerPage = settings.activityItemsPerPage || 5;
     const [currentGlobalGoal, setCurrentGlobalGoal] = useState<any>(null);
+    const [assignmentRefreshTrigger, setAssignmentRefreshTrigger] = useState<number>(0);
     // Rafraîchissement manuel pour afficher le skeleton
     const handleManualRefresh = async () => {
         try {
@@ -84,6 +85,8 @@ const DashboardAdmin = () => {
             setRepassageData(chartsDataResp[1]);
             setCommercialsProgress(progressDataResp);
             setCurrentGlobalGoal(goalDataResp);
+            // Déclencher le rafraîchissement des assignations
+            setAssignmentRefreshTrigger(prev => prev + 1);
         } catch (err) {
             setError('Erreur lors du chargement des données');
             console.error('Error loading dashboard data:', err);
@@ -118,6 +121,8 @@ const DashboardAdmin = () => {
                 setRepassageData(chartsData[1]);
                 setCommercialsProgress(progressData);
                 setCurrentGlobalGoal(goalData);
+                // Déclencher le rafraîchissement des assignations
+                setAssignmentRefreshTrigger(prev => prev + 1);
                 
             } catch (err) {
                 setError('Erreur lors du chargement des données');
@@ -171,6 +176,8 @@ const DashboardAdmin = () => {
                     setRepassageData(chartsData[1]);
                     setCommercialsProgress(progressData);
                     setCurrentGlobalGoal(goalData);
+                    // Déclencher le rafraîchissement des assignations
+                    setAssignmentRefreshTrigger(prev => prev + 1);
                 } catch (err) {
                     console.error('Error refreshing dashboard data:', err);
                 }
@@ -334,7 +341,7 @@ const DashboardAdmin = () => {
                             </div>
                         ) : (
                             <div className="text-center py-8 text-gray-500">
-                                <div className="text-gray-400 mb-2">📋</div>
+                                <div className="text-gray-400 mb-2">NULL</div>
                                 <p>Aucune activité récente</p>
                             </div>
                         )}
@@ -346,6 +353,7 @@ const DashboardAdmin = () => {
                           <CountdownCard 
                               currentGlobalGoal={currentGlobalGoal}
                               isLoading={loading}
+                              refreshTrigger={assignmentRefreshTrigger}
                           />
                       </div>
                     )}

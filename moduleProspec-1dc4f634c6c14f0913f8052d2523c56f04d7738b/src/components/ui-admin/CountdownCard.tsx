@@ -1,10 +1,12 @@
 import { useEffect, useState, useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui-admin/card';
 import { AlertCircle } from 'lucide-react';
+import { assignmentGoalsService } from '@/services/assignment-goals.service';
 
 interface CountdownCardProps {
   currentGlobalGoal?: { goal: number; startDate: string; endDate: string } | null;
   isLoading?: boolean;
+  refreshTrigger?: number; // Pour forcer le rafraîchissement des assignations
 }
 
 interface TimeRemaining {
@@ -33,18 +35,49 @@ const calculateTimeRemaining = (targetDate: Date): TimeRemaining => {
 
 export const CountdownCard = ({ 
   currentGlobalGoal,
-  isLoading = false
+  isLoading = false,
+  refreshTrigger = 0
 }: CountdownCardProps) => {
   const [goalTimeRemaining, setGoalTimeRemaining] = useState<TimeRemaining | null>(null);
   const [zoneTimeRemaining, setZoneTimeRemaining] = useState<TimeRemaining | null>(null);
   const [zoneDeadline, setZoneDeadline] = useState<Date | null>(null);
+  const [nearestZoneAssignment, setNearestZoneAssignment] = useState<any>(null);
+  const [loadingZoneData, setLoadingZoneData] = useState(true);
 
-  // Date par défaut pour les zones (fin du trimestre)
-  const getNextZoneDeadline = () => {
-    const now = new Date();
-    const currentQuarter = Math.floor(now.getMonth() / 3);
-    const nextQuarterStart = new Date(now.getFullYear(), (currentQuarter + 1) * 3, 1);
-    return new Date(nextQuarterStart.getTime() - 1); // Fin du trimestre actuel
+  // Fonction pour récupérer la prochaine deadline d'assignation de zone
+  const loadZoneAssignments = async () => {
+    try {
+      setLoadingZoneData(true);
+      const assignmentHistory = await assignmentGoalsService.getAssignmentHistory();
+      
+      if (assignmentHistory && assignmentHistory.length > 0) {
+        // Trouver l'assignation avec la date de fin la plus proche dans le futur
+        const now = new Date();
+        const activeAssignments = assignmentHistory
+          .filter(assignment => assignment.endDate && new Date(assignment.endDate) > now)
+          .sort((a, b) => new Date(a.endDate).getTime() - new Date(b.endDate).getTime());
+        
+        if (activeAssignments.length > 0) {
+          const nearest = activeAssignments[0];
+          setNearestZoneAssignment(nearest);
+          setZoneDeadline(new Date(nearest.endDate));
+        } else {
+          // Aucune assignation active trouvée
+          setNearestZoneAssignment(null);
+          setZoneDeadline(null);
+        }
+      } else {
+        // Aucune assignation trouvée
+        setNearestZoneAssignment(null);
+        setZoneDeadline(null);
+      }
+    } catch (error) {
+      console.error('Erreur lors du chargement des assignations de zones:', error);
+      setNearestZoneAssignment(null);
+      setZoneDeadline(null);
+    } finally {
+      setLoadingZoneData(false);
+    }
   };
 
   const goalEndDate = useMemo(() => 
@@ -52,39 +85,41 @@ export const CountdownCard = ({
     [currentGlobalGoal]
   );
 
-  // Initialiser la deadline des zones une seule fois
+  // Charger les assignations de zones au montage du composant et quand refreshTrigger change
   useEffect(() => {
-    if (!zoneDeadline) {
-      setZoneDeadline(getNextZoneDeadline());
-    }
-  }, []);
+    loadZoneAssignments();
+  }, [refreshTrigger]);
 
   useEffect(() => {
-    // Ne pas démarrer le timer si on est en train de charger ou si zoneDeadline n'est pas définie
-    if (isLoading || !zoneDeadline) return;
+    // Ne pas démarrer le timer si on est en train de charger
+    if (isLoading || loadingZoneData) return;
 
     // Calcul initial immédiat
     if (goalEndDate) {
       setGoalTimeRemaining(calculateTimeRemaining(goalEndDate));
     }
-    setZoneTimeRemaining(calculateTimeRemaining(zoneDeadline));
+    if (zoneDeadline) {
+      setZoneTimeRemaining(calculateTimeRemaining(zoneDeadline));
+    }
 
     // Puis mise à jour chaque seconde
     const timer = setInterval(() => {
       if (goalEndDate) {
         setGoalTimeRemaining(calculateTimeRemaining(goalEndDate));
       }
-      setZoneTimeRemaining(calculateTimeRemaining(zoneDeadline));
+      if (zoneDeadline) {
+        setZoneTimeRemaining(calculateTimeRemaining(zoneDeadline));
+      }
     }, 1000);
 
     return () => clearInterval(timer);
-  }, [goalEndDate, zoneDeadline, isLoading]);
+  }, [goalEndDate, zoneDeadline, isLoading, loadingZoneData]);
 
   const isGoalExpired = !isLoading && goalEndDate && goalTimeRemaining && 
                        goalTimeRemaining.days === 0 && goalTimeRemaining.hours === 0 && 
                        goalTimeRemaining.minutes === 0 && goalTimeRemaining.seconds === 0;
   
-  const isZoneExpired = !isLoading && zoneTimeRemaining && 
+  const isZoneExpired = !isLoading && !loadingZoneData && zoneTimeRemaining && 
                        zoneTimeRemaining.days === 0 && zoneTimeRemaining.hours === 0 && 
                        zoneTimeRemaining.minutes === 0 && zoneTimeRemaining.seconds === 0;
 
@@ -153,11 +188,25 @@ export const CountdownCard = ({
           <div className={`p-4 rounded-lg border-l-4 ${isZoneExpired ? 'bg-red-50 border-red-400' : 'bg-blue-50 border-blue-400'}`}>
             <div className="mb-3">
               <span className="text-sm font-medium text-gray-900">Assignation Zones</span>
+              {nearestZoneAssignment && (
+                <div className="text-xs text-gray-500 mt-1">
+                  Zone: {nearestZoneAssignment.zoneName} • {nearestZoneAssignment.assigneeName}
+                </div>
+              )}
             </div>
             
-            {isZoneExpired ? (
+            {loadingZoneData ? (
+              <div className="text-center text-gray-500 text-sm">
+                Chargement des assignations...
+              </div>
+            ) : !nearestZoneAssignment ? (
+              <div className="flex items-center gap-2 text-amber-600">
+                <AlertCircle className="h-4 w-4" />
+                <span className="text-sm">Aucune assignation active</span>
+              </div>
+            ) : isZoneExpired ? (
               <div className="text-red-600 font-semibold text-sm">
-                Redéfinition requise
+                Assignation expirée
               </div>
             ) : zoneTimeRemaining ? (
               <>
@@ -180,7 +229,7 @@ export const CountdownCard = ({
                   </div>
                 </div>
                 <div className="text-xs text-gray-500">
-                  Redéfinition: {zoneDeadline?.toLocaleDateString('fr-FR')}
+                  Expiration: {zoneDeadline?.toLocaleDateString('fr-FR')} à {zoneDeadline?.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}
                 </div>
               </>
             ) : (

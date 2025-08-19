@@ -3,6 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui-admin/
 
 import { Button } from '@/components/ui-admin/button';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui-admin/popover';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui-admin/tooltip';
 import { Calendar } from '@/components/ui-admin/calendar';
 import { MapPin, Loader2, Calendar as CalendarIcon, Users, Building, Shield, Target, Clock, CheckCircle2, Search } from 'lucide-react';
 import { fr } from 'date-fns/locale';
@@ -32,7 +33,7 @@ export const ZoneAssignmentCard = ({ zones, commercials, managers, equipes, onAs
   const [assigneeId, setAssigneeId] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [durationMonths, setDurationMonths] = useState<number | string>(1);
-  const [startDate, setStartDate] = useState<Date | undefined>(undefined);
+  const [startDate, setStartDate] = useState<Date | undefined>(startOfToday());
   const [isStartOpen, setIsStartOpen] = useState(false);
   
   // États pour la recherche
@@ -122,20 +123,21 @@ export const ZoneAssignmentCard = ({ zones, commercials, managers, equipes, onAs
   }, []);
 
   return (
-    <Card className="shadow-xl hover:shadow-2xl transition-all duration-300 border-0 bg-gradient-to-br from-white via-blue-50/30 to-indigo-50/50 backdrop-blur-sm">
-      <CardHeader className="bg-gradient-to-r from-blue-600 via-blue-700 to-indigo-700 text-white rounded-t-lg relative overflow-hidden">
-        <div className="absolute inset-0 bg-gradient-to-r from-blue-600/20 to-indigo-600/20"></div>
-        <CardTitle className="flex items-center text-white relative z-10">
-          <div className="p-3 bg-white/20 rounded-xl mr-4 backdrop-blur-sm border border-white/30">
-            <Target className="h-7 w-7" />
-          </div>
-          <div>
-            <div className="text-xl font-bold tracking-tight">Assignation de Zone</div>
-            <div className="text-blue-100 text-sm font-medium opacity-90">Gestion des affectations territoriales</div>
-          </div>
-        </CardTitle>
-      </CardHeader>
-      <CardContent className="space-y-8 p-8">
+    <TooltipProvider>
+      <Card className="shadow-xl hover:shadow-2xl transition-all duration-300 border-0 bg-gradient-to-br from-white via-blue-50/30 to-indigo-50/50 backdrop-blur-sm">
+        <CardHeader className="bg-gradient-to-r from-blue-600 via-blue-700 to-indigo-700 text-white rounded-t-lg relative overflow-hidden">
+          <div className="absolute inset-0 bg-gradient-to-r from-blue-600/20 to-indigo-600/20"></div>
+          <CardTitle className="flex items-center text-white relative z-10">
+            <div className="p-3 bg-white/20 rounded-xl mr-4 backdrop-blur-sm border border-white/30">
+              <Target className="h-7 w-7" />
+            </div>
+            <div>
+              <div className="text-xl font-bold tracking-tight">Assignation de Zone</div>
+              <div className="text-blue-100 text-sm font-medium opacity-90">Gestion des affectations territoriales</div>
+            </div>
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-8 p-8">
         {/* Sélecteur de Zone */}
         <div className="space-y-4" ref={zoneSearchRef}>
             <label className="text-sm font-bold text-gray-800 flex items-center">
@@ -317,11 +319,19 @@ export const ZoneAssignmentCard = ({ zones, commercials, managers, equipes, onAs
               </div>
         </div>
 
-        {/* Date de début (optionnelle) */}
+        {/* Date de début */}
         <div className="space-y-4">
           <label className="text-sm font-bold text-gray-800 flex items-center">
             <CalendarIcon className="h-5 w-5 mr-3 text-blue-600" />
-            Date de début (optionnelle)
+            Date de début
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <span className="ml-1 text-red-500 text-lg font-bold cursor-help">!</span>
+              </TooltipTrigger>
+              <TooltipContent>
+                <p>Par défaut : aujourd'hui</p>
+              </TooltipContent>
+            </Tooltip>
           </label>
           <Popover open={isStartOpen} onOpenChange={setIsStartOpen}>
             <PopoverTrigger asChild>
@@ -330,7 +340,7 @@ export const ZoneAssignmentCard = ({ zones, commercials, managers, equipes, onAs
                 {startDate ? (
                   <span className="font-semibold text-gray-900">{startDate.toLocaleDateString('fr-FR')}</span>
                 ) : (
-                  <span className="text-gray-500">Choisir une date de début (à partir d'aujourd'hui)</span>
+                  <span className="text-gray-500">Choisir une date de début</span>
                 )}
               </Button>
             </PopoverTrigger>
@@ -405,7 +415,8 @@ export const ZoneAssignmentCard = ({ zones, commercials, managers, equipes, onAs
             </>
           )}
         </Button>
-      </CardContent>
-    </Card>
+        </CardContent>
+      </Card>
+    </TooltipProvider>
   );
 };
