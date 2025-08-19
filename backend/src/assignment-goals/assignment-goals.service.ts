@@ -94,6 +94,7 @@ export class AssignmentGoalsService {
     const days = durationDays && durationDays > 0 ? durationDays : 30;
     const end = new Date(start);
     end.setDate(end.getDate() + days);
+    
     await this.prisma.zoneAssignmentHistory.create({
       data: {
         zoneId,
@@ -240,10 +241,33 @@ export class AssignmentGoalsService {
       whereConditions.push({ managerId: commercial.managerId }); // Zones assignées à son manager
     }
 
-    return this.prisma.zone.findMany({
+    const zones = await this.prisma.zone.findMany({
       where: { OR: whereConditions },
-      include: { manager: true, equipe: true, commercial: true },
+      include: { 
+        manager: true, 
+        equipe: true, 
+        commercial: true,
+        assignmentHistories: {
+          where: {
+            endDate: { gt: new Date() }, // Seulement les assignations actives
+          },
+          orderBy: { createdAt: 'desc' }, // Trier par date de création pour avoir la plus récente
+          take: 1, // Prendre seulement l'assignation la plus récente
+        }
+      },
     });
+
+    // Enrichir les zones avec les informations d'assignation
+    return zones.map(zone => ({
+      ...zone,
+      assignmentHistory: zone.assignmentHistories.map(history => ({
+        startDate: history.startDate,
+        endDate: history.endDate,
+        assignedToType: history.assignedToType,
+        assignedToId: history.assignedToId,
+        assignedByUserName: history.assignedByUserName,
+      }))
+    }));
   }
 
   async getCommercialsInZone(zoneId: string) {

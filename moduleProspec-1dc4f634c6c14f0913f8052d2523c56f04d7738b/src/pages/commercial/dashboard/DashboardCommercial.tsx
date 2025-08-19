@@ -114,14 +114,9 @@ const CommercialDashboardPage = () => {
                     : null;
                 setAssignedZone(latestZone);
                 
-                // Récupérer l'historique d'assignation de la zone
+                // Utiliser l'historique d'assignation qui vient avec la zone (assignations actives seulement)
                 if (latestZone) {
-                    try {
-                        const historyData = await assignmentGoalsService.getAssignmentHistory(latestZone.id);
-                        setZoneAssignmentHistory(historyData || []);
-                    } catch (err) {
-                        console.error('Erreur lors de la récupération de l\'historique d\'assignation:', err);
-                    }
+                    setZoneAssignmentHistory(latestZone.assignmentHistory || []);
                 }
                 setImmeubles(immeublesData);
             } catch (err) {
