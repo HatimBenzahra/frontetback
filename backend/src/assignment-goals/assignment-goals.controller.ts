@@ -14,7 +14,7 @@ export class AssignmentGoalsController {
     @Body('assigneeId') assigneeId: string,
     @Body('assignmentType') assignmentType: AssignmentType,
     @Body('startDate') startDate?: string,
-    @Body('durationMonths') durationMonths?: number,
+    @Body('durationDays') durationDays?: number,
     @Body('assignedByUserId') assignedByUserId?: string,
     @Body('assignedByUserName') assignedByUserName?: string,
   ) {
@@ -23,7 +23,7 @@ export class AssignmentGoalsController {
       assigneeId,
       assignmentType,
       startDate ? new Date(startDate) : undefined,
-      durationMonths,
+      durationDays,
       assignedByUserId,
       assignedByUserName,
     );

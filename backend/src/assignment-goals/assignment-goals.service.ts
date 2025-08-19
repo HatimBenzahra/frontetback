@@ -15,7 +15,7 @@ export class AssignmentGoalsService {
     assigneeId: string,
     assignmentType: AssignmentType,
     startDate?: Date,
-    durationMonths?: number,
+    durationDays?: number,
     assignedByUserId?: string,
     assignedByUserName?: string,
   ) {
@@ -77,11 +77,23 @@ export class AssignmentGoalsService {
       data: updateData,
     });
 
-    // Create history entry
+    // Fermer toutes les assignations actives pour cette zone
+    const now = new Date();
+    await this.prisma.zoneAssignmentHistory.updateMany({
+      where: {
+        zoneId: zoneId,
+        endDate: { gt: now }, // Assignations qui ne sont pas encore expirées
+      },
+      data: {
+        endDate: now, // Fermer immédiatement l'assignation précédente
+      },
+    });
+
+    // Create new history entry
     const start = startDate ?? new Date();
-    const months = durationMonths && durationMonths > 0 ? durationMonths : 1;
+    const days = durationDays && durationDays > 0 ? durationDays : 30;
     const end = new Date(start);
-    end.setMonth(end.getMonth() + months);
+    end.setDate(end.getDate() + days);
     await this.prisma.zoneAssignmentHistory.create({
       data: {
         zoneId,

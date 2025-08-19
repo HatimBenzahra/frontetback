@@ -294,7 +294,7 @@ export default function AssignmentGoalsPage() {
     assigneeId: string,
     assigneeType: AssignmentType,
     startDate?: string,
-    durationMonths?: number,
+    durationDays?: number,
   ) => {
     try {
       await assignmentGoalsService.assignZone(
@@ -302,7 +302,7 @@ export default function AssignmentGoalsPage() {
         assigneeId, 
         assigneeType, 
         startDate, 
-        durationMonths,
+        durationDays,
         user?.id || 'unknown-user',
         normalizeUserName(user)
       );

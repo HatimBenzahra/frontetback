@@ -2,10 +2,12 @@ import { useState, useMemo, useEffect, useRef } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui-admin/card';
 
 import { Button } from '@/components/ui-admin/button';
+import { Input } from '@/components/ui-admin/input';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui-admin/popover';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui-admin/tooltip';
 import { Calendar } from '@/components/ui-admin/calendar';
-import { MapPin, Loader2, Calendar as CalendarIcon, Users, Building, Shield, Target, Clock, CheckCircle2, Search } from 'lucide-react';
+import { Slider } from '@/components/ui-admin/slider';
+import { MapPin, Loader2, Calendar as CalendarIcon, Users, Building, Shield, Target, Clock, CheckCircle2, Search, Edit3, Save } from 'lucide-react';
 import { fr } from 'date-fns/locale';
 import { startOfToday } from 'date-fns';
 import { AssignmentType } from '@/types/enums';
@@ -22,7 +24,7 @@ interface ZoneAssignmentCardProps {
     assigneeId: string,
     assigneeType: AssignmentType,
     startDate?: string,
-    durationMonths?: number,
+    durationDays?: number,
   ) => Promise<void>;
   onZoneSelect: (zoneId: string) => void;
 }
@@ -32,9 +34,11 @@ export const ZoneAssignmentCard = ({ zones, commercials, managers, equipes, onAs
   const [assigneeType, setAssigneeType] = useState<AssignmentType>(AssignmentType.COMMERCIAL);
   const [assigneeId, setAssigneeId] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [durationMonths, setDurationMonths] = useState<number | string>(1);
+  const [durationDays, setDurationDays] = useState<number | string>(30);
   const [startDate, setStartDate] = useState<Date | undefined>(startOfToday());
   const [isStartOpen, setIsStartOpen] = useState(false);
+  const [isEditingDuration, setIsEditingDuration] = useState(false);
+  const [tempDuration, setTempDuration] = useState<string>(durationDays.toString());
   
   // États pour la recherche
   const [zoneSearchTerm, setZoneSearchTerm] = useState('');
@@ -75,7 +79,29 @@ export const ZoneAssignmentCard = ({ zones, commercials, managers, equipes, onAs
       }
     });
   }, [assigneeOptions, assigneeSearchTerm, assigneeType]);
-  const isFormValid = selectedZone && assigneeId && assigneeType && (typeof durationMonths === 'number' && durationMonths > 0);
+  const isFormValid = selectedZone && assigneeId && assigneeType && (typeof durationDays === 'number' && durationDays > 0);
+
+  // Fonction pour gérer la modification manuelle de la durée
+  const handleDurationEdit = () => {
+    if (isEditingDuration) {
+      const newDuration = parseInt(tempDuration);
+      if (!isNaN(newDuration) && newDuration > 0) {
+        setDurationDays(newDuration);
+      }
+    }
+    setIsEditingDuration(!isEditingDuration);
+  };
+
+  // Fonction pour valider la saisie manuelle
+  const handleDurationInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value;
+    setTempDuration(value);
+    
+    const numValue = parseInt(value);
+    if (!isNaN(numValue) && numValue > 0) {
+      setDurationDays(numValue);
+    }
+  };
 
   const handleSubmit = async () => {
     if (!isFormValid) return;
@@ -85,7 +111,7 @@ export const ZoneAssignmentCard = ({ zones, commercials, managers, equipes, onAs
       assigneeId,
       assigneeType,
       startDate ? startDate.toISOString() : undefined,
-      durationMonths as number,
+      durationDays as number,
     );
     setIsSubmitting(false);
   };
@@ -358,43 +384,95 @@ export const ZoneAssignmentCard = ({ zones, commercials, managers, equipes, onAs
           </Popover>
         </div>
 
-        {/* Durée en mois */}
+        {/* Durée en jours */}
         <div className="space-y-4">
           <label className="text-sm font-bold text-gray-800 flex items-center">
             <Clock className="h-5 w-5 mr-3 text-blue-600" />
             Durée de l'assignation
           </label>
-          <div className="grid grid-cols-4 gap-3">
-            {[1, 3, 6, 12].map((months) => (
+          
+          {/* Affichage de la valeur actuelle avec possibilité de modification */}
+          <div className="text-center">
+            {isEditingDuration ? (
+              <div className="flex items-center justify-center gap-2 mb-2">
+                <Input
+                  type="number"
+                  value={tempDuration}
+                  onChange={handleDurationInputChange}
+                  className="text-3xl font-bold text-blue-700 text-center w-24 h-14 border-2 border-blue-300 focus:border-blue-500"
+                  min="1"
+                  max="365"
+                  autoFocus
+                />
+                <button
+                  onClick={handleDurationEdit}
+                  className="p-2 text-blue-600 hover:text-blue-700 hover:bg-blue-50 rounded-lg transition-colors"
+                >
+                  <Save className="h-5 w-5" />
+                </button>
+              </div>
+            ) : (
+              <div className="flex items-center justify-center gap-2 mb-2">
+                <div 
+                  className="text-3xl font-bold text-blue-700 cursor-pointer hover:text-blue-800 transition-colors" 
+                  onClick={handleDurationEdit}
+                >
+                  {typeof durationDays === 'number' ? durationDays : 30}
+                </div>
+                <button
+                  onClick={handleDurationEdit}
+                  className="p-2 text-blue-600 hover:text-blue-700 hover:bg-blue-50 rounded-lg transition-colors"
+                >
+                  <Edit3 className="h-4 w-4" />
+                </button>
+              </div>
+            )}
+            <div className="text-sm text-blue-600 font-medium">
+              {typeof durationDays === 'number' && durationDays === 1 ? 'jour' : 'jours'}
+            </div>
+          </div>
+          
+          {/* Slider */}
+          <div className="px-4">
+            <Slider
+              value={[typeof durationDays === 'number' ? durationDays : 30]}
+              onValueChange={(value) => {
+                setDurationDays(value[0]);
+                setTempDuration(value[0].toString());
+              }}
+              max={365}
+              min={1}
+              step={1}
+              className="w-full"
+            />
+            <div className="flex justify-between text-xs text-gray-500 mt-2">
+              <span>1j</span>
+              <span>30j</span>
+              <span>90j</span>
+              <span>180j</span>
+              <span>365j</span>
+            </div>
+          </div>
+          
+          {/* Valeurs rapides */}
+          <div className="flex gap-2 flex-wrap justify-center">
+            {[1, 7, 15, 30, 60, 90, 180, 365].map((days) => (
               <button
-                key={months}
+                key={days}
                 type="button"
-                onClick={() => setDurationMonths(months)}
-                className={`p-4 rounded-xl border-2 transition-all duration-300 font-semibold text-sm relative group ${
-                  durationMonths === months
-                    ? 'border-blue-500 bg-blue-50 text-blue-700 shadow-lg scale-105'
-                    : 'border-gray-200 bg-white text-gray-600 hover:border-gray-300 hover:bg-gray-50 hover:scale-102'
+                onClick={() => {
+                  setDurationDays(days);
+                  setTempDuration(days.toString());
+                }}
+                className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-all duration-200 ${
+                  durationDays === days
+                    ? 'bg-blue-500 text-white shadow-md'
+                    : 'bg-blue-100 text-blue-700 hover:bg-blue-200'
                 }`}
               >
-                <div className="flex flex-col items-center space-y-1">
-                  <span className="text-lg font-bold">{months}</span>
-                  <span className="text-xs">mois</span>
-                  {durationMonths === months && (
-                    <CheckCircle2 className="h-4 w-4 absolute top-2 right-2 text-blue-600" />
-                  )}
-                </div>
+                {days}j
               </button>
             ))}
-          </div>
-          <div className="mt-3">
-            <input
-              type="number"
-              min={1}
-              value={durationMonths}
-              onChange={(e) => setDurationMonths(e.target.value === '' ? '' : parseInt(e.target.value, 10))}
-              placeholder="Durée personnalisée en mois..."
-              className="w-full border-2 border-gray-200 rounded-xl px-4 py-3 text-sm focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 transition-all duration-200 bg-white/80 backdrop-blur-sm hover:border-gray-300"
-            />
           </div>
         </div>
 
