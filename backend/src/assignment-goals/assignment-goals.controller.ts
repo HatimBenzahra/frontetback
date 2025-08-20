@@ -81,4 +81,24 @@ export class AssignmentGoalsController {
   getCommercialsInZone(@Param('zoneId') zoneId: string) {
     return this.assignmentGoalsService.getCommercialsInZone(zoneId);
   }
+
+  @Get('manager/:managerId/commercials')
+  getCommercialsForManager(@Param('managerId') managerId: string) {
+    return this.assignmentGoalsService.getCommercialsForManager(managerId);
+  }
+
+  @Get('equipe/:equipeId/commercials')
+  getCommercialsForEquipe(@Param('equipeId') equipeId: string) {
+    return this.assignmentGoalsService.getCommercialsForEquipe(equipeId);
+  }
+
+  @Get('commercial/:commercialId/summary')
+  getCommercialAssignmentSummary(@Param('commercialId') commercialId: string) {
+    return this.assignmentGoalsService.getCommercialAssignmentSummary(commercialId);
+  }
+
+  @Get('commercial/:commercialId/active-zone')
+  getActiveZoneForCommercial(@Param('commercialId') commercialId: string) {
+    return this.assignmentGoalsService.getActiveZoneForCommercial(commercialId);
+  }
 }

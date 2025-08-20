@@ -7,12 +7,13 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui-admin/p
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui-admin/tooltip';
 import { Calendar } from '@/components/ui-admin/calendar';
 import { Slider } from '@/components/ui-admin/slider';
-import { MapPin, Loader2, Calendar as CalendarIcon, Users, Building, Shield, Target, Clock, CheckCircle2, Search, Edit3, Save } from 'lucide-react';
+import { MapPin, Loader2, Calendar as CalendarIcon, Users, Building, Shield, Target, Clock, CheckCircle2, Search, Edit3, Save, AlertCircle } from 'lucide-react';
 import { fr } from 'date-fns/locale';
 import { startOfToday } from 'date-fns';
 import { AssignmentType } from '@/types/enums';
 import type { Commercial, Manager, Zone } from '@/types/types';
 import type { EquipeFromApi } from '@/services/equipe.service';
+import { assignmentGoalsService } from '@/services/assignment-goals.service';
 
 interface ZoneAssignmentCardProps {
   zones: Zone[];
@@ -45,6 +46,10 @@ export const ZoneAssignmentCard = ({ zones, commercials, managers, equipes, onAs
   const [assigneeSearchTerm, setAssigneeSearchTerm] = useState('');
   const [showZoneResults, setShowZoneResults] = useState(false);
   const [showAssigneeResults, setShowAssigneeResults] = useState(false);
+  
+  // États pour les commerciaux qui seront assignés automatiquement
+  const [affectedCommercials, setAffectedCommercials] = useState<Commercial[]>([]);
+  const [loadingAffectedCommercials, setLoadingAffectedCommercials] = useState(false);
   
   // Refs pour détecter les clics en dehors
   const zoneSearchRef = useRef<HTMLDivElement>(null);
@@ -92,6 +97,30 @@ export const ZoneAssignmentCard = ({ zones, commercials, managers, equipes, onAs
     setIsEditingDuration(!isEditingDuration);
   };
 
+  // Fonction pour récupérer les commerciaux qui seront affectés
+  const fetchAffectedCommercials = async (assigneeId: string, assigneeType: AssignmentType) => {
+    if (assigneeType === AssignmentType.COMMERCIAL) {
+      setAffectedCommercials([]);
+      return;
+    }
+
+    setLoadingAffectedCommercials(true);
+    try {
+      let commercials: Commercial[] = [];
+      if (assigneeType === AssignmentType.MANAGER) {
+        commercials = await assignmentGoalsService.getCommercialsForManager(assigneeId);
+      } else if (assigneeType === AssignmentType.EQUIPE) {
+        commercials = await assignmentGoalsService.getCommercialsForEquipe(assigneeId);
+      }
+      setAffectedCommercials(commercials);
+    } catch (error) {
+      console.error('Erreur lors de la récupération des commerciaux affectés:', error);
+      setAffectedCommercials([]);
+    } finally {
+      setLoadingAffectedCommercials(false);
+    }
+  };
+
   // Fonction pour valider la saisie manuelle
   const handleDurationInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value;
@@ -129,6 +158,7 @@ export const ZoneAssignmentCard = ({ zones, commercials, managers, equipes, onAs
     setAssigneeType(type);
     setAssigneeId(''); // Reset assignee when type changes
     setAssigneeSearchTerm(''); // Reset search term when type changes
+    setAffectedCommercials([]);
   }
 
   // Gestionnaire de clic en dehors pour fermer les listes
@@ -306,6 +336,8 @@ export const ZoneAssignmentCard = ({ zones, commercials, managers, equipes, onAs
                           } else {
                             setAssigneeSearchTerm(`${(p as Commercial | Manager).prenom} ${(p as Commercial | Manager).nom}`);
                           }
+                          // Récupérer les commerciaux qui seront affectés
+                          fetchAffectedCommercials(p.id, assigneeType);
                         }}
                         className="w-full p-3 hover:bg-blue-50 focus:bg-blue-100 transition-colors text-left border-b border-gray-100 last:border-b-0"
                       >
@@ -344,6 +376,60 @@ export const ZoneAssignmentCard = ({ zones, commercials, managers, equipes, onAs
                 )}
               </div>
         </div>
+
+        {/* Affichage des commerciaux qui seront affectés */}
+        {(assigneeType === AssignmentType.MANAGER || assigneeType === AssignmentType.EQUIPE) && assigneeId && (
+          <div className="space-y-4">
+            <label className="text-sm font-bold text-gray-800 flex items-center">
+              <AlertCircle className="h-5 w-5 mr-3 text-orange-600" />
+              Commerciaux qui seront automatiquement assignés
+            </label>
+            
+            <div className="bg-orange-50 border-2 border-orange-200 rounded-xl p-4">
+              {loadingAffectedCommercials ? (
+                <div className="flex items-center justify-center py-4">
+                  <Loader2 className="h-5 w-5 animate-spin text-orange-600 mr-2" />
+                  <span className="text-orange-700">Chargement des commerciaux...</span>
+                </div>
+              ) : affectedCommercials.length > 0 ? (
+                <div className="space-y-3">
+                  <div className="text-sm font-semibold text-orange-800">
+                    {affectedCommercials.length} commercial{affectedCommercials.length > 1 ? 'aux' : ''} seront assigné{affectedCommercials.length > 1 ? 's' : ''} à cette zone :
+                  </div>
+                  <div className="max-h-40 overflow-y-auto space-y-2">
+                    {affectedCommercials.map((commercial) => (
+                      <div key={commercial.id} className="flex items-center p-2 bg-white rounded-lg border border-orange-200">
+                        <div className="w-8 h-8 rounded-full bg-gradient-to-br from-orange-500 to-orange-600 flex items-center justify-center text-white text-sm font-bold mr-3">
+                          {commercial.prenom.charAt(0)}{commercial.nom.charAt(0)}
+                        </div>
+                        <div className="flex-1">
+                          <div className="font-medium text-gray-900">
+                            {commercial.prenom} {commercial.nom}
+                          </div>
+                          <div className="text-sm text-gray-500">
+                            {commercial.email}
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ) : (
+                <div className="text-center py-4">
+                  <div className="text-orange-700 font-medium">
+                    Aucun commercial trouvé
+                  </div>
+                  <div className="text-sm text-orange-600 mt-1">
+                    {assigneeType === AssignmentType.MANAGER 
+                      ? 'Ce manager n\'a pas d\'équipes avec des commerciaux'
+                      : 'Cette équipe n\'a pas de commerciaux'
+                    }
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
 
         {/* Date de début */}
         <div className="space-y-4">

@@ -100,21 +100,21 @@ const CommercialDashboardPage = () => {
             setLoading(true);
             setError(null);
             try {
-                const [statsData, historyData, zonesData, immeublesData] = await Promise.all([
+                const [statsData, historyData, activeZoneData, immeublesData] = await Promise.all([
                     statisticsService.getStatsForCommercial(user.id),
                     statisticsService.getCommercialHistory(user.id),
-                    assignmentGoalsService.getAssignedZonesForCommercial(user.id),
+                    assignmentGoalsService.getActiveZoneForCommercial(user.id),
                     immeubleService.getImmeublesForCommercial(user.id),
                 ]);
                 setStats(statsData);
                 setHistory(historyData);
-                // Prendre la zone active (il ne devrait y en avoir qu'une)
-                const activeZone = zonesData.length > 0 ? zonesData[0] : null;
-                setAssignedZone(activeZone);
+                
+                // Utiliser directement la zone active retournée par le backend
+                setAssignedZone(activeZoneData);
                 
                 // Utiliser l'historique d'assignation qui vient avec la zone (assignations actives seulement)
-                if (activeZone) {
-                    setZoneAssignmentHistory(activeZone.assignmentHistory || []);
+                if (activeZoneData) {
+                    setZoneAssignmentHistory(activeZoneData.assignmentHistory || []);
                 }
                 setImmeubles(immeublesData);
             } catch (err) {

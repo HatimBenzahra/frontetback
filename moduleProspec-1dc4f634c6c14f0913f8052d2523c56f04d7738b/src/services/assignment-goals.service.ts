@@ -57,6 +57,31 @@ const getAssignmentHistory = async (zoneId?: string): Promise<any[]> => {
   return response.data;
 };
 
+const getCommercialsInZone = async (zoneId: string): Promise<any[]> => {
+  const response = await axios.get(`${API_URL}/zone/${zoneId}/commercials`);
+  return response.data;
+};
+
+const getCommercialsForManager = async (managerId: string): Promise<any[]> => {
+  const response = await axios.get(`${API_URL}/manager/${managerId}/commercials`);
+  return response.data;
+};
+
+const getCommercialsForEquipe = async (equipeId: string): Promise<any[]> => {
+  const response = await axios.get(`${API_URL}/equipe/${equipeId}/commercials`);
+  return response.data;
+};
+
+const getCommercialAssignmentSummary = async (commercialId: string): Promise<any> => {
+  const response = await axios.get(`${API_URL}/commercial/${commercialId}/summary`);
+  return response.data;
+};
+
+const getActiveZoneForCommercial = async (commercialId: string): Promise<any> => {
+  const response = await axios.get(`${API_URL}/commercial/${commercialId}/active-zone`);
+  return response.data;
+};
+
 export const assignmentGoalsService = {
   getAssignedZonesForCommercial,
   assignZone,
@@ -64,4 +89,9 @@ export const assignmentGoalsService = {
   setGlobalGoal,
   getCurrentGlobalGoal,
   getAssignmentHistory,
+  getCommercialsInZone,
+  getCommercialsForManager,
+  getCommercialsForEquipe,
+  getCommercialAssignmentSummary,
+  getActiveZoneForCommercial,
 };
