@@ -541,6 +541,8 @@ export default function AssignmentGoalsPage() {
                           ))}
                         </div>
                       </div>
+
+
                     </div>
 
                     {/* Tableau avec données filtrées */}
@@ -550,6 +552,7 @@ export default function AssignmentGoalsPage() {
                           <tr className="bg-gradient-to-r from-[hsl(var(--winvest-blue-moyen))]/10 to-blue-50 text-[hsl(var(--winvest-blue-moyen))]">
                             <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider">Zone</th>
                             <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider">Assigné à</th>
+                            <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider">Commerciaux affectés</th>
                             <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider">Assigné par</th>
                             <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider">Début</th>
                             <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider">Fin</th>
@@ -567,6 +570,7 @@ export default function AssignmentGoalsPage() {
                                 : h.assignedToType === 'MANAGER'
                                 ? 'bg-purple-100 text-purple-800 border-purple-200'
                                 : 'bg-emerald-100 text-emerald-800 border-emerald-200';
+                            
                             return (
                               <tr key={h.id} className="hover:bg-[hsl(var(--winvest-blue-moyen))]/5 transition-colors duration-200">
                                 <td className="px-6 py-4 whitespace-nowrap font-medium text-gray-900">{h.zoneName || h.zoneId}</td>
@@ -576,6 +580,19 @@ export default function AssignmentGoalsPage() {
                                     <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border ${typeColor} w-fit mt-1`}>
                                       {h.assignedToType}
                                     </span>
+                                  </div>
+                                </td>
+                                <td className="px-6 py-4 whitespace-nowrap">
+                                  <div className="flex flex-col">
+                                    <span className="text-sm font-medium text-gray-900">
+                                      {h.affectedCommercialsCount || 0} commercial{h.affectedCommercialsCount !== 1 ? 'aux' : ''}
+                                    </span>
+                                    {h.affectedCommercials && h.affectedCommercials.length > 0 && (
+                                      <div className="text-xs text-gray-500 mt-1">
+                                        {h.affectedCommercials.slice(0, 2).map((c: { prenom: string; nom: string }) => `${c.prenom} ${c.nom}`).join(', ')}
+                                        {h.affectedCommercials.length > 2 && ` +${h.affectedCommercials.length - 2} autres`}
+                                      </div>
+                                    )}
                                   </div>
                                 </td>
                                 <td className="px-6 py-4 whitespace-nowrap">
@@ -614,7 +631,7 @@ export default function AssignmentGoalsPage() {
                           })}
                           {filteredHistory.length === 0 && (
                             <tr>
-                              <td colSpan={6} className="text-center text-gray-500 px-6 py-8">
+                              <td colSpan={7} className="text-center text-gray-500 px-6 py-8">
                                 <div className="flex flex-col items-center">
                                   <AlertCircle className="h-8 w-8 text-gray-400 mb-2" />
                                   <span>Aucun historique d'assignation</span>

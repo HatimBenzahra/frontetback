@@ -299,13 +299,14 @@ export class AssignmentGoalsService {
     const where = zoneId ? { zoneId } : undefined;
     const histories = await this.prisma.zoneAssignmentHistory.findMany({
       where,
-      orderBy: { startDate: 'desc' },
+      orderBy: { createdAt: 'desc' }, // Trier par date de création (plus récent en premier)
       include: { zone: true },
     });
 
     const enrichedHistories = await Promise.all(
       histories.map(async (h) => {
         let assigneeName = '';
+        let affectedCommercials: any[] = [];
         
         switch (h.assignedToType) {
           case 'COMMERCIAL':
@@ -314,20 +315,29 @@ export class AssignmentGoalsService {
               select: { nom: true, prenom: true },
             });
             assigneeName = commercial ? `${commercial.prenom} ${commercial.nom}` : 'Commercial inconnu';
+            affectedCommercials = [commercial ? { id: h.assignedToId, nom: commercial.nom, prenom: commercial.prenom } : null].filter(Boolean);
             break;
           case 'EQUIPE':
             const equipe = await this.prisma.equipe.findUnique({
               where: { id: h.assignedToId },
-              select: { nom: true },
+              include: { commerciaux: true }
             });
             assigneeName = equipe ? `Équipe ${equipe.nom}` : 'Équipe inconnue';
+            affectedCommercials = equipe?.commerciaux.map(c => ({ id: c.id, nom: c.nom, prenom: c.prenom })) || [];
             break;
           case 'MANAGER':
             const manager = await this.prisma.manager.findUnique({
               where: { id: h.assignedToId },
-              select: { nom: true, prenom: true },
+              include: {
+                equipes: {
+                  include: { commerciaux: true }
+                }
+              }
             });
             assigneeName = manager ? `${manager.prenom} ${manager.nom}` : 'Manager inconnu';
+            affectedCommercials = manager?.equipes.flatMap(equipe => 
+              equipe.commerciaux.map(c => ({ id: c.id, nom: c.nom, prenom: c.prenom }))
+            ) || [];
             break;
         }
 
@@ -343,6 +353,8 @@ export class AssignmentGoalsService {
           startDate: h.startDate,
           endDate: h.endDate,
           createdAt: h.createdAt,
+          affectedCommercials,
+          affectedCommercialsCount: affectedCommercials.length
         };
       })
     );
