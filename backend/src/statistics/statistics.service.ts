@@ -963,43 +963,6 @@ export class StatisticsService {
 
     const { startDate, endDate } = getDateRanges(period);
 
-    // Compter les repassages (immeubles visités plusieurs fois)
-    const repassages = await this.prisma.historiqueProspection.groupBy({
-      by: ['immeubleId'],
-      where: {
-        dateProspection: {
-          gte: startDate,
-          lte: endDate,
-        },
-      },
-      _count: {
-        immeubleId: true,
-      },
-      having: {
-        immeubleId: {
-          _count: {
-            gt: 1,
-          },
-        },
-      },
-    });
-
-    // Récupérer les historiques avec les dates pour le groupement temporel
-    const historiquesRepassage = await this.prisma.historiqueProspection.findMany({
-      where: {
-        dateProspection: {
-          gte: startDate,
-          lte: endDate,
-        },
-        immeubleId: {
-          in: repassages.map(r => r.immeubleId),
-        },
-      },
-      orderBy: {
-        dateProspection: 'asc',
-      },
-    });
-
     if (period === 'week') {
       const dayNames = ['Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi', 'Dimanche'];
       const data = [];
@@ -1010,17 +973,29 @@ export class StatisticsService {
         const dayEnd = new Date(dayStart);
         dayEnd.setHours(23, 59, 59, 999);
 
-        const dayRepassages = historiquesRepassage.filter(h => {
-          const histDate = new Date(h.dateProspection);
-          return histDate >= dayStart && histDate <= dayEnd;
+        // Compter les portes qui ont un contrat signé et qui ont eu plus d'un passage (repassage)
+        const repassageToContratCount = await this.prisma.porte.count({
+          where: {
+            statut: 'CONTRAT_SIGNE',
+            passage: {
+              gt: 1 // Plus d'un passage = repassage
+            },
+            immeuble: {
+              historiques: {
+                some: {
+                  dateProspection: {
+                    gte: dayStart,
+                    lte: dayEnd,
+                  }
+                }
+              }
+            }
+          }
         });
-
-        // Compter les immeubles uniques repassés ce jour
-        const uniqueImmeubles = new Set(dayRepassages.map(h => h.immeubleId));
 
         data.push({
           periode: dayNames[i],
-          'Nombre de Repassages': uniqueImmeubles.size,
+          'Repassages convertis en contrats': repassageToContratCount,
         });
       }
       return data;
@@ -1035,16 +1010,28 @@ export class StatisticsService {
         weekEnd.setDate(weekStart.getDate() + 6);
         weekEnd.setHours(23, 59, 59, 999);
 
-        const weekRepassages = historiquesRepassage.filter(h => {
-          const histDate = new Date(h.dateProspection);
-          return histDate >= weekStart && histDate <= weekEnd;
+        const repassageToContratCount = await this.prisma.porte.count({
+          where: {
+            statut: 'CONTRAT_SIGNE',
+            passage: {
+              gt: 1 // Plus d'un passage = repassage
+            },
+            immeuble: {
+              historiques: {
+                some: {
+                  dateProspection: {
+                    gte: weekStart,
+                    lte: weekEnd,
+                  }
+                }
+              }
+            }
+          }
         });
-
-        const uniqueImmeubles = new Set(weekRepassages.map(h => h.immeubleId));
 
         data.push({
           periode: weeks[i],
-          'Nombre de Repassages': uniqueImmeubles.size,
+          'Repassages convertis en contrats': repassageToContratCount,
         });
       }
       return data;
@@ -1057,16 +1044,28 @@ export class StatisticsService {
         const monthEnd = new Date(startDate.getFullYear(), i + 1, 0);
         monthEnd.setHours(23, 59, 59, 999);
 
-        const monthRepassages = historiquesRepassage.filter(h => {
-          const histDate = new Date(h.dateProspection);
-          return histDate >= monthStart && histDate <= monthEnd;
+        const repassageToContratCount = await this.prisma.porte.count({
+          where: {
+            statut: 'CONTRAT_SIGNE',
+            passage: {
+              gt: 1 // Plus d'un passage = repassage
+            },
+            immeuble: {
+              historiques: {
+                some: {
+                  dateProspection: {
+                    gte: monthStart,
+                    lte: monthEnd,
+                  }
+                }
+              }
+            }
+          }
         });
-
-        const uniqueImmeubles = new Set(monthRepassages.map(h => h.immeubleId));
 
         data.push({
           periode: months[i],
-          'Nombre de Repassages': uniqueImmeubles.size,
+          'Repassages convertis en contrats': repassageToContratCount,
         });
       }
       return data;

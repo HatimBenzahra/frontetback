@@ -6,6 +6,7 @@ import { useEffect, useState } from 'react';
 import StatCard from '@/components/ui-admin/StatCard';
 
 import { GenericBarChart } from '@/components/charts/GenericBarChart';
+import { GenericLineChart } from '@/components/charts/GenericLineChart';
 import { Badge } from "@/components/ui-admin/badge";
 import { Button } from "@/components/ui-admin/button";
 import { ChevronLeft, ChevronRight, RefreshCw } from 'lucide-react';
@@ -421,16 +422,15 @@ const DashboardAdmin = () => {
                         {settings.chartVisibility.showRepassageChart && repassageData && (
                             <Card className="bg-white/90 border border-blue-100 shadow-sm rounded-2xl">
                                 <CardHeader>
-                                    <CardTitle>Repassages - {chartPeriod === 'week' ? 'Par Jour' : chartPeriod === 'month' ? 'Par Semaine' : 'Par Mois'}</CardTitle>
-                                    <CardDescription>Nombre d'immeubles repassés (visités plusieurs fois)</CardDescription>
+                                    <CardTitle>Efficacité des Repassages - {chartPeriod === 'week' ? 'Par Jour' : chartPeriod === 'month' ? 'Par Semaine' : 'Par Mois'}</CardTitle>
+                                    <CardDescription>Nombre de repassages qui ont abouti à un contrat signé</CardDescription>
                                 </CardHeader>
                                 <CardContent className="h-80">
-                                    <GenericBarChart
-                                        title=""
+                                    <GenericLineChart
                                         data={repassageData}
                                         xAxisDataKey="periode"
-                                        bars={[
-                                            { dataKey: 'Nombre de Repassages', fill: '#8b5cf6', name: 'Repassages' }
+                                        lines={[
+                                            { dataKey: 'Repassages convertis en contrats', stroke: '#8b5cf6', name: 'Repassages convertis' }
                                         ]}
                                     />
                                 </CardContent>
