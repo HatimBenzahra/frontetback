@@ -25,6 +25,7 @@ import { assignmentGoalsService } from '@/services/assignment-goals.service';
 import { Loader2 } from 'lucide-react';
 import { CommercialProgressCard } from '@/components/ui-admin/CommercialProgressCard';
 import { CountdownCard } from '@/components/ui-admin/CountdownCard';
+import { AssignmentStatusCard } from '@/components/ui-admin/AssignmentStatusCard';
 import { AdminPageSkeleton } from '@/components/ui-admin/AdminPageSkeleton';
 
 // --- Types pour les données du tableau de bord ---
@@ -348,14 +349,17 @@ const DashboardAdmin = () => {
                     </CardContent>
                     </Card>
                     
+                    <AssignmentStatusCard 
+                        isLoading={loading}
+                        refreshTrigger={assignmentRefreshTrigger}
+                    />
+                    
                     {settings.showCountdownCard && (
-                      <div className="lg:col-span-2">
-                          <CountdownCard 
-                              currentGlobalGoal={currentGlobalGoal}
-                              isLoading={loading}
-                              refreshTrigger={assignmentRefreshTrigger}
-                          />
-                      </div>
+                        <CountdownCard 
+                            currentGlobalGoal={currentGlobalGoal}
+                            isLoading={loading}
+                            refreshTrigger={assignmentRefreshTrigger}
+                        />
                     )}
                 </div>
             </section>

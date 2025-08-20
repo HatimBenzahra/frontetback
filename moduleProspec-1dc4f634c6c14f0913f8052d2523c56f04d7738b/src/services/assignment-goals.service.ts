@@ -82,6 +82,11 @@ const getActiveZoneForCommercial = async (commercialId: string): Promise<any> =>
   return response.data;
 };
 
+const getAllAssignmentsWithStatus = async (): Promise<any> => {
+  const response = await axios.get(`${API_URL}/admin/assignments-status`);
+  return response.data;
+};
+
 export const assignmentGoalsService = {
   getAssignedZonesForCommercial,
   assignZone,
@@ -94,4 +99,5 @@ export const assignmentGoalsService = {
   getCommercialsForEquipe,
   getCommercialAssignmentSummary,
   getActiveZoneForCommercial,
+  getAllAssignmentsWithStatus,
 };

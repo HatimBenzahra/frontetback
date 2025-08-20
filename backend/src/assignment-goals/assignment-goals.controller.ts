@@ -101,4 +101,9 @@ export class AssignmentGoalsController {
   getActiveZoneForCommercial(@Param('commercialId') commercialId: string) {
     return this.assignmentGoalsService.getActiveZoneForCommercial(commercialId);
   }
+
+  @Get('admin/assignments-status')
+  getAllAssignmentsWithStatus() {
+    return this.assignmentGoalsService.getAllAssignmentsWithStatus();
+  }
 }
