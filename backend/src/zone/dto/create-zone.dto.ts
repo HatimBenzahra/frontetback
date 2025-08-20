@@ -34,7 +34,4 @@ export class CreateZoneDto {
   @IsOptional()
   managerId?: string;
 
-  @IsString()
-  @IsOptional()
-  commercialId?: string;
 }

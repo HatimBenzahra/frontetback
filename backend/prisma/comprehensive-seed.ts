@@ -363,7 +363,7 @@ async function main() {
       rayonMetres: 1200,
       couleur: '#FFAA33',
       typeAssignation: AssignmentType.COMMERCIAL,
-      commercialId: commercialAlice.id,
+      // commercialId supprimé - sera géré par ZoneCommercial
     },
   });
   zones.push(zoneCommercialSpecial);
@@ -383,7 +383,17 @@ async function main() {
   });
   zones.push(zoneManager);
 
-  console.log(`Created 8 zones`);
+  // Créer les relations ZoneCommercial pour la zone spéciale Alice
+  await prisma.zoneCommercial.create({
+    data: {
+      zoneId: zoneCommercialSpecial.id,
+      commercialId: commercialAlice.id,
+      isActive: true,
+      assignedBy: 'System'
+    }
+  });
+
+  console.log(`Created 8 zones with ZoneCommercial relations`);
 
   // --- Immeubles (24 immeubles répartis dans les zones) ---
   const immeubles = [];
@@ -449,9 +459,9 @@ async function main() {
       } else if (commerciauxEquipe.length > 0) {
         prospecteurs = [commerciauxEquipe[0]];
       }
-    } else if (addr.zone.commercialId) {
-      const commercial = commerciaux.find(c => c.id === addr.zone.commercialId);
-      if (commercial) prospecteurs = [commercial];
+    } else if ((addr.zone as any).commerciaux) {
+      // Logique pour les commerciaux sera gérée différemment avec ZoneCommercial
+      prospecteurs = [];
     }
 
     const immeuble = await prisma.immeuble.create({

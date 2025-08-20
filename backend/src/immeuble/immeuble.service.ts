@@ -110,9 +110,15 @@ export class ImmeubleService {
       throw new NotFoundException(`Commercial with ID ${commercialId} not found.`);
     }
 
-    const zone = await this.prisma.zone.findFirst({
-      where: { commercialId: commercialId },
+    const zoneCommercial = await this.prisma.zoneCommercial.findFirst({
+      where: { 
+        commercialId: commercialId,
+        isActive: true 
+      },
+      include: { zone: true }
     });
+
+    const zone = zoneCommercial?.zone;
 
     if (!zone) {
       throw new NotFoundException(`No zone found for commercial with ID ${commercialId}. An immeuble must be associated with a zone.`);

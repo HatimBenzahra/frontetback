@@ -13,14 +13,28 @@ export class ZoneService {
 
   findAll() {
     return this.prisma.zone.findMany({
-      include: { equipe: true, manager: true, commercial: true },
+      include: { 
+        equipe: true, 
+        manager: true, 
+        commerciaux: {
+          where: { isActive: true },
+          include: { commercial: true }
+        }
+      },
     });
   }
 
   findOne(id: string) {
     return this.prisma.zone.findUnique({
       where: { id },
-      include: { equipe: true, manager: true, commercial: true },
+      include: { 
+        equipe: true, 
+        manager: true, 
+        commerciaux: {
+          where: { isActive: true },
+          include: { commercial: true }
+        }
+      },
     });
   }
 
@@ -36,7 +50,10 @@ export class ZoneService {
         },
         equipe: true,
         manager: true,
-        commercial: true,
+        commerciaux: {
+          where: { isActive: true },
+          include: { commercial: true }
+        },
       },
     });
 
@@ -44,11 +61,11 @@ export class ZoneService {
       throw new NotFoundException(`Zone with ID ${zoneId} not found`);
     }
 
-    const stats = zone.immeubles.reduce(
-      (acc, immeuble) => {
+    const stats = (zone as any).immeubles.reduce(
+      (acc: any, immeuble: any) => {
         acc.nbImmeubles++;
         const immeubleStats = immeuble.historiques.reduce(
-          (iAcc, h) => {
+          (iAcc: any, h: any) => {
             iAcc.contratsSignes += h.nbContratsSignes;
             iAcc.rdvPris += h.nbRdvPris;
             return iAcc;
@@ -68,8 +85,51 @@ export class ZoneService {
     };
   }
 
-  update(id: string, updateZoneDto: UpdateZoneDto) {
+  async update(id: string, updateZoneDto: UpdateZoneDto) {
     return this.prisma.zone.update({ where: { id }, data: updateZoneDto });
+  }
+
+  async assignCommercialToZone(zoneId: string, commercialId: string, assignedBy?: string) {
+    // Supprimer complètement les anciennes assignations de ce commercial (une seule zone active)
+    await this.prisma.zoneCommercial.deleteMany({
+      where: { commercialId }
+    });
+
+    // Créer la nouvelle assignation
+    return this.prisma.zoneCommercial.create({
+      data: {
+        zoneId,
+        commercialId,
+        assignedBy,
+        isActive: true
+      }
+    });
+  }
+
+  async unassignCommercialFromZone(zoneId: string, commercialId: string) {
+    return this.prisma.zoneCommercial.updateMany({
+      where: {
+        zoneId,
+        commercialId,
+        isActive: true
+      },
+      data: {
+        isActive: false,
+        endedAt: new Date()
+      }
+    });
+  }
+
+  async getZoneCommerciaux(zoneId: string) {
+    return this.prisma.zoneCommercial.findMany({
+      where: {
+        zoneId,
+        isActive: true
+      },
+      include: {
+        commercial: true
+      }
+    });
   }
 
   remove(id: string) {

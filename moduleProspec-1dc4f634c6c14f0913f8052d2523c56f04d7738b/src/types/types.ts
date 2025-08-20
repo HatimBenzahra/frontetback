@@ -40,7 +40,7 @@ export interface Manager {
 export interface Zone {
   id: string;
   name: string;
-  assignedTo?: string;
+  assignedTo?: Commercial[];
   color: string;
   latlng: [number, number];
   radius: number;
@@ -220,7 +220,7 @@ export interface LocationHistory {
 export interface Zone {
   id: string;
   name: string;
-  assignedTo?: string;
+  assignedTo?: Commercial[];
   color: string;
   latlng: [number, number];
   radius: number;

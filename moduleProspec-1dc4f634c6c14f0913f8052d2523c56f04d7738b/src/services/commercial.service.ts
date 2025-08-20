@@ -13,6 +13,27 @@ export type CommercialFromAPI = {
   equipeId?: string;
   managerId: string;
   historiques: { nbContratsSignes: number }[];
+  zones?: {
+    id: string;
+    zoneId: string;
+    commercialId: string;
+    assignedAt: string;
+    assignedBy: string | null;
+    isActive: boolean;
+    endedAt: string | null;
+    zone: {
+      id: string;
+      nom: string;
+      latitude: number;
+      longitude: number;
+      rayonMetres: number;
+      couleur: string;
+      createdAt: string;
+      typeAssignation: string;
+      equipeId: string | null;
+      managerId: string | null;
+    };
+  }[];
 };
 
 type CreateCommercialPayload = {

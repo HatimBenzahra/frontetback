@@ -28,12 +28,10 @@ export class AssignmentGoalsService {
       typeAssignation: AssignmentType;
       equipeId: string | null;
       managerId: string | null;
-      commercialId: string | null;
     } = {
       typeAssignation: assignmentType,
       equipeId: null,
       managerId: null,
-      commercialId: null,
     };
 
     switch (assignmentType) {
@@ -65,17 +63,43 @@ export class AssignmentGoalsService {
           throw new NotFoundException(
             `Commercial with ID ${assigneeId} not found`,
           );
-        updateData.commercialId = assigneeId;
+        // Pour les commerciaux, on utilise la nouvelle table ZoneCommercial
+        // On gérera cette assignation après la mise à jour de la zone
         break;
       }
       default:
         throw new BadRequestException('Invalid assignment type');
     }
 
-    const updatedZone = await this.prisma.zone.update({
-      where: { id: zoneId },
-      data: updateData,
-    });
+    // Ne mettre à jour que si le type d'assignation change réellement
+    let updatedZone;
+    if (zone.typeAssignation !== assignmentType) {
+      updatedZone = await this.prisma.zone.update({
+        where: { id: zoneId },
+        data: updateData,
+      });
+    } else {
+      updatedZone = zone; // Pas de changement nécessaire
+    }
+
+    // Pour les assignations commerciales, créer l'entrée dans ZoneCommercial
+    if (assignmentType === AssignmentType.COMMERCIAL) {
+      // IMPORTANT: Supprimer complètement les anciennes assignations de CE COMMERCIAL
+      // Car un commercial ne peut avoir qu'une seule zone active à la fois
+      await this.prisma.zoneCommercial.deleteMany({
+        where: { commercialId: assigneeId }
+      });
+      
+      // Créer la nouvelle assignation
+      await this.prisma.zoneCommercial.create({
+        data: {
+          zoneId,
+          commercialId: assigneeId,
+          assignedBy: assignedByUserId,
+          isActive: true
+        }
+      });
+    }
 
     // Fermer toutes les assignations actives pour cette zone
     const now = new Date();
@@ -213,7 +237,13 @@ export class AssignmentGoalsService {
   async getAssignedZonesForManager(managerId: string) {
     return this.prisma.zone.findMany({
       where: { managerId: managerId },
-      include: { commercial: true, equipe: true },
+      include: { 
+        commerciaux: {
+          where: { isActive: true },
+          include: { commercial: true }
+        }, 
+        equipe: true 
+      },
     });
   }
 
@@ -229,8 +259,16 @@ export class AssignmentGoalsService {
     }
 
     // Chercher les zones assignées directement au commercial OU à son équipe OU à son manager
+    // IMPORTANT: Un commercial ne peut avoir qu'UNE zone active directement assignée
     const whereConditions: any[] = [
-      { commercialId: commercialId }, // Zones assignées directement au commercial
+      { 
+        commerciaux: {
+          some: {
+            commercialId: commercialId,
+            isActive: true
+          }
+        }
+      }, // Zone assignée directement au commercial (une seule)
     ];
 
     if (commercial.equipeId) {
@@ -246,7 +284,10 @@ export class AssignmentGoalsService {
       include: { 
         manager: true, 
         equipe: true, 
-        commercial: true,
+        commerciaux: {
+          where: { isActive: true },
+          include: { commercial: true }
+        },
         assignmentHistories: {
           where: {
             endDate: { gt: new Date() }, // Seulement les assignations actives
@@ -260,7 +301,7 @@ export class AssignmentGoalsService {
     // Enrichir les zones avec les informations d'assignation
     return zones.map(zone => ({
       ...zone,
-      assignmentHistory: zone.assignmentHistories.map(history => ({
+      assignmentHistory: (zone as any).assignmentHistories.map((history: any) => ({
         startDate: history.startDate,
         endDate: history.endDate,
         assignedToType: history.assignedToType,
@@ -274,7 +315,10 @@ export class AssignmentGoalsService {
     const zone = await this.prisma.zone.findUnique({
       where: { id: zoneId },
       include: {
-        commercial: true, // Si la zone est directement assignée à un commercial
+        commerciaux: {
+          where: { isActive: true },
+          include: { commercial: true }
+        },
         equipe: { include: { commerciaux: true } }, // Si la zone est assignée à une équipe, récupérer ses commerciaux
       },
     });
@@ -283,10 +327,10 @@ export class AssignmentGoalsService {
       throw new NotFoundException(`Zone with ID ${zoneId} not found`);
     }
 
-    if (zone.commercial) {
-      return [zone.commercial];
-    } else if (zone.equipe && zone.equipe.commerciaux) {
-      return zone.equipe.commerciaux;
+    if ((zone as any).commerciaux && (zone as any).commerciaux.length > 0) {
+      return (zone as any).commerciaux.map((zc: any) => zc.commercial);
+    } else if ((zone as any).equipe && (zone as any).equipe.commerciaux) {
+      return (zone as any).equipe.commerciaux;
     }
     return [];
   }

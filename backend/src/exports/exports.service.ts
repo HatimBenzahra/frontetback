@@ -311,7 +311,7 @@ export class ExportsService {
       telephone: c.telephone ?? '',
       equipe: c.equipe?.nom ?? '',
       manager: c.equipe?.manager ? `${c.equipe.manager.prenom} ${c.equipe.manager.nom}` : '',
-        zones: c.zones?.map(z => z.nom).join(', ') || '',
+        zones: c.zones?.map((zc: any) => zc.zone?.nom || '').join(', ') || '',
         totalContrats: this.fmtInt(totalContrats),
         totalRdv: this.fmtInt(totalRdv),
         totalPortes: this.fmtInt(totalPortes),
@@ -364,7 +364,10 @@ export class ExportsService {
       include: { 
         equipe: true, 
         manager: true, 
-        commercial: true
+        commerciaux: {
+          where: { isActive: true },
+          include: { commercial: true }
+        }
       },
     });
     
@@ -397,7 +400,7 @@ export class ExportsService {
         couleur: z.couleur || 'Non définie',
       equipe: z.equipe?.nom ?? '',
       manager: z.manager ? `${z.manager.prenom} ${z.manager.nom}` : '',
-      commercial: z.commercial ? `${z.commercial.prenom} ${z.commercial.nom}` : '',
+      commercial: (z as any).commerciaux?.map((zc: any) => `${zc.commercial.prenom} ${zc.commercial.nom}`).join(', ') || '',
         nbImmeubles: this.fmtInt(z.immeubles?.length || 0),
         nbPortes: this.fmtInt(nbPortes),
         rayon: this.fmtInt(z.rayonMetres),
@@ -1213,7 +1216,7 @@ export class ExportsService {
             parts.push(`**Manager:** ${commercial.equipe?.manager ? `${commercial.equipe.manager.prenom} ${commercial.equipe.manager.nom}` : 'Non assigné'}`);
             
             if (commercial.zones?.length) {
-              parts.push(`**Zones assignées:** ${commercial.zones.map(z => z.nom).join(', ')}`);
+              parts.push(`**Zones assignées:** ${commercial.zones.map((zc: any) => zc.zone?.nom || '').join(', ')}`);
             }
             
             const totalContrats = commercial.historiques?.reduce((acc, h) => acc + (h as any).nbContratsSignes, 0) || 0;

@@ -43,7 +43,7 @@ model Commercial {
   currentMonthlyGoal Int?
   equipe             Equipe?                 @relation(fields: [equipeId], references: [id])
   historiques        HistoriqueProspection[]
-  zones              Zone[]                  @relation("CommercialZones")
+  zones              ZoneCommercial[]
   immeubles          Immeuble[]              @relation("ImmeubleProspectors")
   requesterRequests  ProspectionRequest[]    @relation("Requester")
   partnerRequests    ProspectionRequest[]    @relation("Partner")
@@ -63,9 +63,8 @@ model Zone {
   typeAssignation AssignmentType
   equipeId        String?
   managerId       String?
-  commercialId    String?
   immeubles       Immeuble[]
-  commercial      Commercial?    @relation("CommercialZones", fields: [commercialId], references: [id])
+  commerciaux     ZoneCommercial[]
   equipe          Equipe?        @relation("EquipeZones", fields: [equipeId], references: [id])
   manager         Manager?       @relation("ManagerZones", fields: [managerId], references: [id])
   assignmentHistories ZoneAssignmentHistory[]
@@ -202,6 +201,24 @@ model TranscriptionSession {
   updatedAt         DateTime @updatedAt
 
   @@map("transcription_sessions")
+}
+
+/// Table de liaison pour la relation many-to-many Zone-Commercial avec historique
+model ZoneCommercial {
+  id           String    @id @default(uuid())
+  zoneId       String
+  commercialId String
+  assignedAt   DateTime  @default(now())
+  assignedBy   String?
+  isActive     Boolean   @default(true)
+  endedAt      DateTime?
+  zone         Zone      @relation(fields: [zoneId], references: [id], onDelete: Cascade)
+  commercial   Commercial @relation(fields: [commercialId], references: [id], onDelete: Cascade)
+
+  @@unique([zoneId, commercialId])
+  @@index([zoneId])
+  @@index([commercialId])
+  @@map("zone_commerciaux")
 }
 
 /// Historique des assignations de zones avec durée

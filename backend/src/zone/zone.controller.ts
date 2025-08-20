@@ -44,4 +44,21 @@ export class ZoneController {
   remove(@Param('id') id: string) {
     return this.zoneService.remove(id);
   }
+
+  @Post(':zoneId/assign-commercial')
+  assignCommercialToZone(
+    @Param('zoneId') zoneId: string,
+    @Body('commercialId') commercialId: string,
+    @Body('assignedBy') assignedBy?: string
+  ) {
+    return this.zoneService.assignCommercialToZone(zoneId, commercialId, assignedBy);
+  }
+
+  @Post(':zoneId/unassign-commercial')
+  unassignCommercialFromZone(
+    @Param('zoneId') zoneId: string,
+    @Body('commercialId') commercialId: string
+  ) {
+    return this.zoneService.unassignCommercialFromZone(zoneId, commercialId);
+  }
 }

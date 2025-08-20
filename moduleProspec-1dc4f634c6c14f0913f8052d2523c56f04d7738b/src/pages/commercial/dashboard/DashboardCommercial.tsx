@@ -108,15 +108,13 @@ const CommercialDashboardPage = () => {
                 ]);
                 setStats(statsData);
                 setHistory(historyData);
-                // Prendre la zone la plus récente (triée par date de création)
-                const latestZone = zonesData.length > 0 
-                    ? zonesData.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())[0]
-                    : null;
-                setAssignedZone(latestZone);
+                // Prendre la zone active (il ne devrait y en avoir qu'une)
+                const activeZone = zonesData.length > 0 ? zonesData[0] : null;
+                setAssignedZone(activeZone);
                 
                 // Utiliser l'historique d'assignation qui vient avec la zone (assignations actives seulement)
-                if (latestZone) {
-                    setZoneAssignmentHistory(latestZone.assignmentHistory || []);
+                if (activeZone) {
+                    setZoneAssignmentHistory(activeZone.assignmentHistory || []);
                 }
                 setImmeubles(immeublesData);
             } catch (err) {

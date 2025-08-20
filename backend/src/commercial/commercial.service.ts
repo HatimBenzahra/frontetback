@@ -32,6 +32,12 @@ export class CommercialService {
           },
         },
         historiques: true, // Include historiques to sum contracts
+        zones: {
+          where: { isActive: true },
+          include: { zone: true },
+          take: 1, // Un commercial ne peut avoir qu'une seule zone active
+          orderBy: { assignedAt: 'desc' } // La plus récente
+        }
       },
     });
     return list.map((c: any) => ({
@@ -43,7 +49,15 @@ export class CommercialService {
   async findOne(id: string) {
     const c = await this.prisma.commercial.findUnique({
       where: { id },
-      include: { equipe: { include: { manager: true } } },
+      include: { 
+        equipe: { include: { manager: true } },
+        zones: {
+          where: { isActive: true },
+          include: { zone: true },
+          take: 1, // Un commercial ne peut avoir qu'une seule zone active
+          orderBy: { assignedAt: 'desc' } // La plus récente
+        }
+      },
     });
     if (!c) return c;
     return {
@@ -114,10 +128,15 @@ export class CommercialService {
       where: { commercial_id: id }
     });
 
-    // 3. Remove from zones (set commercialId to null)
-    await this.prisma.zone.updateMany({
-      where: { commercialId: id },
-      data: { commercialId: null }
+    // 3. Remove from zones (deactivate zone assignments)
+    await this.prisma.zoneCommercial.updateMany({
+      where: { 
+        commercialId: id
+      },
+      data: { 
+        isActive: false,
+        endedAt: new Date()
+      }
     });
 
     // 4. Remove from portes (set assigneeId to null)
@@ -141,6 +160,11 @@ export class CommercialService {
         }
       });
     }
+
+    // 6. Remove from zone assignments history
+    await this.prisma.zoneCommercial.deleteMany({
+      where: { commercialId: id }
+    });
 
     // 6. Delete prospection requests
     await this.prisma.prospectionRequest.deleteMany({
