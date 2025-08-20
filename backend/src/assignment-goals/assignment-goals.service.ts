@@ -136,17 +136,8 @@ export class AssignmentGoalsService {
       }
     }
 
-    // Fermer toutes les assignations actives pour cette zone
-    const now = new Date();
-    await this.prisma.zoneAssignmentHistory.updateMany({
-      where: {
-        zoneId: zoneId,
-        endDate: { gt: now }, // Assignations qui ne sont pas encore expirées
-      },
-      data: {
-        endDate: now, // Fermer immédiatement l'assignation précédente
-      },
-    });
+    // Ne plus fermer automatiquement les assignations actives pour permettre les assignations multiples
+    // Les assignations peuvent coexister sur la même zone
 
     // Create new history entry
     const start = startDate ?? new Date();

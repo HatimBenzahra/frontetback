@@ -407,8 +407,7 @@ export default function AssignmentGoalsPage() {
         {activeTab === 'zone' ? (
           <div className="space-y-8 animate-in fade-in-0 slide-in-from-left-4 duration-500">
             {/* Mode Carte - Affichage en grille */}
-            {!isHistoryMode && (
-              <div className="space-y-8">
+            <div className="space-y-8">
                 <div className="grid grid-cols-1 xl:grid-cols-4 gap-8">
                   {/* Colonne de gauche - Assignation de Zone */}
                   <div className="xl:col-span-1">
@@ -433,16 +432,6 @@ export default function AssignmentGoalsPage() {
                             </p>
                           </div>
                           
-                          {/* Switch Map/History */}
-                          <div className="flex items-center space-x-3 bg-white/20 rounded-lg p-3">
-                            <span className="text-sm font-medium text-white">Carte</span>
-                            <Switch
-                              checked={isHistoryMode}
-                              onCheckedChange={setIsHistoryMode}
-                              className="data-[state=checked]:bg-yellow-500"
-                            />
-                            <span className="text-sm font-medium text-blue-200">Historique</span>
-                          </div>
                         </div>
                       </div>
                       
@@ -456,437 +445,435 @@ export default function AssignmentGoalsPage() {
                 {/* Tableau des assignations avec statuts */}
                 <div className="bg-white rounded-xl border border-[hsl(var(--winvest-blue-moyen))]/20 shadow-lg">
                   <div className="px-6 py-4 bg-gradient-to-r from-[hsl(var(--winvest-blue-moyen))] to-blue-600 text-white rounded-t-xl">
-                    <h3 className="text-lg font-semibold">Suivi des assignations de zones</h3>
-                    <p className="text-sm opacity-90">Vue d'ensemble des assignations en cours, futures et expirées</p>
-                  </div>
-                  
-                  <div className="p-6 space-y-6">
-                    {/* Statistiques rapides */}
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                      <div className="bg-green-50 p-4 rounded-lg border border-green-200">
-                        <div className="text-2xl font-bold text-green-600">{assignmentsStatus?.summary?.active || 0}</div>
-                        <div className="text-sm text-green-700">Assignations actives</div>
-                      </div>
-                      <div className="bg-orange-50 p-4 rounded-lg border border-orange-200">
-                        <div className="text-2xl font-bold text-orange-600">{assignmentsStatus?.summary?.future || 0}</div>
-                        <div className="text-sm text-orange-700">Assignations futures</div>
-                      </div>
-                      <div className="bg-gray-50 p-4 rounded-lg border border-gray-200">
-                        <div className="text-2xl font-bold text-gray-600">{assignmentsStatus?.summary?.expired || 0}</div>
-                        <div className="text-sm text-gray-700">Assignations expirées</div>
-                      </div>
-                      <div className="bg-blue-50 p-4 rounded-lg border border-blue-200">
-                        <div className="text-2xl font-bold text-blue-600">{assignmentsStatus?.summary?.total || 0}</div>
-                        <div className="text-sm text-blue-700">Total assignations</div>
-                      </div>
-                    </div>
-
-                    {/* Tableau détaillé des assignations */}
-                    {assignmentsStatus?.assignments && assignmentsStatus.assignments.length > 0 ? (
-                      <div className="overflow-x-auto">
-                        <table className="min-w-full">
-                          <thead>
-                            <tr className="bg-gradient-to-r from-[hsl(var(--winvest-blue-moyen))]/10 to-blue-50 text-[hsl(var(--winvest-blue-moyen))]">
-                              <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider">Zone</th>
-                              <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider">Assigné à</th>
-                              <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider">Statut</th>
-                              <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider">Progression</th>
-                              <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider">Temps restant</th>
-                              <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider">Commerciaux</th>
-                              <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider">Dates</th>
-                            </tr>
-                          </thead>
-                          <tbody className="divide-y divide-[hsl(var(--winvest-blue-moyen))]/10">
-                            {paginatedAssignments.map((assignment: any) => {
-                              const statusColor = 
-                                assignment.status === 'active' 
-                                  ? 'bg-green-100 text-green-800 border-green-200'
-                                  : assignment.status === 'future'
-                                  ? 'bg-orange-100 text-orange-800 border-orange-200'
-                                  : 'bg-gray-100 text-gray-800 border-gray-200';
-                              
-                              return (
-                                <tr key={assignment.id} className="hover:bg-[hsl(var(--winvest-blue-moyen))]/5 transition-colors duration-200">
-                                  <td className="px-6 py-4 whitespace-nowrap font-medium text-gray-900">{assignment.zoneName}</td>
-                                  <td className="px-6 py-4 whitespace-nowrap">
-                                    <div className="flex flex-col">
-                                      <span className="font-medium text-gray-900">{assignment.assigneeName}</span>
-                                      <span className="text-xs text-gray-500">{assignment.assignedToType}</span>
-                                    </div>
-                                  </td>
-                                  <td className="px-6 py-4 whitespace-nowrap">
-                                    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border ${statusColor}`}>
-                                      {assignment.status === 'active' ? 'En cours' : assignment.status === 'future' ? 'À venir' : 'Expirée'}
-                                    </span>
-                                  </td>
-                                  <td className="px-6 py-4 whitespace-nowrap">
-                                    {assignment.status === 'active' ? (
-                                      <div className="w-full">
-                                        <div className="flex justify-between text-xs mb-1">
-                                          <span>{assignment.progressPercentage}%</span>
-                                        </div>
-                                        <div className="w-full bg-gray-200 rounded-full h-2">
-                                          <div 
-                                            className="bg-green-500 h-2 rounded-full transition-all duration-300"
-                                            style={{ width: `${assignment.progressPercentage}%` }}
-                                          ></div>
-                                        </div>
-                                      </div>
-                                    ) : (
-                                      <span className="text-gray-400 text-sm">-</span>
-                                    )}
-                                  </td>
-                                  <td className="px-6 py-4 whitespace-nowrap">
-                                    <div className="text-sm">
-                                      {assignment.status === 'active' ? (
-                                        <span className="text-green-600 font-medium">{assignment.remainingDays} jour(s)</span>
-                                      ) : assignment.status === 'future' ? (
-                                        <span className="text-orange-600 font-medium">{assignment.timeInfo}</span>
-                                      ) : (
-                                        <span className="text-gray-500">{assignment.timeInfo}</span>
-                                      )}
-                                    </div>
-                                  </td>
-                                  <td className="px-6 py-4 whitespace-nowrap">
-                                    <div className="flex flex-col">
-                                      <span className="text-sm font-medium text-gray-900">
-                                        {assignment.affectedCommercialsCount} commercial{assignment.affectedCommercialsCount !== 1 ? 'aux' : ''}
-                                      </span>
-                                      {assignment.affectedCommercials && assignment.affectedCommercials.length > 0 && (
-                                        <div className="text-xs text-gray-500 mt-1">
-                                          {assignment.affectedCommercials.slice(0, 2).map((c: { prenom: string; nom: string }) => `${c.prenom} ${c.nom}`).join(', ')}
-                                          {assignment.affectedCommercials.length > 2 && ` +${assignment.affectedCommercials.length - 2}`}
-                                        </div>
-                                      )}
-                                    </div>
-                                  </td>
-                                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
-                                    <div className="flex flex-col">
-                                      <span>Début: {new Date(assignment.startDate).toLocaleDateString('fr-FR')}</span>
-                                      <span>Fin: {new Date(assignment.endDate).toLocaleDateString('fr-FR')}</span>
-                                    </div>
-                                  </td>
-                                </tr>
-                              );
-                            })}
-                          </tbody>
-                        </table>
-
-                        {/* Pagination Assignations */}
-                        {assignmentsTotalPages > 1 && (
-                          <div className="flex items-center justify-between mt-4 pt-4 border-t border-gray-200">
-                            <div className="text-sm text-gray-600">
-                              Affichage de {((assignmentsPage - 1) * assignmentsItemsPerPage) + 1} à {Math.min(assignmentsPage * assignmentsItemsPerPage, assignmentsStatus.assignments.length)} sur {assignmentsStatus.assignments.length} assignations
-                            </div>
-                            <div className="flex items-center space-x-2">
-                              <button
-                                onClick={() => setAssignmentsPage(Math.max(1, assignmentsPage - 1))}
-                                disabled={assignmentsPage === 1}
-                                className="flex items-center px-3 py-2 text-sm font-medium text-gray-500 bg-white border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
-                              >
-                                <ChevronLeft className="h-4 w-4 mr-1" />
-                                Précédent
-                              </button>
-                              <div className="flex items-center space-x-1">
-                                {Array.from({ length: assignmentsTotalPages }, (_, i) => i + 1).slice(
-                                  Math.max(0, assignmentsPage - 3),
-                                  Math.max(0, assignmentsPage - 3) + 5
-                                ).map((page) => (
-                                  <button
-                                    key={page}
-                                    onClick={() => setAssignmentsPage(page)}
-                                    className={`px-3 py-2 text-sm font-medium rounded-md ${
-                                      assignmentsPage === page
-                                        ? 'bg-blue-600 text-white'
-                                        : 'text-gray-500 bg-white border border-gray-300 hover:bg-gray-50'
-                                    }`}
-                                  >
-                                    {page}
-                                  </button>
-                                ))}
-                              </div>
-                              <button
-                                onClick={() => setAssignmentsPage(Math.min(assignmentsTotalPages, assignmentsPage + 1))}
-                                disabled={assignmentsPage === assignmentsTotalPages}
-                                className="flex items-center px-3 py-2 text-sm font-medium text-gray-500 bg-white border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
-                              >
-                                Suivant
-                                <ChevronRight className="h-4 w-4 ml-1" />
-                              </button>
-                            </div>
-                          </div>
-                        )}
-                      </div>
-                    ) : (
-                      <div className="text-center py-8 text-gray-500">
-                        <div className="flex flex-col items-center">
-                          <AlertCircle className="h-8 w-8 text-gray-400 mb-2" />
-                          <span>Aucune assignation trouvée</span>
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {/* Mode Historique - Affichage pleine largeur */}
-            {isHistoryMode && (
-              <div className="w-full">
-                <div className="bg-white rounded-xl border border-[hsl(var(--winvest-blue-moyen))]/20 shadow-lg">
-                  <div className="px-6 py-4 bg-gradient-to-r from-[hsl(var(--winvest-blue-moyen))] to-blue-600 text-white rounded-t-xl">
                     <div className="flex items-center justify-between">
                       <div>
-                        <p className="text-sm opacity-90">Suivi des périodes d'assignation par zone</p>
+                        <h3 className="text-lg font-semibold">
+                          {!isHistoryMode ? 'Suivi des assignations de zones' : 'Historique des assignations'}
+                        </h3>
+                        <p className="text-sm opacity-90">
+                          {!isHistoryMode ? 'Vue d\'ensemble des assignations en cours, futures et expirées' : 'Historique complet avec filtres avancés'}
+                        </p>
                       </div>
                       
-                      {/* Switch Map/History */}
+                      {/* Switch Assignations/Historique */}
                       <div className="flex items-center space-x-3 bg-white/20 rounded-lg p-3">
-                        <span className="text-sm font-medium text-blue-200">Carte</span>
+                        <span className="text-sm font-medium text-white">Assignations</span>
                         <Switch
                           checked={isHistoryMode}
                           onCheckedChange={setIsHistoryMode}
                           className="data-[state=checked]:bg-yellow-500"
                         />
-                        <span className="text-sm font-medium text-white">Historique</span>
+                        <span className="text-sm font-medium text-blue-200">Historique</span>
                       </div>
                     </div>
                   </div>
                   
                   <div className="p-6 space-y-6">
-                    {/* Filtres sous forme de bulles */}
-                    <div className="space-y-4">
-                      <div className="flex items-center justify-between">
-                        <h3 className="text-lg font-semibold text-gray-900">Filtres</h3>
-                        <button
-                          onClick={clearFilters}
-                          className="flex items-center gap-2 px-3 py-2 text-sm text-gray-600 hover:text-red-600 transition-colors"
-                        >
-                          <FilterX className="h-4 w-4" />
-                          Effacer les filtres
-                        </button>
-                      </div>
-                      
-                      {/* Filtre par assigné par */}
-                      <div className="space-y-2">
-                        <Label className="text-sm font-medium text-gray-700">Assigné par</Label>
-                        <div className="flex flex-wrap gap-2">
-                          {getUniqueValues('assignedBy').map((value) => (
-                            <button
-                              key={value}
-                              onClick={() => toggleFilter('assignedBy', value)}
-                              className={`flex items-center gap-2 px-3 py-2 rounded-full border-2 transition-all duration-200 hover:scale-105 ${
-                                filters.assignedBy.includes(value)
-                                  ? 'bg-blue-100 text-blue-800 border-blue-300'
-                                  : 'bg-white border-gray-200 hover:border-gray-300'
-                              }`}
-                            >
-                              <Users className="h-4 w-4" />
-                              <span className="text-sm font-medium">{value}</span>
-                              {filters.assignedBy.includes(value) && (
-                                <CheckCircle2 className="h-4 w-4" />
-                              )}
-                            </button>
-                          ))}
-                        </div>
-                      </div>
-
-                      {/* Filtre par type d'assigné */}
-                      <div className="space-y-2">
-                        <Label className="text-sm font-medium text-gray-700">Type d'assigné</Label>
-                        <div className="flex flex-wrap gap-2">
-                          {getUniqueValues('assigneeType').map((value) => (
-                            <button
-                              key={value}
-                              onClick={() => toggleFilter('assigneeType', value)}
-                              className={`flex items-center gap-2 px-3 py-2 rounded-full border-2 transition-all duration-200 hover:scale-105 ${
-                                filters.assigneeType.includes(value)
-                                  ? 'bg-purple-100 text-purple-800 border-purple-300'
-                                  : 'bg-white border-gray-200 hover:border-gray-300'
-                              }`}
-                            >
-                              <Shield className="h-4 w-4" />
-                              <span className="text-sm font-medium">{value}</span>
-                              {filters.assigneeType.includes(value) && (
-                                <CheckCircle2 className="h-4 w-4" />
-                              )}
-                            </button>
-                          ))}
-                  </div>
-                </div>
-                
-                      {/* Filtre par zone */}
-                      <div className="space-y-2">
-                        <Label className="text-sm font-medium text-gray-700">Zone</Label>
-                        <div className="flex flex-wrap gap-2">
-                          {getUniqueValues('zone').map((value) => (
-                            <button
-                              key={value}
-                              onClick={() => toggleFilter('zone', value)}
-                              className={`flex items-center gap-2 px-3 py-2 rounded-full border-2 transition-all duration-200 hover:scale-105 ${
-                                filters.zone.includes(value)
-                                  ? 'bg-green-100 text-green-800 border-green-300'
-                                  : 'bg-white border-gray-200 hover:border-gray-300'
-                              }`}
-                            >
-                              <MapPin className="h-4 w-4" />
-                              <span className="text-sm font-medium">{value}</span>
-                              {filters.zone.includes(value) && (
-                                <CheckCircle2 className="h-4 w-4" />
-                              )}
-                            </button>
-                          ))}
-                        </div>
-                      </div>
-
-
-                    </div>
-
-                    {/* Tableau avec données filtrées */}
-                    <div className="overflow-x-auto animate-in fade-in-0 slide-in-from-right-4 duration-500">
-                      <table className="min-w-full">
-                        <thead>
-                          <tr className="bg-gradient-to-r from-[hsl(var(--winvest-blue-moyen))]/10 to-blue-50 text-[hsl(var(--winvest-blue-moyen))]">
-                            <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider">Zone</th>
-                            <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider">Assigné à</th>
-                            <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider">Commerciaux affectés</th>
-                            <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider">Assigné par</th>
-                            <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider">Début</th>
-                            <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider">Fin</th>
-                            <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider">Durée</th>
-                          </tr>
-                        </thead>
-                        <tbody className="divide-y divide-[hsl(var(--winvest-blue-moyen))]/10">
-                          {paginatedHistory.map((h) => {
-                            const start = new Date(h.startDate);
-                            const end = h.endDate ? new Date(h.endDate) : null;
-                            const durationDays = end ? Math.max(1, Math.ceil((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24))) : '-';
-                            const typeColor =
-                              h.assignedToType === 'COMMERCIAL'
-                                ? 'bg-blue-100 text-blue-800 border-blue-200'
-                                : h.assignedToType === 'MANAGER'
-                                ? 'bg-purple-100 text-purple-800 border-purple-200'
-                                : 'bg-emerald-100 text-emerald-800 border-emerald-200';
-                            
-                            return (
-                              <tr key={h.id} className="hover:bg-[hsl(var(--winvest-blue-moyen))]/5 transition-colors duration-200">
-                                <td className="px-6 py-4 whitespace-nowrap font-medium text-gray-900">{h.zoneName || h.zoneId}</td>
-                                <td className="px-6 py-4 whitespace-nowrap">
-                                  <div className="flex flex-col">
-                                    <span className="font-medium text-gray-900">{h.assigneeName}</span>
-                                    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border ${typeColor} w-fit mt-1`}>
-                                      {h.assignedToType}
-                                    </span>
-                                  </div>
-                                </td>
-                                <td className="px-6 py-4 whitespace-nowrap">
-                                  <div className="flex flex-col">
-                                    <span className="text-sm font-medium text-gray-900">
-                                      {h.affectedCommercialsCount || 0} commercial{h.affectedCommercialsCount !== 1 ? 'aux' : ''}
-                                    </span>
-                                    {h.affectedCommercials && h.affectedCommercials.length > 0 && (
-                                      <div className="text-xs text-gray-500 mt-1">
-                                        {h.affectedCommercials.slice(0, 2).map((c: { prenom: string; nom: string }) => `${c.prenom} ${c.nom}`).join(', ')}
-                                        {h.affectedCommercials.length > 2 && ` +${h.affectedCommercials.length - 2} autres`}
-                                      </div>
-                                    )}
-                                  </div>
-                                </td>
-                                <td className="px-6 py-4 whitespace-nowrap">
-                                  <div className="flex flex-col">
-                                    {(() => {
-                                      const normalizedName = normalizeDisplayName(h.assignedByUserName);
-                                      const nameMatch = normalizedName.match(/^(.+?)\s*\((.+?)\)$/);
-                                      
-                                      if (nameMatch) {
-                                        const [, name, role] = nameMatch;
-                                        return (
-                                          <>
-                                            <span className="font-medium text-gray-900">{name.trim()}</span>
-                                            <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-700 border border-gray-200 w-fit mt-1">
-                                              {role.trim()}
-                                            </span>
-                                          </>
-                                        );
-                                      } else {
-                                        return (
-                                          <span className="font-medium text-gray-900">{normalizedName}</span>
-                                        );
-                                      }
-                                    })()}
-                                  </div>
-                                </td>
-                                <td className="px-6 py-4 whitespace-nowrap text-gray-700 font-medium">{start.toLocaleDateString('fr-FR')}</td>
-                                <td className="px-6 py-4 whitespace-nowrap text-gray-700 font-medium">{end ? end.toLocaleDateString('fr-FR') : '-'}</td>
-                                <td className="px-6 py-4 whitespace-nowrap">
-                                  <span className="inline-flex items-center px-3 py-1 rounded-lg text-xs font-semibold bg-gradient-to-r from-[hsl(var(--winvest-blue-moyen))]/10 to-blue-50 text-[hsl(var(--winvest-blue-moyen))] border border-[hsl(var(--winvest-blue-moyen))]/20">
-                                    {durationDays === '-' ? '-' : `${durationDays} j`}
-                                  </span>
-                                </td>
-                              </tr>
-                            );
-                          })}
-                          {filteredHistory.length === 0 && (
-                            <tr>
-                              <td colSpan={7} className="text-center text-gray-500 px-6 py-8">
-                                <div className="flex flex-col items-center">
-                                  <AlertCircle className="h-8 w-8 text-gray-400 mb-2" />
-                                  <span>Aucun historique d'assignation</span>
-                                </div>
-                              </td>
-                            </tr>
-                          )}
-                        </tbody>
-                      </table>
-                      {/* Pagination Historique */}
-                      {filteredHistory.length > 0 && (
-                        <div className="flex items-center justify-between mt-4">
-                          <div className="text-sm text-gray-600">
-                            Affichage de {((historyPage - 1) * historyItemsPerPage) + 1} à {Math.min(historyPage * historyItemsPerPage, filteredHistory.length)} sur {filteredHistory.length} entrées
+                    {!isHistoryMode ? (
+                      // Mode Assignations normales
+                      <>
+                        {/* Statistiques rapides */}
+                        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                          <div className="bg-green-50 p-4 rounded-lg border border-green-200">
+                            <div className="text-2xl font-bold text-green-600">{assignmentsStatus?.summary?.active || 0}</div>
+                            <div className="text-sm text-green-700">Assignations actives</div>
                           </div>
-                          <div className="flex items-center space-x-2">
+                          <div className="bg-orange-50 p-4 rounded-lg border border-orange-200">
+                            <div className="text-2xl font-bold text-orange-600">{assignmentsStatus?.summary?.future || 0}</div>
+                            <div className="text-sm text-orange-700">Assignations futures</div>
+                          </div>
+                          <div className="bg-gray-50 p-4 rounded-lg border border-gray-200">
+                            <div className="text-2xl font-bold text-gray-600">{assignmentsStatus?.summary?.expired || 0}</div>
+                            <div className="text-sm text-gray-700">Assignations expirées</div>
+                          </div>
+                          <div className="bg-blue-50 p-4 rounded-lg border border-blue-200">
+                            <div className="text-2xl font-bold text-blue-600">{assignmentsStatus?.summary?.total || 0}</div>
+                            <div className="text-sm text-blue-700">Total assignations</div>
+                          </div>
+                        </div>
+
+                        {/* Tableau détaillé des assignations */}
+                        {assignmentsStatus?.assignments && assignmentsStatus.assignments.length > 0 ? (
+                          <div className="overflow-x-auto">
+                            <table className="min-w-full">
+                              <thead>
+                                <tr className="bg-gradient-to-r from-[hsl(var(--winvest-blue-moyen))]/10 to-blue-50 text-[hsl(var(--winvest-blue-moyen))]">
+                                  <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider">Zone</th>
+                                  <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider">Assigné à</th>
+                                  <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider">Statut</th>
+                                  <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider">Progression</th>
+                                  <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider">Temps restant</th>
+                                  <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider">Commerciaux</th>
+                                  <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider">Dates</th>
+                                </tr>
+                              </thead>
+                              <tbody className="divide-y divide-[hsl(var(--winvest-blue-moyen))]/10">
+                                {paginatedAssignments.map((assignment: any) => {
+                                  const statusColor = 
+                                    assignment.status === 'active' 
+                                      ? 'bg-green-100 text-green-800 border-green-200'
+                                      : assignment.status === 'future'
+                                      ? 'bg-orange-100 text-orange-800 border-orange-200'
+                                      : 'bg-gray-100 text-gray-800 border-gray-200';
+                                  
+                                  return (
+                                    <tr key={assignment.id} className="hover:bg-[hsl(var(--winvest-blue-moyen))]/5 transition-colors duration-200">
+                                      <td className="px-6 py-4 whitespace-nowrap font-medium text-gray-900">{assignment.zoneName}</td>
+                                      <td className="px-6 py-4 whitespace-nowrap">
+                                        <div className="flex flex-col">
+                                          <span className="font-medium text-gray-900">{assignment.assigneeName}</span>
+                                          <span className="text-xs text-gray-500">{assignment.assignedToType}</span>
+                                        </div>
+                                      </td>
+                                      <td className="px-6 py-4 whitespace-nowrap">
+                                        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border ${statusColor}`}>
+                                          {assignment.status === 'active' ? 'En cours' : assignment.status === 'future' ? 'À venir' : 'Expirée'}
+                                        </span>
+                                      </td>
+                                      <td className="px-6 py-4 whitespace-nowrap">
+                                        {assignment.status === 'active' ? (
+                                          <div className="w-full">
+                                            <div className="flex justify-between text-xs mb-1">
+                                              <span>{assignment.progressPercentage}%</span>
+                                            </div>
+                                            <div className="w-full bg-gray-200 rounded-full h-2">
+                                              <div 
+                                                className="bg-green-500 h-2 rounded-full transition-all duration-300"
+                                                style={{ width: `${assignment.progressPercentage}%` }}
+                                              ></div>
+                                            </div>
+                                          </div>
+                                        ) : (
+                                          <span className="text-gray-400 text-sm">-</span>
+                                        )}
+                                      </td>
+                                      <td className="px-6 py-4 whitespace-nowrap">
+                                        <div className="text-sm">
+                                          {assignment.status === 'active' ? (
+                                            <span className="text-green-600 font-medium">{assignment.remainingDays} jour(s)</span>
+                                          ) : assignment.status === 'future' ? (
+                                            <span className="text-orange-600 font-medium">{assignment.timeInfo}</span>
+                                          ) : (
+                                            <span className="text-gray-500">{assignment.timeInfo}</span>
+                                          )}
+                                        </div>
+                                      </td>
+                                      <td className="px-6 py-4 whitespace-nowrap">
+                                        <div className="flex flex-col">
+                                          <span className="text-sm font-medium text-gray-900">
+                                            {assignment.affectedCommercialsCount} commercial{assignment.affectedCommercialsCount !== 1 ? 'aux' : ''}
+                                          </span>
+                                          {assignment.affectedCommercials && assignment.affectedCommercials.length > 0 && (
+                                            <div className="text-xs text-gray-500 mt-1">
+                                              {assignment.affectedCommercials.slice(0, 2).map((c: { prenom: string; nom: string }) => `${c.prenom} ${c.nom}`).join(', ')}
+                                              {assignment.affectedCommercials.length > 2 && ` +${assignment.affectedCommercials.length - 2}`}
+                                            </div>
+                                          )}
+                                        </div>
+                                      </td>
+                                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
+                                        <div className="flex flex-col">
+                                          <span>Début: {new Date(assignment.startDate).toLocaleDateString('fr-FR')}</span>
+                                          <span>Fin: {new Date(assignment.endDate).toLocaleDateString('fr-FR')}</span>
+                                        </div>
+                                      </td>
+                                    </tr>
+                                  );
+                                })}
+                              </tbody>
+                            </table>
+
+                            {/* Pagination Assignations */}
+                            {assignmentsTotalPages > 1 && (
+                              <div className="flex items-center justify-between mt-4 pt-4 border-t border-gray-200">
+                                <div className="text-sm text-gray-600">
+                                  Affichage de {((assignmentsPage - 1) * assignmentsItemsPerPage) + 1} à {Math.min(assignmentsPage * assignmentsItemsPerPage, assignmentsStatus.assignments.length)} sur {assignmentsStatus.assignments.length} assignations
+                                </div>
+                                <div className="flex items-center space-x-2">
+                                  <button
+                                    onClick={() => setAssignmentsPage(Math.max(1, assignmentsPage - 1))}
+                                    disabled={assignmentsPage === 1}
+                                    className="flex items-center px-3 py-2 text-sm font-medium text-gray-500 bg-white border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                                  >
+                                    <ChevronLeft className="h-4 w-4 mr-1" />
+                                    Précédent
+                                  </button>
+                                  <div className="flex items-center space-x-1">
+                                    {Array.from({ length: assignmentsTotalPages }, (_, i) => i + 1).slice(
+                                      Math.max(0, assignmentsPage - 3),
+                                      Math.max(0, assignmentsPage - 3) + 5
+                                    ).map((page) => (
+                                      <button
+                                        key={page}
+                                        onClick={() => setAssignmentsPage(page)}
+                                        className={`px-3 py-2 text-sm font-medium rounded-md ${
+                                          assignmentsPage === page
+                                            ? 'bg-blue-600 text-white'
+                                            : 'text-gray-500 bg-white border border-gray-300 hover:bg-gray-50'
+                                        }`}
+                                      >
+                                        {page}
+                                      </button>
+                                    ))}
+                                  </div>
+                                  <button
+                                    onClick={() => setAssignmentsPage(Math.min(assignmentsTotalPages, assignmentsPage + 1))}
+                                    disabled={assignmentsPage === assignmentsTotalPages}
+                                    className="flex items-center px-3 py-2 text-sm font-medium text-gray-500 bg-white border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                                  >
+                                    Suivant
+                                    <ChevronRight className="h-4 w-4 ml-1" />
+                                  </button>
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        ) : (
+                          <div className="text-center py-8 text-gray-500">
+                            <div className="flex flex-col items-center">
+                              <AlertCircle className="h-8 w-8 text-gray-400 mb-2" />
+                              <span>Aucune assignation trouvée</span>
+                            </div>
+                          </div>
+                        )}
+                      </>
+                    ) : (
+                      // Mode Historique
+                      <>
+                        {/* Filtres sous forme de bulles */}
+                        <div className="space-y-4">
+                          <div className="flex items-center justify-between">
+                            <h3 className="text-lg font-semibold text-gray-900">Filtres</h3>
                             <button
-                              onClick={() => setHistoryPage(Math.max(1, historyPage - 1))}
-                              disabled={historyPage === 1}
-                              className="flex items-center px-3 py-2 text-sm font-medium text-gray-500 bg-white border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                              onClick={clearFilters}
+                              className="flex items-center gap-2 px-3 py-2 text-sm text-gray-600 hover:text-red-600 transition-colors"
                             >
-                              <ChevronLeft className="h-4 w-4 mr-1" />
-                              Précédent
+                              <FilterX className="h-4 w-4" />
+                              Effacer les filtres
                             </button>
-                            <div className="flex items-center space-x-1">
-                              {Array.from({ length: historyTotalPages }, (_, i) => i + 1).slice(
-                                Math.max(0, historyPage - 3),
-                                Math.max(0, historyPage - 3) + 5
-                              ).map((page) => (
+                          </div>
+                          
+                          {/* Filtre par assigné par */}
+                          <div className="space-y-2">
+                            <Label className="text-sm font-medium text-gray-700">Assigné par</Label>
+                            <div className="flex flex-wrap gap-2">
+                              {getUniqueValues('assignedBy').map((value) => (
                                 <button
-                                  key={page}
-                                  onClick={() => setHistoryPage(page)}
-                                  className={`px-3 py-2 text-sm font-medium rounded-md ${
-                                    historyPage === page
-                                      ? 'bg-blue-600 text-white'
-                                      : 'text-gray-500 bg-white border border-gray-300 hover:bg-gray-50'
+                                  key={value}
+                                  onClick={() => toggleFilter('assignedBy', value)}
+                                  className={`flex items-center gap-2 px-3 py-2 rounded-full border-2 transition-all duration-200 hover:scale-105 ${
+                                    filters.assignedBy.includes(value)
+                                      ? 'bg-blue-100 text-blue-800 border-blue-300'
+                                      : 'bg-white border-gray-200 hover:border-gray-300'
                                   }`}
                                 >
-                                  {page}
+                                  <Users className="h-4 w-4" />
+                                  <span className="text-sm font-medium">{value}</span>
+                                  {filters.assignedBy.includes(value) && (
+                                    <CheckCircle2 className="h-4 w-4" />
+                                  )}
                                 </button>
                               ))}
                             </div>
-                            <button
-                              onClick={() => setHistoryPage(Math.min(historyTotalPages, historyPage + 1))}
-                              disabled={historyPage === historyTotalPages}
-                              className="flex items-center px-3 py-2 text-sm font-medium text-gray-500 bg-white border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
-                            >
-                              Suivant
-                              <ChevronRight className="h-4 w-4 ml-1" />
-                            </button>
                           </div>
-                    </div>
-                  )}
+
+                          {/* Filtre par type d'assigné */}
+                          <div className="space-y-2">
+                            <Label className="text-sm font-medium text-gray-700">Type d'assigné</Label>
+                            <div className="flex flex-wrap gap-2">
+                              {getUniqueValues('assigneeType').map((value) => (
+                                <button
+                                  key={value}
+                                  onClick={() => toggleFilter('assigneeType', value)}
+                                  className={`flex items-center gap-2 px-3 py-2 rounded-full border-2 transition-all duration-200 hover:scale-105 ${
+                                    filters.assigneeType.includes(value)
+                                      ? 'bg-purple-100 text-purple-800 border-purple-300'
+                                      : 'bg-white border-gray-200 hover:border-gray-300'
+                                  }`}
+                                >
+                                  <Shield className="h-4 w-4" />
+                                  <span className="text-sm font-medium">{value}</span>
+                                  {filters.assigneeType.includes(value) && (
+                                    <CheckCircle2 className="h-4 w-4" />
+                                  )}
+                                </button>
+                              ))}
+                            </div>
+                          </div>
+                          
+                          {/* Filtre par zone */}
+                          <div className="space-y-2">
+                            <Label className="text-sm font-medium text-gray-700">Zone</Label>
+                            <div className="flex flex-wrap gap-2">
+                              {getUniqueValues('zone').map((value) => (
+                                <button
+                                  key={value}
+                                  onClick={() => toggleFilter('zone', value)}
+                                  className={`flex items-center gap-2 px-3 py-2 rounded-full border-2 transition-all duration-200 hover:scale-105 ${
+                                    filters.zone.includes(value)
+                                      ? 'bg-green-100 text-green-800 border-green-300'
+                                      : 'bg-white border-gray-200 hover:border-gray-300'
+                                  }`}
+                                >
+                                  <MapPin className="h-4 w-4" />
+                                  <span className="text-sm font-medium">{value}</span>
+                                  {filters.zone.includes(value) && (
+                                    <CheckCircle2 className="h-4 w-4" />
+                                  )}
+                                </button>
+                              ))}
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Tableau historique */}
+                        <div className="overflow-x-auto animate-in fade-in-0 slide-in-from-right-4 duration-500">
+                          <table className="min-w-full">
+                            <thead>
+                              <tr className="bg-gradient-to-r from-[hsl(var(--winvest-blue-moyen))]/10 to-blue-50 text-[hsl(var(--winvest-blue-moyen))]">
+                                <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider">Zone</th>
+                                <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider">Assigné à</th>
+                                <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider">Commerciaux affectés</th>
+                                <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider">Assigné par</th>
+                                <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider">Début</th>
+                                <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider">Fin</th>
+                                <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider">Durée</th>
+                              </tr>
+                            </thead>
+                            <tbody className="divide-y divide-[hsl(var(--winvest-blue-moyen))]/10">
+                              {paginatedHistory.map((h) => {
+                                const start = new Date(h.startDate);
+                                const end = h.endDate ? new Date(h.endDate) : null;
+                                const durationDays = end ? Math.max(1, Math.ceil((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24))) : '-';
+                                const typeColor =
+                                  h.assignedToType === 'COMMERCIAL'
+                                    ? 'bg-blue-100 text-blue-800 border-blue-200'
+                                    : h.assignedToType === 'MANAGER'
+                                    ? 'bg-purple-100 text-purple-800 border-purple-200'
+                                    : 'bg-emerald-100 text-emerald-800 border-emerald-200';
+                                
+                                return (
+                                  <tr key={h.id} className="hover:bg-[hsl(var(--winvest-blue-moyen))]/5 transition-colors duration-200">
+                                    <td className="px-6 py-4 whitespace-nowrap font-medium text-gray-900">{h.zoneName || h.zoneId}</td>
+                                    <td className="px-6 py-4 whitespace-nowrap">
+                                      <div className="flex flex-col">
+                                        <span className="font-medium text-gray-900">{h.assigneeName}</span>
+                                        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border ${typeColor} w-fit mt-1`}>
+                                          {h.assignedToType}
+                                        </span>
+                                      </div>
+                                    </td>
+                                    <td className="px-6 py-4 whitespace-nowrap">
+                                      <div className="flex flex-col">
+                                        <span className="text-sm font-medium text-gray-900">
+                                          {h.affectedCommercialsCount || 0} commercial{h.affectedCommercialsCount !== 1 ? 'aux' : ''}
+                                        </span>
+                                        {h.affectedCommercials && h.affectedCommercials.length > 0 && (
+                                          <div className="text-xs text-gray-500 mt-1">
+                                            {h.affectedCommercials.slice(0, 2).map((c: { prenom: string; nom: string }) => `${c.prenom} ${c.nom}`).join(', ')}
+                                            {h.affectedCommercials.length > 2 && ` +${h.affectedCommercials.length - 2} autres`}
+                                          </div>
+                                        )}
+                                      </div>
+                                    </td>
+                                    <td className="px-6 py-4 whitespace-nowrap">
+                                      <div className="flex flex-col">
+                                        {(() => {
+                                          const normalizedName = normalizeDisplayName(h.assignedByUserName);
+                                          const nameMatch = normalizedName.match(/^(.+?)\s*\((.+?)\)$/);
+                                          
+                                          if (nameMatch) {
+                                            const [, name, role] = nameMatch;
+                                            return (
+                                              <>
+                                                <span className="font-medium text-gray-900">{name.trim()}</span>
+                                                <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-700 border border-gray-200 w-fit mt-1">
+                                                  {role.trim()}
+                                                </span>
+                                              </>
+                                            );
+                                          } else {
+                                            return (
+                                              <span className="font-medium text-gray-900">{normalizedName}</span>
+                                            );
+                                          }
+                                        })()}
+                                      </div>
+                                    </td>
+                                    <td className="px-6 py-4 whitespace-nowrap text-gray-700 font-medium">{start.toLocaleDateString('fr-FR')}</td>
+                                    <td className="px-6 py-4 whitespace-nowrap text-gray-700 font-medium">{end ? end.toLocaleDateString('fr-FR') : '-'}</td>
+                                    <td className="px-6 py-4 whitespace-nowrap">
+                                      <span className="inline-flex items-center px-3 py-1 rounded-lg text-xs font-semibold bg-gradient-to-r from-[hsl(var(--winvest-blue-moyen))]/10 to-blue-50 text-[hsl(var(--winvest-blue-moyen))] border border-[hsl(var(--winvest-blue-moyen))]/20">
+                                        {durationDays === '-' ? '-' : `${durationDays} j`}
+                                      </span>
+                                    </td>
+                                  </tr>
+                                );
+                              })}
+                              {filteredHistory.length === 0 && (
+                                <tr>
+                                  <td colSpan={7} className="text-center text-gray-500 px-6 py-8">
+                                    <div className="flex flex-col items-center">
+                                      <AlertCircle className="h-8 w-8 text-gray-400 mb-2" />
+                                      <span>Aucun historique d'assignation</span>
+                                    </div>
+                                  </td>
+                                </tr>
+                              )}
+                            </tbody>
+                          </table>
+                          
+                          {/* Pagination Historique */}
+                          {filteredHistory.length > 0 && (
+                            <div className="flex items-center justify-between mt-4">
+                              <div className="text-sm text-gray-600">
+                                Affichage de {((historyPage - 1) * historyItemsPerPage) + 1} à {Math.min(historyPage * historyItemsPerPage, filteredHistory.length)} sur {filteredHistory.length} entrées
+                              </div>
+                              <div className="flex items-center space-x-2">
+                                <button
+                                  onClick={() => setHistoryPage(Math.max(1, historyPage - 1))}
+                                  disabled={historyPage === 1}
+                                  className="flex items-center px-3 py-2 text-sm font-medium text-gray-500 bg-white border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                                >
+                                  <ChevronLeft className="h-4 w-4 mr-1" />
+                                  Précédent
+                                </button>
+                                <div className="flex items-center space-x-1">
+                                  {Array.from({ length: historyTotalPages }, (_, i) => i + 1).slice(
+                                    Math.max(0, historyPage - 3),
+                                    Math.max(0, historyPage - 3) + 5
+                                  ).map((page) => (
+                                    <button
+                                      key={page}
+                                      onClick={() => setHistoryPage(page)}
+                                      className={`px-3 py-2 text-sm font-medium rounded-md ${
+                                        historyPage === page
+                                          ? 'bg-blue-600 text-white'
+                                          : 'text-gray-500 bg-white border border-gray-300 hover:bg-gray-50'
+                                      }`}
+                                    >
+                                      {page}
+                                    </button>
+                                  ))}
+                                </div>
+                                <button
+                                  onClick={() => setHistoryPage(Math.min(historyTotalPages, historyPage + 1))}
+                                  disabled={historyPage === historyTotalPages}
+                                  className="flex items-center px-3 py-2 text-sm font-medium text-gray-500 bg-white border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                                >
+                                  Suivant
+                                  <ChevronRight className="h-4 w-4 ml-1" />
+                                </button>
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      </>
+                    )}
+                  </div>
                 </div>
               </div>
-            </div>
-              </div>
-            )}
+
           </div>
         ) : (
           <div className="max-w-7xl mx-auto animate-in fade-in-0 slide-in-from-right-4 duration-500">
