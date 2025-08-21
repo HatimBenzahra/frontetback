@@ -43,4 +43,10 @@ export class TranscriptionHistoryController {
     console.log('📚 Synchronisation session transcription:', id, 'longueur:', data.full_transcript.length);
     return this.transcriptionHistoryService.syncSessionIfShorter(id, data.full_transcript);
   }
+
+  @Post(':id/restructure')
+  async restructureTranscription(@Param('id') id: string) {
+    console.log('🤖 Restructuration transcription demandée pour session:', id);
+    return this.transcriptionHistoryService.restructureTranscription(id);
+  }
 } 

@@ -1,5 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { GeminiService } from '../gemini/gemini.service';
 
 export interface TranscriptionSession {
   id: string;
@@ -16,11 +17,31 @@ export interface TranscriptionSession {
 
 @Injectable()
 export class TranscriptionHistoryService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private geminiService: GeminiService
+  ) {}
 
   async saveSession(session: TranscriptionSession) {
     try {
       console.log('📚 Sauvegarde session dans la base de données:', session.id);
+      
+      // Traiter le texte avec Gemini avant sauvegarde si la transcription n'est pas vide
+      let processedTranscript = session.full_transcript;
+      
+      if (session.full_transcript && session.full_transcript.trim().length > 50) {
+        try {
+          console.log('🤖 Traitement de la transcription avec Gemini...');
+          processedTranscript = await this.geminiService.restructureDialogue(session.full_transcript);
+          console.log('✅ Transcription restructurée avec Gemini');
+        } catch (geminiError) {
+          console.error('⚠️ Erreur Gemini, sauvegarde du texte original:', geminiError.message);
+          // En cas d'erreur Gemini, on garde le texte original
+          processedTranscript = session.full_transcript;
+        }
+      } else {
+        console.log('📝 Transcription trop courte, pas de traitement Gemini');
+      }
       
       // Utiliser upsert pour éviter les doublons
       const savedSession = await this.prisma.transcriptionSession.upsert({
@@ -28,7 +49,7 @@ export class TranscriptionHistoryService {
         update: {
           commercial_name: session.commercial_name,
           end_time: new Date(session.end_time),
-          full_transcript: session.full_transcript,
+          full_transcript: processedTranscript,
           duration_seconds: session.duration_seconds,
           building_id: session.building_id,
           building_name: session.building_name,
@@ -40,7 +61,7 @@ export class TranscriptionHistoryService {
           commercial_name: session.commercial_name,
           start_time: new Date(session.start_time),
           end_time: new Date(session.end_time),
-          full_transcript: session.full_transcript,
+          full_transcript: processedTranscript,
           duration_seconds: session.duration_seconds,
           building_id: session.building_id,
           building_name: session.building_name,
@@ -48,7 +69,7 @@ export class TranscriptionHistoryService {
         },
       });
 
-      console.log('✅ Session transcription sauvegardée:', savedSession.id);
+      console.log('✅ Session transcription sauvegardée avec traitement Gemini:', savedSession.id);
       
       return { success: true, sessionId: savedSession.id };
     } catch (error) {
@@ -210,6 +231,44 @@ export class TranscriptionHistoryService {
     } catch (error) {
       console.error('❌ Erreur synchronisation session:', error);
       throw error;
+    }
+  }
+
+  async restructureTranscription(sessionId: string): Promise<{success: boolean, message?: string, error?: string}> {
+    try {
+      console.log('🤖 Restructuration transcription pour session:', sessionId);
+      
+      // Récupérer la session
+      const session = await this.prisma.transcriptionSession.findUnique({
+        where: { id: sessionId }
+      });
+
+      if (!session) {
+        return { success: false, error: 'Session non trouvée' };
+      }
+
+      if (!session.full_transcript || session.full_transcript.trim().length === 0) {
+        return { success: false, error: 'Aucune transcription à restructurer' };
+      }
+
+      // Utiliser Gemini pour restructurer
+      const restructuredTranscript = await this.geminiService.restructureDialogue(session.full_transcript);
+
+      // Remplacer la transcription originale par la version restructurée
+      await this.prisma.transcriptionSession.update({
+        where: { id: sessionId },
+        data: {
+          full_transcript: restructuredTranscript,
+          updatedAt: new Date()
+        }
+      });
+
+      console.log('✅ Transcription restructurée et remplacée avec succès');
+      return { success: true, message: 'Transcription restructurée avec succès' };
+
+    } catch (error) {
+      console.error('❌ Erreur restructuration transcription:', error);
+      return { success: false, error: error.message };
     }
   }
 
