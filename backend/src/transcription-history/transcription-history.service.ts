@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
-import { GeminiService } from '../gemini/gemini.service';
+import { TextProcessingService } from '../text-processing/text-processing.service';
 
 export interface TranscriptionSession {
   id: string;
@@ -19,28 +19,37 @@ export interface TranscriptionSession {
 export class TranscriptionHistoryService {
   constructor(
     private prisma: PrismaService,
-    private geminiService: GeminiService
+    private textProcessingService: TextProcessingService
   ) {}
 
   async saveSession(session: TranscriptionSession) {
     try {
-      console.log('📚 Sauvegarde session dans la base de données:', session.id);
+      console.log('Sauvegarde session dans la base de données:', session.id);
       
-      // Traiter le texte avec Gemini avant sauvegarde si la transcription n'est pas vide
+      // Traitement centralisé du texte (basique + IA)
       let processedTranscript = session.full_transcript;
       
-      if (session.full_transcript && session.full_transcript.trim().length > 50) {
+      if (session.full_transcript && session.full_transcript.trim().length > 0) {
         try {
-          console.log('🤖 Traitement de la transcription avec Gemini...');
-          processedTranscript = await this.geminiService.restructureDialogue(session.full_transcript);
-          console.log('✅ Transcription restructurée avec Gemini');
-        } catch (geminiError) {
-          console.error('⚠️ Erreur Gemini, sauvegarde du texte original:', geminiError.message);
-          // En cas d'erreur Gemini, on garde le texte original
+          console.log('Traitement centralisé de la transcription...');
+          const processed = await this.textProcessingService.processTranscription(
+            session.full_transcript,
+            {
+              useAI: true,
+              minLengthForAI: 50
+            }
+          );
+          
+          processedTranscript = processed.processedText;
+          console.log(`Transcription traitée (${processed.processingType}) - ${processed.wordCount} mots`);
+          
+        } catch (processingError) {
+          console.error('Erreur traitement texte, sauvegarde du texte original:', processingError.message);
+          // En cas d'erreur, on garde le texte original
           processedTranscript = session.full_transcript;
         }
       } else {
-        console.log('📝 Transcription trop courte, pas de traitement Gemini');
+        console.log('Transcription vide, pas de traitement');
       }
       
       // Utiliser upsert pour éviter les doublons
@@ -69,18 +78,18 @@ export class TranscriptionHistoryService {
         },
       });
 
-      console.log('✅ Session transcription sauvegardée avec traitement Gemini:', savedSession.id);
+      console.log('Session transcription sauvegardée avec traitement Gemini:', savedSession.id);
       
       return { success: true, sessionId: savedSession.id };
     } catch (error) {
-      console.error('❌ Erreur sauvegarde session transcription:', error);
+      console.error('Erreur sauvegarde session transcription:', error);
       throw error;
     }
   }
 
   async getHistory(commercialId?: string, limit: number = 50): Promise<TranscriptionSession[]> {
     try {
-      console.log('📚 Récupération historique transcriptions:', { commercialId, limit });
+      console.log('Récupération historique transcriptions:', { commercialId, limit });
       
       const sessions = await this.prisma.transcriptionSession.findMany({
         where: commercialId ? { commercial_id: commercialId } : undefined,
@@ -101,26 +110,26 @@ export class TranscriptionHistoryService {
         last_door_label: session.last_door_label,
       }));
       
-      console.log('✅ Historique récupéré:', history.length, 'sessions');
+      console.log('Historique récupéré:', history.length, 'sessions');
       return history;
     } catch (error) {
-      console.error('❌ Erreur récupération historique:', error);
+      console.error('Erreur récupération historique:', error);
       return [];
     }
   }
 
   async deleteSession(id: string) {
     try {
-      console.log('📚 Suppression session transcription:', id);
+      console.log('Suppression session transcription:', id);
       
       await this.prisma.transcriptionSession.delete({
         where: { id },
       });
       
-      console.log('✅ Session transcription supprimée');
+      console.log('Session transcription supprimée');
       return { success: true };
     } catch (error) {
-      console.error('❌ Erreur suppression session:', error);
+      console.error('Erreur suppression session:', error);
       throw error;
     }
   }
@@ -174,10 +183,10 @@ export class TranscriptionHistoryService {
         })
       );
 
-      console.log(`✅ ${commercialsWithStats.length} commerciaux récupérés`);
+      console.log(`${commercialsWithStats.length} commerciaux récupérés`);
       return commercialsWithStats;
     } catch (error) {
-      console.error('❌ Erreur récupération commerciaux:', error);
+      console.error('Erreur récupération commerciaux:', error);
       return [];
     }
   }
@@ -229,14 +238,14 @@ export class TranscriptionHistoryService {
         };
       }
     } catch (error) {
-      console.error('❌ Erreur synchronisation session:', error);
+      console.error('Erreur synchronisation session:', error);
       throw error;
     }
   }
 
   async restructureTranscription(sessionId: string): Promise<{success: boolean, message?: string, error?: string}> {
     try {
-      console.log('🤖 Restructuration transcription pour session:', sessionId);
+      console.log('Restructuration transcription pour session:', sessionId);
       
       // Récupérer la session
       const session = await this.prisma.transcriptionSession.findUnique({
@@ -251,23 +260,76 @@ export class TranscriptionHistoryService {
         return { success: false, error: 'Aucune transcription à restructurer' };
       }
 
-      // Utiliser Gemini pour restructurer
-      const restructuredTranscript = await this.geminiService.restructureDialogue(session.full_transcript);
+      // Utiliser le service de traitement centralisé
+      const processed = await this.textProcessingService.processTranscription(
+        session.full_transcript,
+        {
+          useAI: true,
+          minLengthForAI: 10 // Plus permissif pour la restructuration manuelle
+        }
+      );
 
-      // Remplacer la transcription originale par la version restructurée
+      // Remplacer la transcription originale par la version traitée
       await this.prisma.transcriptionSession.update({
         where: { id: sessionId },
         data: {
-          full_transcript: restructuredTranscript,
+          full_transcript: processed.processedText,
           updatedAt: new Date()
         }
       });
 
-      console.log('✅ Transcription restructurée et remplacée avec succès');
-      return { success: true, message: 'Transcription restructurée avec succès' };
+      console.log(`Transcription restructurée avec succès (${processed.processingType})`);
+      return { 
+        success: true, 
+        message: `Transcription restructurée avec succès (${processed.processingType}) - ${processed.wordCount} mots`
+      };
 
     } catch (error) {
-      console.error('❌ Erreur restructuration transcription:', error);
+      console.error('Erreur restructuration transcription:', error);
+      return { success: false, error: error.message };
+    }
+  }
+
+  /**
+   * Traitement en temps réel pour la transcription live
+   */
+  processLiveText(text: string) {
+    return this.textProcessingService.processLiveTranscription(text);
+  }
+
+  /**
+   * Traitement chunk live avec merge intelligent
+   */
+  processLiveChunk(chunk: string, committed: string = '', isFinal: boolean = false, maxChars: number = 8000) {
+    return this.textProcessingService.processLiveChunk(chunk, committed, isFinal, maxChars);
+  }
+
+  /**
+   * Obtenir les statistiques d'une transcription
+   */
+  async getTranscriptionStats(sessionId: string) {
+    try {
+      const session = await this.prisma.transcriptionSession.findUnique({
+        where: { id: sessionId }
+      });
+
+      if (!session) {
+        return { success: false, error: 'Session non trouvée' };
+      }
+
+      const stats = this.textProcessingService.getTextStats(session.full_transcript);
+      
+      return {
+        success: true,
+        stats: {
+          ...stats,
+          duration: session.duration_seconds,
+          building: session.building_name,
+          commercial: session.commercial_name
+        }
+      };
+    } catch (error) {
+      console.error('Erreur récupération stats:', error);
       return { success: false, error: error.message };
     }
   }
