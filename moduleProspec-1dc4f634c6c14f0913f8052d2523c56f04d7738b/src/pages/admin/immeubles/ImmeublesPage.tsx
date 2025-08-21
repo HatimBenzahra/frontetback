@@ -323,24 +323,20 @@ const ImmeublesPage = () => {
     // Statistiques pour les cartes
     const stats = useMemo(() => {
         const total = immeubles.length;
-        const nonCommence = immeubles.filter(i => i.status === 'Non commencé').length;
-        const aVisiter = immeubles.filter(i => i.status === 'À visiter').length;
-        const aTerminer = immeubles.filter(i => i.status === 'À terminer').length;
-        const termine = immeubles.filter(i => i.status === 'Terminé').length;
-        const rdvPris = immeubles.filter(i => i.status === 'RDV Pris').length;
-        const inaccessible = immeubles.filter(i => i.status === 'Inaccessible').length;
+        const nonConfigure = immeubles.filter(i => i.status === 'Non configuré').length;
+        const aCommencer = immeubles.filter(i => i.status === 'À commencer').length;
+        const enCours = immeubles.filter(i => i.status.startsWith('En cours')).length;
+        const complet = immeubles.filter(i => i.status === 'Complet').length;
         const totalPortes = immeubles.reduce((acc, i) => acc + i.nbPortes, 0);
         const portesProspectees = immeubles.reduce((acc, i) => acc + i.nbPortesProspectees, 0);
         const avgCoverage = totalPortes > 0 ? (portesProspectees / totalPortes) * 100 : 0;
         
         return {
             total,
-            nonCommence,
-            aVisiter,
-            aTerminer,
-            termine,
-            rdvPris,
-            inaccessible,
+            nonConfigure,
+            aCommencer,
+            enCours,
+            complet,
             avgCoverage,
             totalPortes,
             portesProspectees
@@ -466,8 +462,8 @@ const ImmeublesPage = () => {
                         <CardContent className="p-4">
                             <div className="flex items-center justify-between">
                                 <div>
-                                    <p className="text-sm text-slate-600 font-medium">Non commencé</p>
-                                    <p className="text-2xl font-bold text-slate-900">{stats.nonCommence}</p>
+                                    <p className="text-sm text-slate-600 font-medium">Non configuré</p>
+                                    <p className="text-2xl font-bold text-slate-900">{stats.nonConfigure}</p>
                                 </div>
                                 <Building2 className="h-8 w-8 text-slate-500" />
                             </div>
@@ -484,8 +480,8 @@ const ImmeublesPage = () => {
                         <CardContent className="p-4">
                             <div className="flex items-center justify-between">
                                 <div>
-                                    <p className="text-sm text-blue-600 font-medium">À visiter</p>
-                                    <p className="text-2xl font-bold text-blue-900">{stats.aVisiter}</p>
+                                    <p className="text-sm text-blue-600 font-medium">À commencer</p>
+                                    <p className="text-2xl font-bold text-blue-900">{stats.aCommencer}</p>
                                 </div>
                                 <Eye className="h-8 w-8 text-blue-500" />
                             </div>
@@ -502,8 +498,8 @@ const ImmeublesPage = () => {
                         <CardContent className="p-4">
                             <div className="flex items-center justify-between">
                                 <div>
-                                    <p className="text-sm text-amber-600 font-medium">À terminer</p>
-                                    <p className="text-2xl font-bold text-amber-900">{stats.aTerminer}</p>
+                                    <p className="text-sm text-amber-600 font-medium">En cours</p>
+                                    <p className="text-2xl font-bold text-amber-900">{stats.enCours}</p>
                                 </div>
                                 <BarChart3 className="h-8 w-8 text-amber-500" />
                             </div>
@@ -520,8 +516,8 @@ const ImmeublesPage = () => {
                         <CardContent className="p-4">
                             <div className="flex items-center justify-between">
                                 <div>
-                                    <p className="text-sm text-emerald-600 font-medium">Terminés</p>
-                                    <p className="text-2xl font-bold text-emerald-900">{stats.termine}</p>
+                                    <p className="text-sm text-emerald-600 font-medium">Complets</p>
+                                    <p className="text-2xl font-bold text-emerald-900">{stats.complet}</p>
                                 </div>
                                 <Users className="h-8 w-8 text-emerald-500" />
                             </div>
@@ -530,57 +526,39 @@ const ImmeublesPage = () => {
                 </motion.div>
             </div>
             
-            {/* Deuxième ligne - Statuts spéciaux */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {/* Deuxième ligne - Métriques globales */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <motion.div
                     initial={{ opacity: 0, y: 20 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ delay: 0.5 }}
                 >
-                    <Card className="bg-gradient-to-br from-purple-50 to-purple-100 border-purple-200">
+                    <Card className="bg-gradient-to-br from-indigo-50 to-indigo-100 border-indigo-200">
                         <CardContent className="p-4">
                             <div className="flex items-center justify-between">
                                 <div>
-                                    <p className="text-sm text-purple-600 font-medium">RDV Pris</p>
-                                    <p className="text-2xl font-bold text-purple-900">{stats.rdvPris}</p>
+                                    <p className="text-sm text-indigo-600 font-medium">Total immeubles</p>
+                                    <p className="text-2xl font-bold text-indigo-900">{stats.total}</p>
                                 </div>
-                                <Users className="h-8 w-8 text-purple-500" />
+                                <Building2 className="h-8 w-8 text-indigo-500" />
                             </div>
                         </CardContent>
                     </Card>
                 </motion.div>
-                
+
                 <motion.div
                     initial={{ opacity: 0, y: 20 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ delay: 0.6 }}
                 >
-                    <Card className="bg-gradient-to-br from-red-50 to-red-100 border-red-200">
+                    <Card className="bg-gradient-to-br from-violet-50 to-violet-100 border-violet-200">
                         <CardContent className="p-4">
                             <div className="flex items-center justify-between">
                                 <div>
-                                    <p className="text-sm text-red-600 font-medium">Inaccessibles</p>
-                                    <p className="text-2xl font-bold text-red-900">{stats.inaccessible}</p>
+                                    <p className="text-sm text-violet-600 font-medium">Couverture moyenne</p>
+                                    <p className="text-2xl font-bold text-violet-900">{stats.avgCoverage.toFixed(1)}%</p>
                                 </div>
-                                <X className="h-8 w-8 text-red-500" />
-                            </div>
-                        </CardContent>
-                    </Card>
-                </motion.div>
-                
-                <motion.div
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: 0.7 }}
-                >
-                    <Card className="bg-gradient-to-br from-indigo-50 to-indigo-100 border-indigo-200">
-                        <CardContent className="p-4">
-                            <div className="flex items-center justify-between">
-                                <div>
-                                    <p className="text-sm text-indigo-600 font-medium">Total</p>
-                                    <p className="text-2xl font-bold text-indigo-900">{stats.total}</p>
-                                </div>
-                                <Building2 className="h-8 w-8 text-indigo-500" />
+                                <BarChart3 className="h-8 w-8 text-violet-500" />
                             </div>
                         </CardContent>
                     </Card>
@@ -828,12 +806,10 @@ const ImmeublesPage = () => {
                                             </SelectTrigger>
                                             <SelectContent>
                                                 <SelectItem value="all">Tous les statuts</SelectItem>
-                                                <SelectItem value="Non commencé">Non commencé</SelectItem>
-                                                <SelectItem value="À visiter">À visiter</SelectItem>
-                                                <SelectItem value="À terminer">À terminer</SelectItem>
-                                                <SelectItem value="Terminé">Terminé</SelectItem>
-                                                <SelectItem value="RDV Pris">RDV Pris</SelectItem>
-                                                <SelectItem value="Inaccessible">Inaccessible</SelectItem>
+                                                <SelectItem value="Non configuré">Non configuré</SelectItem>
+                                                <SelectItem value="À commencer">À commencer</SelectItem>
+                                                <SelectItem value="En cours">En cours</SelectItem>
+                                                <SelectItem value="Complet">Complet</SelectItem>
                                             </SelectContent>
                                         </Select>
                                     </div>
