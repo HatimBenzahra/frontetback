@@ -847,4 +847,97 @@ export class AssignmentGoalsService {
       commerciaux: activeZone.commerciaux
     };
   }
+
+  async stopAssignment(assignmentId: string) {
+    const assignment = await this.prisma.zoneAssignmentHistory.findUnique({
+      where: { id: assignmentId },
+    });
+
+    if (!assignment) {
+      throw new NotFoundException(`Assignment with ID ${assignmentId} not found`);
+    }
+
+    const now = new Date();
+
+    // Si l'assignation est déjà terminée, ne rien faire
+    if (assignment.endDate && assignment.endDate <= now) {
+      throw new BadRequestException('Assignment is already completed');
+    }
+
+    // Mettre à jour la date de fin pour arrêter l'assignation maintenant
+    const updatedAssignment = await this.prisma.zoneAssignmentHistory.update({
+      where: { id: assignmentId },
+      data: { endDate: now },
+    });
+
+    // Désactiver les assignations directes de commerciaux pour cette zone si c'est une assignation directe
+    if (assignment.assignedToType === 'COMMERCIAL') {
+      await this.prisma.zoneCommercial.updateMany({
+        where: {
+          zoneId: assignment.zoneId,
+          commercialId: assignment.assignedToId,
+          isActive: true,
+        },
+        data: { isActive: false },
+      });
+    }
+    // Pour les assignations d'équipe ou manager, désactiver les commerciaux concernés
+    else if (assignment.assignedToType === 'EQUIPE') {
+      const equipe = await this.prisma.equipe.findUnique({
+        where: { id: assignment.assignedToId },
+        include: { commerciaux: true },
+      });
+
+      if (equipe) {
+        const commercialIds = equipe.commerciaux.map(c => c.id);
+        await this.prisma.zoneCommercial.updateMany({
+          where: {
+            zoneId: assignment.zoneId,
+            commercialId: { in: commercialIds },
+            isActive: true,
+          },
+          data: { isActive: false },
+        });
+      }
+
+      // Réinitialiser l'assignation de l'équipe sur la zone
+      await this.prisma.zone.update({
+        where: { id: assignment.zoneId },
+        data: { equipeId: null },
+      });
+    }
+    else if (assignment.assignedToType === 'MANAGER') {
+      const manager = await this.prisma.manager.findUnique({
+        where: { id: assignment.assignedToId },
+        include: {
+          equipes: {
+            include: { commerciaux: true },
+          },
+        },
+      });
+
+      if (manager) {
+        const commercialIds = manager.equipes.flatMap(equipe => 
+          equipe.commerciaux.map(c => c.id)
+        );
+        
+        await this.prisma.zoneCommercial.updateMany({
+          where: {
+            zoneId: assignment.zoneId,
+            commercialId: { in: commercialIds },
+            isActive: true,
+          },
+          data: { isActive: false },
+        });
+      }
+
+      // Réinitialiser l'assignation du manager sur la zone
+      await this.prisma.zone.update({
+        where: { id: assignment.zoneId },
+        data: { managerId: null },
+      });
+    }
+
+    return updatedAssignment;
+  }
 }

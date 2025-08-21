@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
-import { AlertCircle, Users, Shield, MapPin, CheckCircle2, FilterX, Target, BarChart3, ChevronLeft, ChevronRight, TrendingUp, TrendingDown } from 'lucide-react';
+import { AlertCircle, Users, Shield, MapPin, CheckCircle2, FilterX, Target, BarChart3, ChevronLeft, ChevronRight, TrendingUp, TrendingDown, Trash2, StopCircle } from 'lucide-react';
 import { toast } from 'sonner';
 import { Switch } from '@/components/ui-admin/switch';
 import { Label } from '@/components/ui-admin/label';
@@ -352,6 +352,19 @@ export default function AssignmentGoalsPage() {
     }
   };
 
+  const handleStopAssignment = async (assignmentId: string) => {
+    try {
+      await assignmentGoalsService.stopAssignment(assignmentId);
+      toast.success('Assignation arrêtée avec succès!');
+      // Refresh status
+      const refreshedStatus = await assignmentGoalsService.getAllAssignmentsWithStatus();
+      setAssignmentsStatus(refreshedStatus);
+    } catch (err) {
+      console.error('Erreur lors de l\'arrêt de l\'assignation:', err);
+      toast.error("Erreur lors de l'arrêt de l'assignation.");
+    }
+  };
+
   const handleSelectZone = async (zoneId: string) => {
     const z = zones.find((z) => z.id === zoneId) ?? null;
     setSelectedZone(z);
@@ -505,6 +518,7 @@ export default function AssignmentGoalsPage() {
                                   <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider">Temps restant</th>
                                   <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider">Commerciaux</th>
                                   <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider">Dates</th>
+                                  <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider">Actions</th>
                                 </tr>
                               </thead>
                               <tbody className="divide-y divide-[hsl(var(--winvest-blue-moyen))]/10">
@@ -576,6 +590,29 @@ export default function AssignmentGoalsPage() {
                                           <span>Début: {new Date(assignment.startDate).toLocaleDateString('fr-FR')}</span>
                                           <span>Fin: {new Date(assignment.endDate).toLocaleDateString('fr-FR')}</span>
                                         </div>
+                                      </td>
+                                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
+                                        {assignment.status === 'active' ? (
+                                          <button
+                                            onClick={() => handleStopAssignment(assignment.id)}
+                                            className="flex items-center space-x-1 px-3 py-2 bg-red-100 text-red-700 rounded-lg border border-red-200 hover:bg-red-200 transition-colors duration-200"
+                                            title="Arrêter l'assignation"
+                                          >
+                                            <StopCircle className="h-4 w-4" />
+                                            <span>Arrêter</span>
+                                          </button>
+                                        ) : assignment.status === 'future' ? (
+                                          <button
+                                            onClick={() => handleStopAssignment(assignment.id)}
+                                            className="flex items-center space-x-1 px-3 py-2 bg-orange-100 text-orange-700 rounded-lg border border-orange-200 hover:bg-orange-200 transition-colors duration-200"
+                                            title="Annuler l'assignation future"
+                                          >
+                                            <Trash2 className="h-4 w-4" />
+                                            <span>Annuler</span>
+                                          </button>
+                                        ) : (
+                                          <span className="text-gray-400">-</span>
+                                        )}
                                       </td>
                                     </tr>
                                   );

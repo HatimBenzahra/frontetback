@@ -87,6 +87,11 @@ const getAllAssignmentsWithStatus = async (): Promise<any> => {
   return response.data;
 };
 
+const stopAssignment = async (assignmentId: string): Promise<any> => {
+  const response = await axios.patch(`${API_URL}/stop-assignment/${assignmentId}`);
+  return response.data;
+};
+
 export const assignmentGoalsService = {
   getAssignedZonesForCommercial,
   assignZone,
@@ -100,4 +105,5 @@ export const assignmentGoalsService = {
   getCommercialAssignmentSummary,
   getActiveZoneForCommercial,
   getAllAssignmentsWithStatus,
+  stopAssignment,
 };

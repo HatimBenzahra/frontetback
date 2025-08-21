@@ -1,4 +1,4 @@
-import { Controller, Post, Body, Get, Param, Query } from '@nestjs/common';
+import { Controller, Post, Body, Get, Param, Query, Patch } from '@nestjs/common';
 import { AssignmentGoalsService } from './assignment-goals.service';
 import { AssignmentType } from '@prisma/client';
 
@@ -105,5 +105,10 @@ export class AssignmentGoalsController {
   @Get('admin/assignments-status')
   getAllAssignmentsWithStatus() {
     return this.assignmentGoalsService.getAllAssignmentsWithStatus();
+  }
+
+  @Patch('stop-assignment/:assignmentId')
+  stopAssignment(@Param('assignmentId') assignmentId: string) {
+    return this.assignmentGoalsService.stopAssignment(assignmentId);
   }
 }
