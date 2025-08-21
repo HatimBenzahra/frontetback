@@ -12,17 +12,6 @@ import { type TranscriptionSession, transcriptionHistoryService } from '@/servic
 import { API_BASE_URL } from '@/config';
 import { AdminPageSkeleton } from '@/components/ui-admin/AdminPageSkeleton';
 
-// Styles CSS personnalisés pour améliorer le scroll
-const scrollStyles = `
-  .custom-scroll-area {
-    scrollbar-width: thin;
-    scrollbar-color: #cbd5e1 #f1f5f9;
-  }
-  .custom-scroll-area::-webkit-scrollbar { width: 8px; }
-  .custom-scroll-area::-webkit-scrollbar-track { background: #f1f5f9; border-radius: 4px; }
-  .custom-scroll-area::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
-  .custom-scroll-area::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
-`;
 
 type LiveUpdate = {
   
@@ -45,74 +34,6 @@ type CommercialItem = {
   currentSession?: string;
 };
 
-/* --------------------------- Post-traitement gratuit --------------------------- */
-
-const DICTIONARY_ENTRIES: Array<[RegExp, string]> = [
-  [/winvest/gi, 'Winvest'],
-  [/finanss?or/gi, 'FINANSSOR'],
-  [/orly/gi, 'Orly'],
-  [/rdv/gi, 'RDV'],
-  [/idfa/gi, 'IDFA'],
-];
-
-const FRENCH_NUMBER_MAP: Record<string, string> = {
-  'zéro': '0', 'un': 'un', 'une': '1', 'deux': '2', 'trois': '3', 'quatre': '4', 'cinq': '5',
-  'six': '6', 'sept': '7', 'huit': '8', 'neuf': '9', 'dix': '10', 'onze': '11', 'douze': '12',
-  'treize': '13', 'quatorze': '14', 'quinze': '15', 'seize': '16', 'vingt': '20', 'trente': '30',
-  'quarante': '40', 'cinquante': '50', 'soixante': '60', 'soixante-dix': '70', 'soixante dix': '70',
-  'quatre-vingt': '80', 'quatre vingt': '80', 'quatre-vingt-dix': '90', 'quatre vingt dix': '90',
-};
-
-function applyDictionary(text: string): string {
-  let out = text;
-  for (const [rx, repl] of DICTIONARY_ENTRIES) out = out.replace(rx, repl);
-  return out;
-}
-
-function smartNormalize(text: string): string {
-  let out = text;
-  out = out.replace(/\b(zéro|une?|deux|trois|quatre|cinq|six|sept|huit|neuf|dix|onze|douze|treize|quatorze|quinze|seize|vingt|trente|quarante|cinquante|soixante(?:[- ]dix)?|quatre(?:[- ]vingt(?:[- ]dix)?)?)\b/gi, (m) => {
-    const key = m.toLowerCase();
-    return FRENCH_NUMBER_MAP[key] ?? m;
-  });
-  out = out.replace(/(\d+)\s*(euros?|€)/gi, (_, n) => `${n} €`);
-  out = out.replace(/(\d+)\s*(pour(?:cents?|centage)?)/gi, (_, n) => `${n} %`);
-  out = out.replace(/\s+([?!:;,.])/g, '$1');
-  return out;
-}
-
-function cleanChunk(text: string): string {
-  return text.replace(/\s+/g, ' ').trim();
-}
-
-function smartAppend(prev: string, next: string): string {
-  if (!prev) return next;
-  if (!next) return prev;
-  if (prev.endsWith(next)) return prev;
-  const maxOverlap = Math.min(prev.length, next.length, 100);
-  for (let k = maxOverlap; k >= 10; k -= 1) {
-    const tail = prev.slice(-k);
-    if (next.startsWith(tail)) {
-      return prev + next.slice(k);
-    }
-  }
-  return prev + (/\s$/.test(prev) ? '' : ' ') + next;
-}
-
-function finalizeSentence(text: string): string {
-  if (!text) return text;
-  if (/[.?!…](?:\s|$)/.test(text.slice(-2))) return text;
-  return text + '.';
-}
-
-function correctTextChunk(raw: string): string {
-  const cleaned = cleanChunk(raw);
-  const dicted = applyDictionary(cleaned);
-  const normalized = smartNormalize(dicted);
-  return normalized;
-}
-
-/* --------------------------------- Composant --------------------------------- */
 
 const TranscriptionsPage = () => {
   const socket = useSocket('audio-streaming');
@@ -138,8 +59,6 @@ const TranscriptionsPage = () => {
   const [dateFilter, setDateFilter] = useState<string>('all');
   const [durationFilter, setDurationFilter] = useState<string>('all');
 
-  // Corrections automatiques toujours activées
-  const autoCorrectionsEnabled = true;
   const [liveMaxChars] = useState<number>(8000);
 
   // Debounce partiels
@@ -179,10 +98,10 @@ const TranscriptionsPage = () => {
         const commercials = data.commercials || [];
         setAllCommercials(commercials);
       } else {
-        console.error('❌ Erreur chargement commerciaux DB:', response.status);
+        console.error('Erreur chargement commerciaux DB:', response.status);
       }
     } catch (error) {
-      console.error('❌ Erreur chargement commerciaux DB:', error);
+      console.error('Erreur chargement commerciaux DB:', error);
     }
   }, [BASE]);
 
@@ -250,43 +169,75 @@ const TranscriptionsPage = () => {
     socket.emit('joinRoom', 'audio-streaming');
     socket.emit('request_commercials_status');
 
-    const onUpdate = (data: LiveUpdate) => {
+    const onUpdate = async (data: LiveUpdate) => {
       const cid = data.commercial_id;
       let chunk = data.transcript || '';
-
-      if (autoCorrectionsEnabled) {
-        chunk = correctTextChunk(chunk);
-      } else {
-        chunk = cleanChunk(chunk);
-      }
 
       if (data.door_label || data.door_id) {
         setDoorByCommercial(prev => ({ ...prev, [cid]: data.door_label ?? data.door_id }));
       }
 
-      if (data.is_final) {
-        const finalized = autoCorrectionsEnabled ? finalizeSentence(chunk) : chunk;
-
-        setLiveCommittedByCommercial(prev => {
-          const merged = smartAppend(prev[cid] || '', finalized);
-          const clipped = merged.length > liveMaxChars ? merged.slice(merged.length - liveMaxChars) : merged;
-          return { ...prev, [cid]: clipped };
+      // Traitement centralisé via API backend
+      try {
+        const response = await fetch(`${BASE}/api/transcription-history/process-chunk`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            chunk,
+            committed: liveCommittedByCommercial[cid] || '',
+            isFinal: data.is_final,
+            maxChars: liveMaxChars
+          })
         });
 
-        setLivePartialByCommercial(prev => ({ ...prev, [cid]: '' }));
+        if (response.ok) {
+          const result = await response.json();
+          chunk = result.processedChunk;
 
-        const t = partialTimerRef.current[cid];
-        if (t) {
-          window.clearTimeout(t);
-          delete partialTimerRef.current[cid];
+          if (data.is_final) {
+            setLiveCommittedByCommercial(prev => ({ ...prev, [cid]: result.newCommitted }));
+            setLivePartialByCommercial(prev => ({ ...prev, [cid]: '' }));
+
+            const t = partialTimerRef.current[cid];
+            if (t) {
+              window.clearTimeout(t);
+              delete partialTimerRef.current[cid];
+            }
+          } else {
+            const run = () => {
+              setLivePartialByCommercial(prev => ({ ...prev, [cid]: chunk }));
+            };
+            const prevTimer = partialTimerRef.current[cid];
+            if (prevTimer) window.clearTimeout(prevTimer);
+            partialTimerRef.current[cid] = window.setTimeout(run, 150);
+          }
+        } else {
+          // Fallback: traitement minimal côté client
+          chunk = chunk.replace(/\s+/g, ' ').trim();
+          if (data.is_final) {
+            setLiveCommittedByCommercial(prev => {
+              const merged = (prev[cid] || '') + (prev[cid] ? ' ' : '') + chunk;
+              const clipped = merged.length > liveMaxChars ? merged.slice(merged.length - liveMaxChars) : merged;
+              return { ...prev, [cid]: clipped };
+            });
+            setLivePartialByCommercial(prev => ({ ...prev, [cid]: '' }));
+          } else {
+            const run = () => setLivePartialByCommercial(prev => ({ ...prev, [cid]: chunk }));
+            const prevTimer = partialTimerRef.current[cid];
+            if (prevTimer) window.clearTimeout(prevTimer);
+            partialTimerRef.current[cid] = window.setTimeout(run, 150);
+          }
         }
-      } else {
-        const run = () => {
-          setLivePartialByCommercial(prev => ({ ...prev, [cid]: chunk }));
-        };
-        const prevTimer = partialTimerRef.current[cid];
-        if (prevTimer) window.clearTimeout(prevTimer);
-        partialTimerRef.current[cid] = window.setTimeout(run, 150);
+      } catch (error) {
+        console.error('Erreur traitement chunk:', error);
+        // Fallback simple en cas d'erreur API
+        chunk = chunk.replace(/\s+/g, ' ').trim();
+        if (data.is_final) {
+          setLiveCommittedByCommercial(prev => {
+            const merged = (prev[cid] || '') + (prev[cid] ? ' ' : '') + chunk;
+            return { ...prev, [cid]: merged };
+          });
+        }
       }
     };
 
@@ -304,7 +255,7 @@ const TranscriptionsPage = () => {
       
       // 1. Récupérer le texte live complet (committed + partial) avant de vider
       const fullLocal = getLiveCombinedFor(cid);
-      console.log('📚 Session terminée, texte local complet:', fullLocal.length, 'caractères');
+      console.log('Session terminée, texte local complet:', fullLocal.length, 'caractères');
 
       // 2. Recharger l'historique pour obtenir la version serveur
       if (cid === selectedCommercialId) {
@@ -317,14 +268,14 @@ const TranscriptionsPage = () => {
 
       // 4. Si le serveur a moins de texte, envoyer notre version complète
       if (fullLocal.length > serverText.length + 10) {
-        console.log('📚 Synchronisation nécessaire - Local:', fullLocal.length, 'Serveur:', serverText.length);
+        console.log('Synchronisation nécessaire - Local:', fullLocal.length, 'Serveur:', serverText.length);
         const synced = await transcriptionHistoryService.patchSessionIfShorter(session.id, fullLocal);
         if (synced && cid === selectedCommercialId) {
           // Recharger l'historique après synchronisation
           await loadHistoryForSelected();
         }
       } else {
-        console.log('📚 Pas de synchronisation nécessaire - Local:', fullLocal.length, 'Serveur:', serverText.length);
+        console.log('Pas de synchronisation nécessaire - Local:', fullLocal.length, 'Serveur:', serverText.length);
       }
 
       // 5. Vider les buffers live MAINTENANT uniquement
@@ -344,7 +295,7 @@ const TranscriptionsPage = () => {
       socket.off('transcription_session_completed', onCompleted);
       socket.emit('leaveRoom', 'audio-streaming');
     };
-  }, [socket, selectedCommercialId, loadHistoryForSelected, autoCorrectionsEnabled, liveMaxChars, clearLiveBuffersFor, getLiveCombinedFor, sessions]);
+  }, [socket, selectedCommercialId, loadHistoryForSelected, liveMaxChars, clearLiveBuffersFor, getLiveCombinedFor, sessions]);
 
   // Liste commerciaux fusionnée
   const commercials: CommercialItem[] = useMemo(() => {
@@ -522,7 +473,6 @@ const TranscriptionsPage = () => {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 to-blue-50 p-6">
-      <style>{scrollStyles}</style>
       <div className="max-w-7xl mx-auto space-y-6">
         {/* Header */}
         <div className="flex items-center justify-between">
@@ -759,9 +709,7 @@ const TranscriptionsPage = () => {
                       <ScrollArea className="h-full custom-scroll-area">
                         <div className="space-y-2 pr-4">
                           {sessions.map(session => {
-                            const displayTranscript = autoCorrectionsEnabled
-                              ? correctTextChunk(session.full_transcript || '')
-                              : (session.full_transcript || '');
+                            const displayTranscript = session.full_transcript || '';
 
                             return (
                               <div
@@ -895,7 +843,7 @@ const TranscriptionsPage = () => {
               <Button
                 size="sm"
                 variant="outline"
-                onClick={() => copyText(correctTextChunk(openSession.full_transcript || ''))}
+                onClick={() => copyText(openSession.full_transcript || '')}
                 className="gap-2 bg-blue-50 border-blue-200 text-blue-700 hover:bg-blue-100 transition-colors"
               >
                 <Copy className="h-4 w-4" />
@@ -907,7 +855,7 @@ const TranscriptionsPage = () => {
                 onClick={() =>
                   downloadText(
                     `transcription_${openSession.commercial_name || openSession.commercial_id}_${new Date(openSession.start_time).toISOString().split('T')[0]}.txt`,
-                    correctTextChunk(openSession.full_transcript || '')
+                    openSession.full_transcript || ''
                   )
                 }
                 className="gap-2 bg-green-50 border-green-200 text-green-700 hover:bg-green-100 transition-colors"
@@ -924,9 +872,7 @@ const TranscriptionsPage = () => {
               </h4>
               <div className="max-h-[60vh] overflow-y-auto border border-gray-200 rounded-xl bg-white shadow-inner">
                 <pre className="whitespace-pre-wrap text-sm p-6 leading-relaxed text-gray-700 font-mono">
-                  {autoCorrectionsEnabled
-                    ? correctTextChunk(openSession.full_transcript || 'Aucune transcription disponible')
-                    : (openSession.full_transcript || 'Aucune transcription disponible')}
+                  {openSession.full_transcript || 'Aucune transcription disponible'}
                 </pre>
               </div>
             </div>
