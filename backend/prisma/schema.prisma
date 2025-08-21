@@ -48,6 +48,7 @@ model Commercial {
   requesterRequests  ProspectionRequest[]    @relation("Requester")
   partnerRequests    ProspectionRequest[]    @relation("Partner")
   portes             Porte[]
+  activityFeed       ActivityFeed[]
 
   @@map("commerciaux")
 }
@@ -247,4 +248,22 @@ model GlobalGoal {
   createdAt  DateTime @default(now())
 
   @@map("global_goals")
+}
+
+/// Pile d'activité en temps réel
+model ActivityFeed {
+  id            String              @id @default(uuid())
+  commercialId  String
+  action        ActivityActionType
+  createdAt     DateTime            @default(now())
+  commercial    Commercial          @relation(fields: [commercialId], references: [id])
+
+  @@index([createdAt])
+  @@map("activity_feed")
+}
+
+enum ActivityActionType {
+  CONTRAT_SIGNE
+  RDV_PRIS
+  REFUS_CLIENT
 }

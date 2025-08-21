@@ -2,12 +2,17 @@ import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreatePorteDto } from './dto/create-porte.dto';
 import { UpdatePorteDto } from './dto/update-porte.dto';
-import { PorteStatut } from '@prisma/client';
+import { PorteStatut, ActivityActionType } from '@prisma/client';
 import { EventsGateway } from '../events/events.gateway';
+import { ActivityFeedService } from '../activity-feed/activity-feed.service';
 
 @Injectable()
 export class PorteService {
-  constructor(private prisma: PrismaService, private eventsGateway: EventsGateway) {}
+  constructor(
+    private prisma: PrismaService, 
+    private eventsGateway: EventsGateway,
+    private activityFeedService: ActivityFeedService
+  ) {}
 
   async create(createPorteDto: CreatePorteDto) {
     const newPorte = await this.prisma.porte.create({ data: createPorteDto });
@@ -81,6 +86,35 @@ export class PorteService {
         }
       }
 
+      // Add to ActivityFeed for ALL status changes (even without assigneeId)
+      if (existingPorte.statut !== updatedPorte.statut) {
+        // Determine which commercial to attribute the activity to
+        let commercialId = updatedPorte.assigneeId || existingPorte.assigneeId;
+        
+        // If no commercial assigned, try to find one from the building's prospectors
+        if (!commercialId && existingPorte.immeubleId) {
+          const immeuble = await prisma.immeuble.findUnique({
+            where: { id: existingPorte.immeubleId },
+            include: { prospectors: { take: 1 } } // Get the first prospector
+          });
+          
+          if (immeuble?.prospectors && immeuble.prospectors.length > 0) {
+            commercialId = immeuble.prospectors[0].id;
+          }
+        }
+        
+        if (commercialId) {
+          // Add to activity feed based on new status
+          if (updatedPorte.statut === PorteStatut.CONTRAT_SIGNE) {
+            await this.activityFeedService.addActivity(commercialId, ActivityActionType.CONTRAT_SIGNE);
+          } else if (updatedPorte.statut === PorteStatut.RDV) {
+            await this.activityFeedService.addActivity(commercialId, ActivityActionType.RDV_PRIS);
+          } else if (updatedPorte.statut === PorteStatut.REFUS) {
+            await this.activityFeedService.addActivity(commercialId, ActivityActionType.REFUS_CLIENT);
+          }
+        }
+      }
+
       // Update historical data if status has changed and it's assigned to a commercial
       if (
         existingPorte.statut !== updatedPorte.statut &&
@@ -99,7 +133,7 @@ export class PorteService {
         let nbAbsents = 0;
         let nbCurieux = 0; // Added nbCurieux
 
-        // Determine changes based on new status
+        // Determine changes based on new status (no more activity feed logic here)
         if (updatedPorte.statut === PorteStatut.VISITE) {
           nbPortesVisitees = 1;
         } else if (updatedPorte.statut === PorteStatut.CONTRAT_SIGNE) {

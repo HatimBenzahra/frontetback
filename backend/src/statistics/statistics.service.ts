@@ -623,25 +623,15 @@ export class StatisticsService {
       orderBy: { startDate: 'desc' },
     });
 
-    // Activité récente (dernières 20 entrées)
-    const activiteRecente = await this.prisma.historiqueProspection.findMany({
-      where: {
-        dateProspection: {
-          gte: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000), // Dernière semaine
-        },
-        OR: [
-          { nbContratsSignes: { gt: 0 } },
-          { nbRdvPris: { gt: 0 } },
-          { nbRefus: { gt: 0 } },
-        ],
+    // Activité récente depuis la pile ActivityFeed
+    const activiteRecente = await this.prisma.activityFeed.findMany({
+      take: 50,
+      orderBy: {
+        createdAt: 'desc',
       },
       include: {
         commercial: true,
       },
-      orderBy: {
-        dateProspection: 'desc',
-      },
-      take: 20,
     });
 
     // Données pour les graphiques
@@ -677,11 +667,9 @@ export class StatisticsService {
       activiteRecente: activiteRecente.map((item, index) => ({
         id: index + 1,
         commercial: `${item.commercial.prenom} ${item.commercial.nom}`,
-        action: item.nbContratsSignes > 0 ? 'Nouveau contrat' : 
-                item.nbRdvPris > 0 ? 'RDV pris' : 'Refus client',
-        type: item.nbContratsSignes > 0 ? 'CONTRAT' : 
-              item.nbRdvPris > 0 ? 'RDV' : 'REFUS',
-        temps: this.formatTimeAgo(item.dateProspection),
+        action: this.getActionLabel(item.action),
+        type: this.mapActionToType(item.action),
+        temps: this.formatTimeAgo(item.createdAt),
       })),
       portesTopeesData,
       repartitionManagersData,
@@ -774,6 +762,24 @@ export class StatisticsService {
     } else {
       const days = Math.floor(diffInMinutes / 1440);
       return `il y a ${days} jours`;
+    }
+  }
+
+  private getActionLabel(action: string): string {
+    switch (action) {
+      case 'CONTRAT_SIGNE': return 'Contrat signé';
+      case 'RDV_PRIS': return 'RDV pris';
+      case 'REFUS_CLIENT': return 'Refus client';
+      default: return action;
+    }
+  }
+
+  private mapActionToType(action: string): string {
+    switch (action) {
+      case 'CONTRAT_SIGNE': return 'CONTRAT';
+      case 'RDV_PRIS': return 'RDV';
+      case 'REFUS_CLIENT': return 'REFUS';
+      default: return action;
     }
   }
 
