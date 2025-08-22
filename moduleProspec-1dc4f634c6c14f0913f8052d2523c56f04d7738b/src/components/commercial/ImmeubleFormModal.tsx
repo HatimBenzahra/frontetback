@@ -134,27 +134,6 @@ const ImmeubleFormModal: React.FC<ImmeubleFormModalProps> = ({
         setIsValidating(false);
     };
 
-    // Animation variants
-    const containerVariants = {
-        hidden: { opacity: 0, scale: 0.95 },
-        visible: { 
-            opacity: 1, 
-            scale: 1,
-            transition: {
-                duration: 0.3,
-                ease: "easeOut"
-            }
-        },
-        exit: { 
-            opacity: 0, 
-            scale: 0.95,
-            transition: {
-                duration: 0.2,
-                ease: "easeIn"
-            }
-        }
-    };
-
     const stepVariants = {
         enter: (direction: number) => ({
             x: direction > 0 ? 300 : -300,
