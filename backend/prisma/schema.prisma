@@ -197,7 +197,7 @@ model TranscriptionSession {
   duration_seconds  Int
   building_id       String?
   building_name     String?
-  visited_doors     String[]
+  last_door_label   String?
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
 
