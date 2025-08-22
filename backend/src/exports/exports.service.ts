@@ -483,7 +483,7 @@ export class ExportsService {
       where.OR = [
         { full_transcript: { contains: options.q, mode: 'insensitive' } },
         { building_name: { contains: options.q, mode: 'insensitive' } },
-        { last_door_label: { contains: options.q, mode: 'insensitive' } },
+        { visited_doors: { hasSome: [options.q] } },
       ];
     }
     
@@ -514,7 +514,7 @@ export class ExportsService {
       fin: this.fmtDateTime(s.end_time),
       duree: this.fmtDuration(s.duration_seconds),
       immeuble: s.building_name ?? '',
-      dernierePorte: s.last_door_label ?? '',
+      dernierePorte: s.visited_doors.join(', ') ?? '',
       extrait: (s.full_transcript || '').replace(/\s+/g, ' ').slice(0, 160),
     }));
     
@@ -643,7 +643,7 @@ export class ExportsService {
         parts.push(`- **Date:** ${this.fmtDateTime(session.start_time)}`);
         parts.push(`- **Durée:** ${this.fmtDuration(session.duration_seconds)}`);
         if (session.building_name) parts.push(`- **Immeuble:** ${session.building_name}`);
-        if (session.last_door_label) parts.push(`- **Dernière porte:** ${session.last_door_label}`);
+        if (session.visited_doors && session.visited_doors.length > 0) parts.push(`- **Portes visitées:** ${session.visited_doors.join(', ')}`);
         parts.push(`- **Transcription complète:**`);
         parts.push(`\n\`\`\``);
         parts.push(session.full_transcript || 'Aucune transcription disponible');
@@ -699,7 +699,7 @@ export class ExportsService {
         const end = this.fmtDateTime(s.end_time);
         const duration = this.fmtDuration(s.duration_seconds);
         const building = s.building_name ? `Immeuble: ${s.building_name}` : '';
-        const door = s.last_door_label ? `Porte: ${s.last_door_label}` : '';
+        const door = s.visited_doors && s.visited_doors.length > 0 ? `Portes: ${s.visited_doors.join(', ')}` : '';
 
         doc.fontSize(12).fillColor('#0f172a').text(`Session ${index + 1}`, { continued: true });
         doc.fillColor('#6b7280').text(`  (${start} → ${end}, ${duration})`);

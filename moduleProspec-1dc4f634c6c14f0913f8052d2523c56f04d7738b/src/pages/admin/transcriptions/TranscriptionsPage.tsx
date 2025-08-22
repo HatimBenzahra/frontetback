@@ -747,8 +747,8 @@ const TranscriptionsPage = () => {
                                     </div>
                                     <div className="text-xs text-gray-600 mb-2">
                                       <span className="font-medium">{session.building_name || 'Non défini'}</span>
-                                      {session.last_door_label && (
-                                        <span className="ml-2">- Porte: {session.last_door_label}</span>
+                                      {session.visited_doors && session.visited_doors.length > 0 && (
+                                        <span className="ml-2">- Portes: {session.visited_doors.join(', ')}</span>
                                       )}
                                     </div>
                                     <p className="text-sm text-gray-700 line-clamp-3 group-hover:text-gray-900 transition-colors">
@@ -848,17 +848,23 @@ const TranscriptionsPage = () => {
                 </Badge>
               </div>
 
-              {openSession.last_door_label && (
+              {openSession.visited_doors && openSession.visited_doors.length > 0 && (
                 <div className="space-y-3 col-span-2">
                   <div className="flex items-center gap-2">
                     <div className="p-1.5 bg-indigo-100 rounded-lg">
                       <Target className="h-3 w-3 text-indigo-600" />
                     </div>
-                    <span className="text-sm font-semibold text-gray-700">Dernière porte visitée</span>
+                    <span className="text-sm font-semibold text-gray-700">
+                      {openSession.visited_doors.length === 1 ? 'Porte visitée' : 'Portes visitées'}
+                    </span>
                   </div>
-                  <Badge variant="outline" className="font-bold border-indigo-200 text-indigo-700 bg-indigo-50">
-                    {openSession.last_door_label}
-                  </Badge>
+                  <div className="flex flex-wrap gap-2">
+                    {openSession.visited_doors.map((door, index) => (
+                      <Badge key={index} variant="outline" className="font-bold border-indigo-200 text-indigo-700 bg-indigo-50">
+                        {door}
+                      </Badge>
+                    ))}
+                  </div>
                 </div>
               )}
             </div>

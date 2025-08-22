@@ -12,7 +12,7 @@ export interface TranscriptionSession {
   duration_seconds: number;
   building_id?: string;
   building_name?: string;
-  last_door_label?: string;
+  visited_doors?: string[];
 }
 
 @Injectable()
@@ -62,7 +62,7 @@ export class TranscriptionHistoryService {
           duration_seconds: session.duration_seconds,
           building_id: session.building_id,
           building_name: session.building_name,
-          last_door_label: session.last_door_label,
+          visited_doors: session.visited_doors || [],
         },
         create: {
           id: session.id,
@@ -74,7 +74,7 @@ export class TranscriptionHistoryService {
           duration_seconds: session.duration_seconds,
           building_id: session.building_id,
           building_name: session.building_name,
-          last_door_label: session.last_door_label,
+          visited_doors: session.visited_doors || [],
         },
       });
 
@@ -107,7 +107,7 @@ export class TranscriptionHistoryService {
         duration_seconds: session.duration_seconds,
         building_id: session.building_id,
         building_name: session.building_name,
-        last_door_label: session.last_door_label,
+        visited_doors: session.visited_doors || [],
       }));
       
       console.log('Historique récupéré:', history.length, 'sessions');

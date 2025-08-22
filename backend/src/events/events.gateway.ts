@@ -29,7 +29,7 @@ interface TranscriptionSession {
   duration_seconds: number;
   building_id?: string;
   building_name?: string;
-  last_door_label?: string;
+  visited_doors?: string[];
 }
 
 @WebSocketGateway({
@@ -470,9 +470,15 @@ export class EventsGateway implements OnGatewayConnection, OnGatewayDisconnect {
         // Utiliser la fonction de nettoyage pour éviter les doublons
         session.full_transcript = this.cleanAndDeduplicateTranscript(session.full_transcript, data.transcript);
 
-        // Mettre à jour le label de la dernière porte si fourni
+        // Ajouter la porte à la liste des portes visitées si fourni
         if (data.door_label) {
-          session.last_door_label = data.door_label;
+          if (!session.visited_doors) {
+            session.visited_doors = [];
+          }
+          // N'ajouter que si cette porte n'est pas déjà dans la liste
+          if (!session.visited_doors.includes(data.door_label)) {
+            session.visited_doors.push(data.door_label);
+          }
         }
 
         // Accumuler par porte si fournie

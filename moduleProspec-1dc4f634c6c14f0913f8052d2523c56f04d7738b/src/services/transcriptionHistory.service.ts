@@ -8,7 +8,7 @@ export interface TranscriptionSession {
   duration_seconds: number;
   building_id?: string;
   building_name?: string;
-  last_door_label?: string;
+  visited_doors?: string[];
 }
 
 class TranscriptionHistoryService {
