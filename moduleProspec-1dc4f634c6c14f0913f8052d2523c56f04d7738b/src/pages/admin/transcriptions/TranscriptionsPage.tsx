@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState, useCallback, useRef } from 'react';
 import { useSocket } from '@/hooks/useSocket';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui-admin/card';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui-admin/card';
 import { Button } from '@/components/ui-admin/button';
 import { Input } from '@/components/ui-admin/input';
 import { ScrollArea } from '@/components/ui-admin/scroll-area';
@@ -832,125 +832,142 @@ const TranscriptionsPage = () => {
           setOpenSession(null);
           setOpenSessionBuilding(null);
         }}
-        title="Détails de la session"
-        maxWidth="sm:max-w-4xl"
+        title="Détails de la session de transcription"
+        maxWidth="max-w-4xl"
+        overlayClassName="backdrop-blur-sm bg-black/10"
       >
         {openSession && (
-          <div className="space-y-6 p-6">
-            <div className="grid grid-cols-2 gap-6 p-6 bg-gradient-to-br from-blue-50 to-indigo-50 rounded-xl border border-blue-100">
-              <div className="space-y-3">
-                <div className="flex items-center gap-2">
-                  <div className="p-1.5 bg-blue-100 rounded-lg">
-                    <User className="h-3 w-3 text-blue-600" />
-                  </div>
-                  <span className="text-sm font-semibold text-gray-700">Commercial</span>
-                </div>
-                <p className="text-gray-900 font-bold">
-                  {openSession.commercial_name || openSession.commercial_id}
-                </p>
-              </div>
-
-              <div className="space-y-3">
-                <div className="flex items-center gap-2">
-                  <div className="p-1.5 bg-green-100 rounded-lg">
-                    <Building2 className="h-3 w-3 text-green-600" />
-                  </div>
-                  <span className="text-sm font-semibold text-gray-700">Adresse de l'immeuble</span>
-                </div>
-                <p className="text-gray-900 font-bold">
-                  {loadingBuilding ? (
-                    'Chargement...'
-                  ) : openSessionBuilding ? (
-                    `${openSessionBuilding.adresse}, ${openSessionBuilding.codePostal} ${openSessionBuilding.ville}`
-                  ) : (
-                    openSession.building_name || 'Non défini'
-                  )}
-                </p>
-              </div>
-
-              <div className="space-y-3">
-                <div className="flex items-center gap-2">
-                  <div className="p-1.5 bg-purple-100 rounded-lg">
-                    <Calendar className="h-3 w-3 text-purple-600" />
-                  </div>
-                  <span className="text-sm font-semibold text-gray-700">Période</span>
-                </div>
-                <div className="text-sm text-gray-600">
-                  <div className="font-medium">{formatDate(openSession.start_time)}</div>
-                  <div className="font-medium">→ {formatDate(openSession.end_time)}</div>
-                </div>
-              </div>
-
-              <div className="space-y-3">
-                <div className="flex items-center gap-2">
-                  <div className="p-1.5 bg-orange-100 rounded-lg">
-                    <Clock className="h-3 w-3 text-orange-600" />
-                  </div>
-                  <span className="text-sm font-semibold text-gray-700">Durée</span>
-                </div>
-                <Badge variant="secondary" className="font-bold bg-orange-100 text-orange-800">
-                  {formatDuration(openSession.duration_seconds)}
-                </Badge>
-              </div>
-
-              {openSession.visited_doors && openSession.visited_doors.length > 0 && (
-                <div className="space-y-3 col-span-2">
-                  <div className="flex items-center gap-2">
-                    <div className="p-1.5 bg-indigo-100 rounded-lg">
-                      <Target className="h-3 w-3 text-indigo-600" />
+          <div className="space-y-6">
+            <div className="mb-4 text-sm text-muted-foreground">
+              Détails complets de la session de transcription incluant le commercial, la localisation, la durée et le contenu.
+            </div>
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-base flex items-center gap-2">
+                    <User className="h-4 w-4 text-blue-600" />
+                    Informations générales
+                  </CardTitle>
+                  <CardDescription>Commercial et données de session.</CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="space-y-3">
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm font-semibold text-gray-700">Commercial</span>
                     </div>
-                    <span className="text-sm font-semibold text-gray-700">
-                      {openSession.visited_doors.length === 1 ? 'Porte visitée' : 'Portes visitées'}
-                    </span>
+                    <p className="text-gray-900 font-medium">
+                      {openSession.commercial_name || openSession.commercial_id}
+                    </p>
                   </div>
-                  <div className="flex flex-wrap gap-2">
-                    {openSession.visited_doors.map((door, index) => (
-                      <Badge key={index} variant="outline" className="font-bold border-indigo-200 text-indigo-700 bg-indigo-50">
-                        {door}
-                      </Badge>
-                    ))}
+
+                  <div className="space-y-3">
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm font-semibold text-gray-700">Période</span>
+                    </div>
+                    <div className="text-sm text-gray-600">
+                      <div className="font-medium">{formatDate(openSession.start_time)}</div>
+                      <div className="font-medium">→ {formatDate(openSession.end_time)}</div>
+                    </div>
                   </div>
+
+                  <div className="space-y-3">
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm font-semibold text-gray-700">Durée</span>
+                    </div>
+                    <Badge variant="secondary" className="font-bold bg-orange-100 text-orange-800">
+                      {formatDuration(openSession.duration_seconds)}
+                    </Badge>
+                  </div>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-base flex items-center gap-2">
+                    <Building2 className="h-4 w-4 text-green-600" />
+                    Localisation
+                  </CardTitle>
+                  <CardDescription>Adresse et portes visitées.</CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="space-y-3">
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm font-semibold text-gray-700">Adresse de l'immeuble</span>
+                    </div>
+                    <p className="text-gray-900 font-medium">
+                      {loadingBuilding ? (
+                        'Chargement...'
+                      ) : openSessionBuilding ? (
+                        `${openSessionBuilding.adresse}, ${openSessionBuilding.codePostal} ${openSessionBuilding.ville}`
+                      ) : (
+                        openSession.building_name || 'Non défini'
+                      )}
+                    </p>
+                  </div>
+
+                  {openSession.visited_doors && openSession.visited_doors.length > 0 && (
+                    <div className="space-y-3">
+                      <div className="flex items-center gap-2">
+                        <span className="text-sm font-semibold text-gray-700">
+                          {openSession.visited_doors.length === 1 ? 'Porte visitée' : 'Portes visitées'}
+                        </span>
+                      </div>
+                      <div className="flex flex-wrap gap-2">
+                        {openSession.visited_doors.map((door, index) => (
+                          <Badge key={index} variant="outline" className="font-bold border-indigo-200 text-indigo-700 bg-indigo-50">
+                            {door}
+                          </Badge>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            </div>
+
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-base flex items-center gap-2">
+                  <FileText className="h-4 w-4 text-purple-600" />
+                  Transcription complète
+                </CardTitle>
+                <CardDescription>Contenu intégral de la session de transcription.</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="flex items-center gap-3">
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => copyText(openSession.full_transcript || '')}
+                    className="gap-2 bg-blue-50 border-blue-200 text-blue-700 hover:bg-blue-100 transition-colors"
+                  >
+                    <Copy className="h-4 w-4" />
+                    Copier
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() =>
+                      downloadText(
+                        `transcription_${openSession.commercial_name || openSession.commercial_id}_${new Date(openSession.start_time).toISOString().split('T')[0]}.txt`,
+                        openSession.full_transcript || ''
+                      )
+                    }
+                    className="gap-2 bg-green-50 border-green-200 text-green-700 hover:bg-green-100 transition-colors"
+                  >
+                    <Download className="h-4 w-4" />
+                    Télécharger
+                  </Button>
                 </div>
-              )}
-            </div>
-
-            <div className="flex items-center gap-3 pb-4 border-b border-gray-200">
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={() => copyText(openSession.full_transcript || '')}
-                className="gap-2 bg-blue-50 border-blue-200 text-blue-700 hover:bg-blue-100 transition-colors"
-              >
-                <Copy className="h-4 w-4" />
-                Copier la transcription
-              </Button>
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={() =>
-                  downloadText(
-                    `transcription_${openSession.commercial_name || openSession.commercial_id}_${new Date(openSession.start_time).toISOString().split('T')[0]}.txt`,
-                    openSession.full_transcript || ''
-                  )
-                }
-                className="gap-2 bg-green-50 border-green-200 text-green-700 hover:bg-green-100 transition-colors"
-              >
-                <Download className="h-4 w-4" />
-                Télécharger
-              </Button>
-            </div>
-
-            <div className="space-y-3">
-              <h4 className="font-bold text-gray-900 flex items-center gap-2">
-                <FileText className="h-5 w-5 text-blue-600" />
-                Transcription complète
-              </h4>
-              <div className="max-h-[60vh] overflow-y-auto border border-gray-200 rounded-xl bg-white shadow-inner">
-                <pre className="whitespace-pre-wrap text-sm p-6 leading-relaxed text-gray-700 font-mono">
-                  {openSession.full_transcript || 'Aucune transcription disponible'}
-                </pre>
-              </div>
-            </div>
+                
+                <div className="max-h-[50vh] overflow-y-auto border border-gray-200 rounded-lg bg-gray-50">
+                  <pre className="whitespace-pre-wrap text-sm p-4 leading-relaxed text-gray-700 font-mono">
+                    {openSession.full_transcript || 'Aucune transcription disponible'}
+                  </pre>
+                </div>
+              </CardContent>
+            </Card>
           </div>
         )}
       </Modal>
