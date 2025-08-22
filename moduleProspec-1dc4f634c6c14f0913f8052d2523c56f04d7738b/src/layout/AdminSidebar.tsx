@@ -2,7 +2,6 @@
 import { Button } from '@/components/ui-admin/button';
 import { PanelLeftClose, PanelLeftOpen } from 'lucide-react';
 import { AdminNavContent } from './AdminNavContent';
-import { UserNavMenu } from './UserNavMenu';
 import logo from '@/assets/logo.png';
 
 interface AdminSidebarProps {
@@ -50,10 +49,6 @@ export const AdminSidebar = ({ isCollapsed, toggleSidebar }: AdminSidebarProps) 
         <AdminNavContent isCollapsed={isCollapsed} />
       </div>
 
-      {/* USER MENU */}
-      <div className="p-2 border-t mt-auto shrink-0">
-        <UserNavMenu isCollapsed={isCollapsed} />
-      </div>
     </aside>
   );
 };
