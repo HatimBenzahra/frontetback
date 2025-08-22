@@ -56,6 +56,7 @@ const TranscriptionsPage = () => {
   const [openSession, setOpenSession] = useState<TranscriptionSession | null>(null);
   const [openSessionBuilding, setOpenSessionBuilding] = useState<ImmeubleDetailsFromApi | null>(null);
   const [loadingBuilding, setLoadingBuilding] = useState(false);
+  const [buildingDetails, setBuildingDetails] = useState<Record<string, ImmeubleDetailsFromApi>>({});
 
   // Filtres pour l'historique
   const [buildingFilter, setBuildingFilter] = useState<string>('all');
@@ -144,6 +145,37 @@ const TranscriptionsPage = () => {
   useEffect(() => {
     loadHistoryForSelected();
   }, [loadHistoryForSelected]);
+
+  // Charger les détails des immeubles pour toutes les sessions
+  useEffect(() => {
+    const loadBuildingDetails = async () => {
+      const buildingIds = sessions
+        .map(s => s.building_id)
+        .filter((id): id is string => !!id && !buildingDetails[id]);
+      
+      if (buildingIds.length === 0) return;
+
+      const promises = buildingIds.map(async (buildingId) => {
+        try {
+          const building = await immeubleService.getImmeubleDetails(buildingId);
+          return { buildingId, building };
+        } catch {
+          return { buildingId, building: null };
+        }
+      });
+
+      const results = await Promise.all(promises);
+      const newBuildingDetails = { ...buildingDetails };
+      results.forEach(({ buildingId, building }) => {
+        if (building) {
+          newBuildingDetails[buildingId] = building;
+        }
+      });
+      setBuildingDetails(newBuildingDetails);
+    };
+
+    loadBuildingDetails();
+  }, [sessions, buildingDetails]);
 
   // --- helper: obtenir le texte live combiné pour un commercial ---
   const getLiveCombinedFor = useCallback((cid: string) => {
@@ -358,9 +390,16 @@ const TranscriptionsPage = () => {
   // Dérivés UI
   const uniqueBuildings = useMemo(() => {
     const buildings = new Set<string>();
-    sessions.forEach(s => { if (s.building_name) buildings.add(s.building_name); });
+    sessions.forEach(s => {
+      if (s.building_id && buildingDetails[s.building_id]) {
+        const building = buildingDetails[s.building_id];
+        buildings.add(`${building.adresse}, ${building.codePostal} ${building.ville}`);
+      } else if (s.building_name) {
+        buildings.add(s.building_name);
+      }
+    });
     return Array.from(buildings).sort();
-  }, [sessions]);
+  }, [sessions, buildingDetails]);
 
   const selectedCommitted = selectedCommercialId ? (liveCommittedByCommercial[selectedCommercialId] || '') : '';
   const selectedPartial = selectedCommercialId ? (livePartialByCommercial[selectedCommercialId] || '') : '';
@@ -746,7 +785,13 @@ const TranscriptionsPage = () => {
                                       </Badge>
                                     </div>
                                     <div className="text-xs text-gray-600 mb-2">
-                                      <span className="font-medium">{session.building_name || 'Non défini'}</span>
+                                      <span className="font-medium">
+                                        {session.building_id && buildingDetails[session.building_id] ? (
+                                          `${buildingDetails[session.building_id].adresse}, ${buildingDetails[session.building_id].codePostal} ${buildingDetails[session.building_id].ville}`
+                                        ) : (
+                                          session.building_name || 'Non défini'
+                                        )}
+                                      </span>
                                       {session.visited_doors && session.visited_doors.length > 0 && (
                                         <span className="ml-2">- Portes: {session.visited_doors.join(', ')}</span>
                                       )}
