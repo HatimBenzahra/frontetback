@@ -12,7 +12,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 import { Avatar, AvatarFallback } from "@/components/ui-admin/avatar";
 import { cn } from "@/lib/utils";
 import { buildingStatusMap } from "@/constants/building-status";
-import type { BuildingStatus } from "@/types/types";
+// import type { BuildingStatus } from "@/types/types";
 
 export type Immeuble = {
   id: string;

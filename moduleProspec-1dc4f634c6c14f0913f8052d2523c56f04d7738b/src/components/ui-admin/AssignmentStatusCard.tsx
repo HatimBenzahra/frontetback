@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Clock, Calendar, Users, MapPin, AlertCircle, RefreshCw } from 'lucide-react';
+import { Clock, Calendar, MapPin, AlertCircle, RefreshCw } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui-admin/card';
 import { Badge } from '@/components/ui-admin/badge';
 import { assignmentGoalsService } from '@/services/assignment-goals.service';
