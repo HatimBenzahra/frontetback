@@ -65,15 +65,15 @@ export const createZoneColumns = (isDeleteMode: boolean, onEdit: (zone: Zone) =>
         header: () => <div className="text-right"><Header title="Actions" /></div>,
         cell: ({ row }) => (
             <div className="text-right space-x-2">
-                <Button asChild variant="ghost" size="icon">
-                    <Link to={`/admin/zones/${row.original.id}`} onClick={(e) => e.stopPropagation()}>
-                        <Eye className="h-4 w-4" />
-                        <span className="sr-only">Voir les détails</span>
-                    </Link>
-                </Button>
+                <Link 
+                  to={`/admin/zones/${row.original.id}`} 
+                  onClick={(e) => e.stopPropagation()}
+                  className="inline-flex items-center justify-center h-8 w-8 p-0 rounded-md text-sm font-medium transition-colors hover:bg-accent hover:text-accent-foreground"
+                >
+                  <Eye className="h-4 w-4" />
+                </Link>
                 <Button variant="ghost" size="icon" onClick={(e) => { e.stopPropagation(); onEdit(row.original); }}>
                     <Edit className="h-4 w-4" />
-                    <span className="sr-only">Modifier la zone</span>
                 </Button>
             </div>
         ),

@@ -85,6 +85,21 @@ const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
     const isDisabled = disabled || loading;
     const displayText = loading && loadingText ? loadingText : children;
 
+    // Si asChild est true, on ne rend que les enfants sans wrapper
+    if (asChild) {
+      return (
+        <Comp
+          className={cn(buttonVariants({ variant, size, loading, className }))}
+          ref={ref}
+          disabled={isDisabled}
+          {...props}
+        >
+          {children}
+        </Comp>
+      )
+    }
+
+    // Sinon, on rend le bouton normal avec tous les éléments
     return (
       <Comp
         className={cn(buttonVariants({ variant, size, loading, className }))}

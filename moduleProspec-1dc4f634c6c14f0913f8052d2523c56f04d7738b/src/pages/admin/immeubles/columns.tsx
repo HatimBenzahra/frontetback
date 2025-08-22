@@ -266,17 +266,13 @@ export const createColumns = (
                     <TooltipProvider delayDuration={300}>
                         <Tooltip>
                             <TooltipTrigger asChild>
-                                <Button 
-                                    asChild 
-                                    variant="ghost" 
-                                    size="sm"
-                                    className="h-8 w-8 p-0 cursor-pointer hover:bg-blue-50 hover:text-blue-600 transition-colors rounded-full"
+                                <Link 
+                                  to={`/admin/immeubles/${immeuble.id}`} 
+                                  onClick={(e) => e.stopPropagation()}
+                                  className="inline-flex items-center justify-center h-8 w-8 p-0 rounded-md text-sm font-medium transition-colors hover:bg-accent hover:text-accent-foreground"
                                 >
-                                    <Link to={`/admin/immeubles/${immeuble.id}`} onClick={(e) => e.stopPropagation()}>
-                                        <Eye className="h-4 w-4" />
-                                        <span className="sr-only">Voir les détails de l'immeuble</span>
-                                    </Link>
-                                </Button>
+                                  <Eye className="h-4 w-4" />
+                                </Link>
                             </TooltipTrigger>
                             <TooltipContent side="top">
                                 <p>Voir les détails</p>
@@ -297,7 +293,6 @@ export const createColumns = (
                                     className="h-8 w-8 p-0 cursor-pointer hover:bg-red-50 hover:text-red-600 transition-colors rounded-full"
                                 >
                                     <Trash2 className="h-4 w-4" />
-                                    <span className="sr-only">Supprimer l'immeuble</span>
                                 </Button>
                             </TooltipTrigger>
                             <TooltipContent side="top">

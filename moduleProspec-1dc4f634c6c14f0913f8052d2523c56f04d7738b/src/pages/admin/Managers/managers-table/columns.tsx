@@ -131,12 +131,13 @@ export const getColumns = (isDeleteMode: boolean, onEdit: (manager: Manager) => 
             <div className="text-right space-x-2">
               <Tooltip>
                 <TooltipTrigger asChild>
-                  <Button asChild variant="ghost" className="h-8 w-8 p-0">
-                    <Link to={`/admin/managers/${manager.id}`} onClick={(e) => e.stopPropagation()}>
-                      <Eye className="h-4 w-4" />
-                      <span className="sr-only">Voir les détails</span>
-                    </Link>
-                  </Button>
+                  <Link 
+                    to={`/admin/managers/${manager.id}`} 
+                    onClick={(e) => { e.stopPropagation(); }}
+                    className="inline-flex items-center justify-center h-8 w-8 p-0 rounded-md text-sm font-medium transition-colors hover:bg-accent hover:text-accent-foreground"
+                  >
+                    <Eye className="h-4 w-4" />
+                  </Link>
                 </TooltipTrigger>
                 <TooltipContent><p>Voir les détails</p></TooltipContent>
               </Tooltip>
@@ -145,7 +146,6 @@ export const getColumns = (isDeleteMode: boolean, onEdit: (manager: Manager) => 
                 <TooltipTrigger asChild>
                   <Button variant="ghost" className="h-8 w-8 p-0" onClick={(e) => { e.stopPropagation(); onEdit(manager); }}>
                     <Edit className="h-4 w-4" />
-                    <span className="sr-only">Modifier</span>
                   </Button>
                 </TooltipTrigger>
                 <TooltipContent><p>Modifier</p></TooltipContent>
