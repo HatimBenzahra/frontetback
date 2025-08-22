@@ -43,11 +43,14 @@ class TranscriptionHistoryService {
     }
   }
 
-  async getTranscriptionHistory(commercialId?: string, limit: number = 50): Promise<TranscriptionSession[]> {
+  async getTranscriptionHistory(commercialId?: string, limit: number = 50, buildingId?: string): Promise<TranscriptionSession[]> {
     try {
       const params = new URLSearchParams();
       if (commercialId) {
         params.append('commercial_id', commercialId);
+      }
+      if (buildingId) {
+        params.append('building_id', buildingId);
       }
       params.append('limit', limit.toString());
 

@@ -7,7 +7,7 @@ import {
     RefreshCw, Search, Filter, User, Smile, Frown, 
     Landmark, BellOff, Repeat, MessageSquare, Hash, Edit, Plus, Trash2,
     ChevronDown, ChevronUp, ChevronLeft, ChevronRight,
-    DoorOpen, X
+    DoorOpen, X, Eye, EyeOff
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
@@ -23,6 +23,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { GenericRadialBarChart } from '@/components/ui-admin/GenericRadialBarChart';
 import { immeubleService } from '@/services/immeuble.service';
 import { porteService } from '@/services/porte.service';
+import { transcriptionHistoryService, type TranscriptionSession } from '@/services/transcriptionHistory.service';
 import { useSocket } from '@/hooks/useSocket';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
@@ -187,14 +188,18 @@ const PorteRow = ({
     porte, 
     onEdit, 
     onDelete,
+    onViewTranscription,
     prospectors,
-    isDuoMode 
+    isDuoMode,
+    hasTranscription
 }: { 
     porte: Porte; 
     onEdit: (porte: Porte) => void;
     onDelete: (porte: Porte) => void;
+    onViewTranscription: (porte: Porte) => void;
     prospectors: Prospector[];
     isDuoMode: boolean;
+    hasTranscription: boolean;
 }) => {
     const config = statusConfig[porte.statut];
     const assignee = prospectors.find(p => p.id === porte.assigneeId);
@@ -277,6 +282,19 @@ const PorteRow = ({
 
             {/* Actions */}
             <div className="col-span-2 flex justify-end gap-1">
+                <Button 
+                    variant="outline" 
+                    size="sm" 
+                    onClick={() => onViewTranscription(porte)}
+                    disabled={!hasTranscription}
+                    className={`h-8 w-8 p-0 ${hasTranscription 
+                        ? 'text-blue-600 hover:text-blue-700 hover:bg-blue-50' 
+                        : 'text-gray-400 cursor-not-allowed'
+                    }`}
+                    title={hasTranscription ? "Voir la transcription de cette porte" : "Aucune transcription disponible"}
+                >
+                    {hasTranscription ? <Eye className="h-4 w-4" /> : <EyeOff className="h-4 w-4" />}
+                </Button>
                 <Button 
                     variant="outline" 
                     size="sm" 
@@ -947,6 +965,11 @@ const ImmeubleDetailsPage = () => {
     const [currentPage, setCurrentPage] = useState(1);
     const [itemsPerPage, setItemsPerPage] = useState(10);
     const [isAddingPorte, setIsAddingPorte] = useState(false);
+    
+    // États pour les transcriptions
+    const [transcriptions, setTranscriptions] = useState<TranscriptionSession[]>([]);
+    const [selectedTranscription, setSelectedTranscription] = useState<TranscriptionSession | null>(null);
+    const [isTranscriptionModalOpen, setIsTranscriptionModalOpen] = useState(false);
 
     // Calcul des statistiques
     const buildingStats = useMemo(() => {
@@ -1149,6 +1172,7 @@ const ImmeubleDetailsPage = () => {
     useEffect(() => {
         if (immeubleId) {
             fetchData(immeubleId);
+            fetchTranscriptions(immeubleId);
         }
     }, [immeubleId]);
 
@@ -1195,6 +1219,63 @@ const ImmeubleDetailsPage = () => {
             setImmeuble(null);
         } finally {
             setLoading(false);
+        }
+    };
+
+    const fetchTranscriptions = async (buildingId: string) => {
+        try {
+            // Récupérer les transcriptions filtrées par building_id directement depuis le backend
+            const buildingTranscriptions = await transcriptionHistoryService.getTranscriptionHistory(
+                undefined, // commercialId
+                50, // limit
+                buildingId // buildingId
+            );
+            
+            setTranscriptions(buildingTranscriptions);
+        } catch (error) {
+            console.error("Erreur de chargement des transcriptions:", error);
+            setTranscriptions([]);
+        }
+    };
+
+    // Fonction pour vérifier si une porte a des transcriptions
+    const hasPorteTranscription = (numeroPorte: string): boolean => {
+        return transcriptions.some(t => {
+            if (!t.visited_doors) return false;
+            
+            const hasDirectMatch = t.visited_doors.includes(numeroPorte);
+            // Vérifier aussi le format "Étage X - numeroPorte"
+            const hasFormatMatch = t.visited_doors.some(door => 
+                door.includes(` - ${numeroPorte}`) || door.endsWith(numeroPorte)
+            );
+            
+            return hasDirectMatch || hasFormatMatch;
+        });
+    };
+
+    // Fonction pour récupérer les transcriptions d'une porte spécifique
+    const getPorteTranscriptions = (numeroPorte: string): TranscriptionSession[] => {
+        return transcriptions.filter(t => {
+            if (!t.visited_doors) return false;
+            
+            const hasDirectMatch = t.visited_doors.includes(numeroPorte);
+            const hasFormatMatch = t.visited_doors.some(door => 
+                door.includes(` - ${numeroPorte}`) || door.endsWith(numeroPorte)
+            );
+            
+            return hasDirectMatch || hasFormatMatch;
+        }).sort((a, b) => new Date(b.start_time).getTime() - new Date(a.start_time).getTime());
+    };
+
+    // Fonction pour gérer l'ouverture de la conversation d'une porte
+    const handleViewTranscription = (porte: Porte) => {
+        const porteTranscriptions = getPorteTranscriptions(porte.numeroPorte);
+        if (porteTranscriptions.length > 0) {
+            // Prendre la transcription la plus récente
+            setSelectedTranscription(porteTranscriptions[0]);
+            setIsTranscriptionModalOpen(true);
+        } else {
+            toast.error("Aucune transcription trouvée pour cette porte");
         }
     };
 
@@ -1581,8 +1662,10 @@ const ImmeubleDetailsPage = () => {
                                                                 setPorteToDelete(porte);
                                                                 setIsDeleteModalOpen(true);
                                                             }}
+                                                            onViewTranscription={handleViewTranscription}
                                                             prospectors={immeuble.prospectors}
                                                             isDuoMode={immeuble.prospectingMode === 'DUO'}
+                                                            hasTranscription={hasPorteTranscription(porte.numeroPorte)}
                                                         />
                                                     ))}
                                                 </>
@@ -1590,6 +1673,7 @@ const ImmeubleDetailsPage = () => {
                                             
                                             {/* Ligne d'ajout de porte - toujours affichée */}
                                             <motion.div
+                                                key={`add-porte-${activeFloor}`}
                                                 initial={{ opacity: 0, y: -10 }}
                                                 animate={{ opacity: 1, y: 0 }}
                                                 className={`flex items-center gap-3 p-3 bg-gray-50 rounded-lg border-2 border-dashed border-gray-300 transition-all ${
@@ -1618,7 +1702,7 @@ const ImmeubleDetailsPage = () => {
                                             
                                             {/* Message si aucune porte et filtres actifs */}
                                             {paginatedPortes.length === 0 && (searchTerm || statusFilter !== "ALL") && (
-                                                <div className="p-8 text-center text-muted-foreground">
+                                                <div key={`no-portes-${activeFloor}-${searchTerm}-${statusFilter}`} className="p-8 text-center text-muted-foreground">
                                                     Aucune porte trouvée avec les filtres actuels
                                                 </div>
                                             )}
@@ -1996,6 +2080,126 @@ const ImmeubleDetailsPage = () => {
                         </Button>
                     </div>
                 </div>
+            </Modal>
+
+            {/* Modal pour afficher la transcription de la porte */}
+            <Modal 
+                isOpen={isTranscriptionModalOpen} 
+                onClose={() => {
+                    setIsTranscriptionModalOpen(false);
+                    setSelectedTranscription(null);
+                }}
+                title="Transcription de la porte"
+                maxWidth="max-w-4xl"
+            >
+                {selectedTranscription && (
+                    <div className="space-y-6">
+                        {/* Header avec informations de la porte */}
+                        <div className="p-6 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-xl border border-blue-200 shadow-sm">
+                            <div className="flex items-center gap-4">
+                                <div className="p-3 bg-blue-100 rounded-full">
+                                    <Eye className="h-6 w-6 text-blue-600" />
+                                </div>
+                                <div className="flex-1">
+                                    <h3 className="text-lg font-semibold text-blue-900">
+                                        Conversation - Porte {selectedTranscription.visited_doors?.[0] || 'Inconnue'}
+                                    </h3>
+                                    <p className="text-sm text-blue-700 mt-1">
+                                        Transcription du {new Date(selectedTranscription.start_time).toLocaleString('fr-FR')}
+                                    </p>
+                                </div>
+                                <div className="px-3 py-1 rounded-full text-sm font-medium bg-blue-100 text-blue-800 border border-blue-300">
+                                    <MessageSquare className="h-4 w-4 inline mr-1" />
+                                    Conversation
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Informations de la session */}
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                            <Card>
+                                <CardContent className="p-4">
+                                    <div className="flex items-center gap-2 mb-2">
+                                        <User className="h-4 w-4 text-gray-500" />
+                                        <span className="text-sm font-medium text-gray-700">Commercial</span>
+                                    </div>
+                                    <p className="text-gray-900 font-semibold">
+                                        {selectedTranscription.commercial_name || selectedTranscription.commercial_id}
+                                    </p>
+                                </CardContent>
+                            </Card>
+                            
+                            <Card>
+                                <CardContent className="p-4">
+                                    <div className="flex items-center gap-2 mb-2">
+                                        <DoorOpen className="h-4 w-4 text-gray-500" />
+                                        <span className="text-sm font-medium text-gray-700">Portes visitées</span>
+                                    </div>
+                                    <div className="flex flex-wrap gap-1">
+                                        {selectedTranscription.visited_doors?.map((door, index) => (
+                                            <Badge key={index} variant="outline" className="text-xs">
+                                                {door}
+                                            </Badge>
+                                        )) || <span className="text-gray-500 text-sm">Aucune</span>}
+                                    </div>
+                                </CardContent>
+                            </Card>
+                            
+                            <Card>
+                                <CardContent className="p-4">
+                                    <div className="flex items-center gap-2 mb-2">
+                                        <RefreshCw className="h-4 w-4 text-gray-500" />
+                                        <span className="text-sm font-medium text-gray-700">Durée</span>
+                                    </div>
+                                    <p className="text-gray-900 font-semibold">
+                                        {Math.floor(selectedTranscription.duration_seconds / 60)}min {selectedTranscription.duration_seconds % 60}s
+                                    </p>
+                                </CardContent>
+                            </Card>
+                        </div>
+
+                        {/* Transcription complète */}
+                        <Card>
+                            <CardHeader>
+                                <CardTitle className="flex items-center gap-2">
+                                    <MessageSquare className="h-5 w-5 text-purple-600" />
+                                    Transcription complète
+                                </CardTitle>
+                                <CardDescription>
+                                    Enregistrement de la conversation avec le client
+                                </CardDescription>
+                            </CardHeader>
+                            <CardContent>
+                                <div className="max-h-96 overflow-y-auto border border-gray-200 rounded-lg bg-gray-50 p-4">
+                                    <pre className="whitespace-pre-wrap text-sm leading-relaxed text-gray-700 font-mono">
+                                        {selectedTranscription.full_transcript || 'Aucune transcription disponible'}
+                                    </pre>
+                                </div>
+                            </CardContent>
+                        </Card>
+
+                        {/* Actions */}
+                        <div className="flex justify-end gap-3 pt-4 border-t border-gray-200">
+                            <Button 
+                                variant="outline" 
+                                onClick={() => navigator.clipboard.writeText(selectedTranscription.full_transcript || '')}
+                                className="gap-2"
+                            >
+                                <MessageSquare className="h-4 w-4" />
+                                Copier la transcription
+                            </Button>
+                            <Button 
+                                onClick={() => {
+                                    setIsTranscriptionModalOpen(false);
+                                    setSelectedTranscription(null);
+                                }}
+                                className="bg-blue-600 hover:bg-blue-700"
+                            >
+                                Fermer
+                            </Button>
+                        </div>
+                    </div>
+                )}
             </Modal>
         </div>
     );

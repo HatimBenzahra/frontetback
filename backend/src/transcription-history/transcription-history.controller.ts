@@ -14,11 +14,12 @@ export class TranscriptionHistoryController {
   @Get()
   async getTranscriptionHistory(
     @Query('commercial_id') commercialId?: string,
+    @Query('building_id') buildingId?: string,
     @Query('limit') limit?: string
   ) {
     const limitNumber = limit ? parseInt(limit, 10) : 50;
-    console.log('Récupération historique transcriptions:', { commercialId, limit: limitNumber });
-    const history = await this.transcriptionHistoryService.getHistory(commercialId, limitNumber);
+    console.log('Récupération historique transcriptions:', { commercialId, buildingId, limit: limitNumber });
+    const history = await this.transcriptionHistoryService.getHistory(commercialId, limitNumber, buildingId);
     return { history };
   }
 

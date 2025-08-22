@@ -87,12 +87,23 @@ export class TranscriptionHistoryService {
     }
   }
 
-  async getHistory(commercialId?: string, limit: number = 50): Promise<TranscriptionSession[]> {
+  async getHistory(commercialId?: string, limit: number = 50, buildingId?: string): Promise<TranscriptionSession[]> {
     try {
-      console.log('Récupération historique transcriptions:', { commercialId, limit });
+      console.log('Récupération historique transcriptions:', { commercialId, buildingId, limit });
+      
+      // Construire les conditions de filtrage
+      const whereConditions: any = {};
+      
+      if (commercialId) {
+        whereConditions.commercial_id = commercialId;
+      }
+      
+      if (buildingId) {
+        whereConditions.building_id = buildingId;
+      }
       
       const sessions = await this.prisma.transcriptionSession.findMany({
-        where: commercialId ? { commercial_id: commercialId } : undefined,
+        where: Object.keys(whereConditions).length > 0 ? whereConditions : undefined,
         orderBy: { createdAt: 'desc' },
         take: limit,
       });
@@ -110,7 +121,7 @@ export class TranscriptionHistoryService {
         visited_doors: session.visited_doors || [],
       }));
       
-      console.log('Historique récupéré:', history.length, 'sessions');
+      console.log('Historique récupéré:', history.length, 'sessions', buildingId ? `pour immeuble ${buildingId}` : '');
       return history;
     } catch (error) {
       console.error('Erreur récupération historique:', error);

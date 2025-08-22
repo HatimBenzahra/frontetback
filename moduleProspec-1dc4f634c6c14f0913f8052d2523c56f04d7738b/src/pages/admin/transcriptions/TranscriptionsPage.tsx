@@ -7,7 +7,7 @@ import { ScrollArea } from '@/components/ui-admin/scroll-area';
 import { Modal } from '@/components/ui-admin/Modal';
 import { Badge } from '@/components/ui-admin/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui-admin/select';
-import { RefreshCw, Search, Copy, Download, Calendar, Clock, Building2, User, Filter, Mic, MicOff, Activity, Target, FileText } from 'lucide-react';
+import { RefreshCw, Search, Copy, Download, Calendar, Clock, Building2, User, Filter, Mic, MicOff, Activity, FileText } from 'lucide-react';
 import { type TranscriptionSession, transcriptionHistoryService } from '@/services/transcriptionHistory.service';
 import { immeubleService, type ImmeubleDetailsFromApi } from '@/services/immeuble.service';
 import { API_BASE_URL } from '@/config';
