@@ -9,6 +9,7 @@ import { Badge } from '@/components/ui-admin/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui-admin/select';
 import { RefreshCw, Search, Copy, Download, Calendar, Clock, Building2, User, Filter, Mic, MicOff, Activity, Target, FileText } from 'lucide-react';
 import { type TranscriptionSession, transcriptionHistoryService } from '@/services/transcriptionHistory.service';
+import { immeubleService, type ImmeubleDetailsFromApi } from '@/services/immeuble.service';
 import { API_BASE_URL } from '@/config';
 import { AdminPageSkeleton } from '@/components/ui-admin/AdminPageSkeleton';
 
@@ -53,6 +54,8 @@ const TranscriptionsPage = () => {
   const [sessions, setSessions] = useState<TranscriptionSession[]>([]);
   const [loadingHistory, setLoadingHistory] = useState(false);
   const [openSession, setOpenSession] = useState<TranscriptionSession | null>(null);
+  const [openSessionBuilding, setOpenSessionBuilding] = useState<ImmeubleDetailsFromApi | null>(null);
+  const [loadingBuilding, setLoadingBuilding] = useState(false);
 
   // Filtres pour l'historique
   const [buildingFilter, setBuildingFilter] = useState<string>('all');
@@ -715,7 +718,19 @@ const TranscriptionsPage = () => {
                               <div
                                 key={session.id}
                                 className="p-4 hover:bg-gradient-to-r hover:from-blue-50 hover:to-indigo-50 rounded-xl cursor-pointer transition-all duration-300 group border border-transparent hover:border-blue-200 hover:shadow-md"
-                                onClick={() => setOpenSession(session)}
+                                onClick={() => {
+                                  setOpenSession(session);
+                                  // Charger les détails de l'immeuble si building_id existe
+                                  if (session.building_id) {
+                                    setLoadingBuilding(true);
+                                    immeubleService.getImmeubleDetails(session.building_id)
+                                      .then(building => setOpenSessionBuilding(building))
+                                      .catch(() => setOpenSessionBuilding(null))
+                                      .finally(() => setLoadingBuilding(false));
+                                  } else {
+                                    setOpenSessionBuilding(null);
+                                  }
+                                }}
                               >
                                 <div className="flex items-start gap-3">
                                   <div className="p-1.5 bg-blue-100 rounded-lg flex-shrink-0">
@@ -768,7 +783,10 @@ const TranscriptionsPage = () => {
       {/* Modal détails */}
       <Modal
         isOpen={!!openSession}
-        onClose={() => setOpenSession(null)}
+        onClose={() => {
+          setOpenSession(null);
+          setOpenSessionBuilding(null);
+        }}
         title="Détails de la session"
         maxWidth="sm:max-w-4xl"
       >
@@ -792,10 +810,16 @@ const TranscriptionsPage = () => {
                   <div className="p-1.5 bg-green-100 rounded-lg">
                     <Building2 className="h-3 w-3 text-green-600" />
                   </div>
-                  <span className="text-sm font-semibold text-gray-700">Immeuble</span>
+                  <span className="text-sm font-semibold text-gray-700">Adresse de l'immeuble</span>
                 </div>
                 <p className="text-gray-900 font-bold">
-                  {openSession.building_name || 'Non défini'}
+                  {loadingBuilding ? (
+                    'Chargement...'
+                  ) : openSessionBuilding ? (
+                    `${openSessionBuilding.adresse}, ${openSessionBuilding.codePostal} ${openSessionBuilding.ville}`
+                  ) : (
+                    openSession.building_name || 'Non défini'
+                  )}
                 </p>
               </div>
 
