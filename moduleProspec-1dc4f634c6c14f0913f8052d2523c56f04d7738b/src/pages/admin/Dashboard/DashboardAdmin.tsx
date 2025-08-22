@@ -242,7 +242,11 @@ const DashboardAdmin = () => {
                   <Button 
                     variant="outline" 
                     size="sm" 
-                    className="border-blue-200 text-blue-700 hover:bg-blue-50" 
+                    className="!border-blue-200 !text-blue-700 hover:!bg-blue-50 hover:!border-blue-300 focus:!ring-blue-500" 
+                    style={{
+                      borderColor: '#bfdbfe',
+                      color: '#1d4ed8',
+                    }}
                     onClick={handleManualRefresh}
                     disabled={loading}
                   >

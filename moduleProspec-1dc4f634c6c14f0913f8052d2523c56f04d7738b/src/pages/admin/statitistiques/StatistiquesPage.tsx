@@ -152,10 +152,12 @@ const StatistiquesPage = () => {
                                 <p className="text-blue-100 mt-1">Analysez les performances de votre équipe</p>
                             </div>
                         </div>
-                        <Button 
-                            variant="outline" 
-                            size="sm" 
-                            className="border-white/20 text-white hover:bg-white/10 backdrop-blur-sm"
+                        <button 
+                            className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-lg text-sm font-medium transition-all duration-200 disabled:pointer-events-none disabled:opacity-50 h-8 px-3 text-xs border-2 border-white/30 bg-transparent text-white hover:bg-white/20 hover:border-white/50 backdrop-blur-sm"
+                            style={{
+                                borderColor: 'rgba(255, 255, 255, 0.3)',
+                                color: 'white',
+                            }}
                             onClick={() => {
                                 setLoading(true);
                                 setError(null);
@@ -180,9 +182,9 @@ const StatistiquesPage = () => {
                             }}
                             disabled={loading}
                         >
-                            <RefreshCw className={cn("h-4 w-4 mr-2", loading && "animate-spin")} />
+                            <RefreshCw className={cn("h-4 w-4", loading && "animate-spin")} />
                             {loading ? "Actualisation..." : "Actualiser"}
-                        </Button>
+                        </button>
                     </div>
                 </div>
             </div>
