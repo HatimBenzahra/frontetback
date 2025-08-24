@@ -13,6 +13,7 @@ import { CheckCircle, DoorOpen, MapPin, ZapOff, Percent, Building, ArrowRight, H
 import { GenericBarChart } from '@/components/charts/GenericBarChart';
 import { ZoneFocusMap } from './ZoneFocusMap';
 import { GoalProgressCard } from '@/components/ui-commercial/GoalProgressCard';
+import UpcomingAppointments from '@/components/ui-commercial/UpcomingAppointments';
 import { Skeleton } from '@/components/ui-admin/skeleton';
 
 // --- Types ---
@@ -254,6 +255,9 @@ const CommercialDashboardPage = () => {
                                 startDate={currentStats.objectifStartDate}
                                 endDate={currentStats.objectifEndDate}
                             />
+                        </motion.div>
+                        <motion.div variants={itemVariants}>
+                            <UpcomingAppointments />
                         </motion.div>
                         <motion.div variants={itemVariants}>
                             <Card className="rounded-2xl bg-white border border-slate-200 shadow-sm">

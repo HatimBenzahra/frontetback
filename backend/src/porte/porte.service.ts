@@ -232,4 +232,46 @@ export class PorteService {
 
     return deletedPorte;
   }
+
+  async getRendezVousSemaine(commercialId: string) {
+    const today = new Date();
+    const endOfWeek = new Date(today);
+    endOfWeek.setDate(today.getDate() + 7); // 7 jours à partir d'aujourd'hui
+
+    const rendezVous = await this.prisma.porte.findMany({
+      where: {
+        statut: 'RDV',
+        dateRendezVous: {
+          gte: today,
+          lte: endOfWeek,
+        },
+        OR: [
+          { assigneeId: commercialId },
+          {
+            immeuble: {
+              prospectors: {
+                some: {
+                  id: commercialId
+                }
+              }
+            }
+          }
+        ]
+      },
+      include: {
+        immeuble: {
+          select: {
+            id: true,
+            adresse: true,
+            ville: true,
+          }
+        }
+      },
+      orderBy: {
+        dateRendezVous: 'asc'
+      }
+    });
+
+    return rendezVous;
+  }
 }

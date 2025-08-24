@@ -7,7 +7,7 @@ import {
     RefreshCw, Search, Filter, User, Smile, Frown, 
     Landmark, BellOff, Repeat, MessageSquare, Hash, Edit, Plus, Trash2,
     ChevronDown, ChevronUp, ChevronLeft, ChevronRight,
-    DoorOpen, X, Eye, EyeOff
+    DoorOpen, X, Eye, EyeOff, Calendar, Clock
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
@@ -43,6 +43,7 @@ interface Porte {
     commentaire: string | null;
     etage: number;
     assigneeId: string | null;
+    dateRendezVous?: string | null;
     lastUpdated?: string;
 }
 
@@ -269,7 +270,7 @@ const PorteRow = ({
             </div>
 
             {/* Commentaire */}
-            <div className="col-span-3">
+            <div className="col-span-2">
                 {porte.commentaire ? (
                     <div className="flex items-start gap-2">
                         <MessageSquare className="h-4 w-4 text-muted-foreground mt-1 shrink-0" />
@@ -277,6 +278,23 @@ const PorteRow = ({
                     </div>
                 ) : (
                     <span className="text-sm italic text-muted-foreground">Aucun commentaire</span>
+                )}
+            </div>
+
+            {/* Date de rendez-vous */}
+            <div className="col-span-1">
+                {porte.statut === 'RDV' && porte.dateRendezVous ? (
+                    <div className="flex items-center gap-2">
+                        <Calendar className="h-4 w-4 text-sky-500" />
+                        <span className="text-sm font-medium text-sky-700">
+                            {new Date(porte.dateRendezVous).toLocaleDateString('fr-FR', {
+                                day: '2-digit',
+                                month: '2-digit'
+                            })}
+                        </span>
+                    </div>
+                ) : (
+                    <span className="text-sm text-muted-foreground">-</span>
                 )}
             </div>
 
@@ -336,6 +354,7 @@ const EditPorteModal = ({
     const [status, setStatus] = useState<PorteStatus>(porte?.statut || "NON_VISITE");
     const [commentaire, setCommentaire] = useState(porte?.commentaire || "");
     const [assigneeId, setAssigneeId] = useState(porte?.assigneeId || "");
+    const [dateRendezVous, setDateRendezVous] = useState(porte?.dateRendezVous || "");
     const [loading, setLoading] = useState(false);
     
 
@@ -346,6 +365,7 @@ const EditPorteModal = ({
             setStatus(porte.statut);
             setCommentaire(porte.commentaire || "");
             setAssigneeId(porte.assigneeId || "");
+            setDateRendezVous(porte.dateRendezVous || "");
         }
     }, [porte]);
 
@@ -364,6 +384,7 @@ const EditPorteModal = ({
                 statut: status,
                 commentaire: commentaire || null,
                 assigneeId: assigneeId || null,
+                dateRendezVous: dateRendezVous || null,
             });
         } catch (error) {
             toast.error("Erreur lors de la mise à jour");
@@ -471,6 +492,25 @@ const EditPorteModal = ({
                                     ))}
                                 </SelectContent>
                             </Select>
+                        </div>
+                    )}
+
+                    {/* Date de rendez-vous (si statut RDV) */}
+                    {status === 'RDV' && (
+                        <div className="space-y-2">
+                            <Label className="text-gray-700 font-semibold flex items-center gap-2">
+                                <Calendar className="h-4 w-4 text-gray-500" />
+                                Date du rendez-vous
+                            </Label>
+                            <Input
+                                type="datetime-local"
+                                value={dateRendezVous ? new Date(dateRendezVous).toISOString().slice(0, 16) : ""}
+                                onChange={(e) => setDateRendezVous(e.target.value ? new Date(e.target.value).toISOString() : "")}
+                                className="border-gray-300 focus:border-blue-500 focus:ring-blue-500 h-12"
+                            />
+                            <p className="text-xs text-gray-500">
+                                Sélectionnez la date et l'heure du rendez-vous
+                            </p>
                         </div>
                     )}
 
@@ -1210,6 +1250,7 @@ const ImmeubleDetailsPage = () => {
                     commentaire: p.commentaire || null,
                     etage: p.etage,
                     assigneeId: (p as any).assigneeId || null,
+                    dateRendezVous: (p as any).dateRendezVous || null,
                 })),
                 stats: detailsFromApi.stats,
             };
@@ -1384,6 +1425,7 @@ const ImmeubleDetailsPage = () => {
                 commentaire: newPorte.commentaire,
                 etage: newPorte.etage,
                 assigneeId: (newPorte as any).assigneeId || null,
+                dateRendezVous: (newPorte as any).dateRendezVous || null,
             };
             
             // Mise à jour locale
@@ -1644,7 +1686,8 @@ const ImmeubleDetailsPage = () => {
                                             </button>
                                         </div>
                                         <div className="col-span-2">Repassage</div>
-                                        <div className="col-span-3">Commentaire</div>
+                                        <div className="col-span-2">Commentaire</div>
+                                        <div className="col-span-1">RDV</div>
                                         <div className="col-span-2 text-right">Actions</div>
                                     </div>
 

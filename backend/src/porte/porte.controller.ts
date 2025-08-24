@@ -39,4 +39,9 @@ export class PorteController {
   remove(@Param('id') id: string) {
     return this.porteService.remove(id);
   }
+
+  @Get('rendez-vous-semaine/:commercialId')
+  getRendezVousSemaine(@Param('commercialId') commercialId: string) {
+    return this.porteService.getRendezVousSemaine(commercialId);
+  }
 }

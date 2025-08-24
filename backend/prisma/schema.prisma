@@ -107,6 +107,7 @@ model Porte {
   statut      PorteStatut @default(NON_VISITE)
   passage     Int
   commentaire String?
+  dateRendezVous DateTime?
   immeubleId  String
   immeuble    Immeuble    @relation(fields: [immeubleId], references: [id])
   assigneeId  String?

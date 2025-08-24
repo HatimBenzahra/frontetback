@@ -10,7 +10,13 @@ export type PorteFromAPI = {
   statut: string;
   passage: number;
   commentaire: string | null;
+  dateRendezVous: string | null;
   immeubleId: string;
+  immeuble?: {
+    id: string;
+    adresse: string;
+    ville: string;
+  };
 };
 
 type CreatePortePayload = {
@@ -19,6 +25,7 @@ type CreatePortePayload = {
   statut: string;
   passage: number;
   commentaire?: string;
+  dateRendezVous?: string;
   immeubleId: string;
 };
 
@@ -48,10 +55,16 @@ const deletePorte = async (id: string): Promise<void> => {
   await axios.delete(`${API_URL}/${id}`);
 };
 
+const getRendezVousSemaine = async (commercialId: string): Promise<PorteFromAPI[]> => {
+  const response = await axios.get(`${API_URL}/rendez-vous-semaine/${commercialId}`);
+  return response.data;
+};
+
 export const porteService = {
   getPortes,
   getPorteDetails,
   createPorte,
   updatePorte,
   deletePorte,
+  getRendezVousSemaine,
 };

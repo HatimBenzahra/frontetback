@@ -5,11 +5,12 @@ import PageSkeleton from '@/components/PageSkeleton';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui-admin/card';
 import { type Porte, statusConfig, statusList, type PorteStatus } from './doors-config';
-import { ArrowLeft, Building, DoorOpen, Repeat, Trash2, Plus, ChevronDown, Mic, MicOff } from 'lucide-react';
+import { ArrowLeft, Building, DoorOpen, Repeat, Trash2, Plus, ChevronDown, Mic, MicOff, Calendar as CalendarIcon, ArrowLeft as ArrowLeftIcon } from 'lucide-react';
 import { Modal } from '@/components/ui-admin/Modal';
 import { Input } from '@/components/ui-admin/input';
 import { Button } from '@/components/ui-admin/button';
 import { Label } from '@/components/ui-admin/label';
+import { Calendar } from '@/components/ui-admin/calendar';
 import { immeubleService, type ImmeubleDetailsFromApi } from '@/services/immeuble.service';
 import { porteService } from '@/services/porte.service';
 import { statisticsService } from '@/services/statistics.service';
@@ -318,6 +319,8 @@ const ProspectingDoorsPage = () => {
     const [isConfirmDeleteOpen, setIsConfirmDeleteOpen] = useState(false);
     const [doorToDeleteId, setDoorToDeleteId] = useState<string | null>(null);
     const [openFloor, setOpenFloor] = useState<number | null>(1);
+    const [selectedDate, setSelectedDate] = useState<Date | undefined>(undefined);
+    const [showCalendar, setShowCalendar] = useState(false);
 
     // Ref pour le debounce des stats
     const updateStatsTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -360,6 +363,7 @@ const ProspectingDoorsPage = () => {
                             newPorte = {
                                 ...updatedPorte,
                                 numero: updatedPorte.numeroPorte || updatedPorte.numero || p.numero,
+                                dateRendezVous: updatedPorte.dateRendezVous || p.dateRendezVous,
                             };
                             hasStatusChanged = oldStatus !== updatedPorte.statut;
                         } else if (updates) {
@@ -368,6 +372,7 @@ const ProspectingDoorsPage = () => {
                                 ...p,
                                 ...updates,
                                 numero: updates.numeroPorte || p.numero,
+                                dateRendezVous: updates.dateRendezVous || p.dateRendezVous,
                             };
                             hasStatusChanged = updates.statut && oldStatus !== updates.statut;
                         }
@@ -406,6 +411,7 @@ const ProspectingDoorsPage = () => {
                 commentaire: data.porte.commentaire || null,
                 passage: data.porte.passage,
                 etage: data.porte.etage,
+                dateRendezVous: data.porte.dateRendezVous || null,
             };
             setPortes(prevPortes => [...prevPortes, newPorte]);
         });
@@ -509,6 +515,7 @@ const ProspectingDoorsPage = () => {
                     commentaire: p.commentaire || null,
                     passage: p.passage,
                     etage: p.etage ?? 1,
+                    dateRendezVous: p.dateRendezVous || null,
                 }));
                 setPortes(portesFromAPI);
             } else {
@@ -533,11 +540,14 @@ const ProspectingDoorsPage = () => {
         if (doorToEdit) {
             setEditingDoor(doorToEdit);
             setIsModalOpen(true);
+            setShowCalendar(false);
             // setActiveDoorId(doorId);
             activeDoorIdRef.current = doorId;
             // Construire le label de la porte (Étage X - porte.numero)
             const doorLabel = `Étage ${doorToEdit.etage} - ${doorToEdit.numero}`;
             activeDoorLabelRef.current = doorLabel;
+            // Initialiser la date de rendez-vous si elle existe
+            setSelectedDate(doorToEdit.dateRendezVous ? new Date(doorToEdit.dateRendezVous) : undefined);
         }
     }, [portes]);
 
@@ -557,6 +567,7 @@ const ProspectingDoorsPage = () => {
                 statut: updatedDoor.statut,
                 commentaire: updatedDoor.commentaire || '',
                 passage: newPassage,
+                dateRendezVous: selectedDate ? selectedDate.toISOString() : undefined,
             });
 
             const finalUpdatedPorte = { ...updatedDoor, passage: newPassage };
@@ -612,7 +623,8 @@ const ProspectingDoorsPage = () => {
                 etage: newPorteFromApi.etage,
                 statut: newPorteFromApi.statut as PorteStatus,
                 passage: newPorteFromApi.passage,
-                commentaire: newPorteFromApi.commentaire
+                commentaire: newPorteFromApi.commentaire,
+                dateRendezVous: newPorteFromApi.dateRendezVous
             };
             setPortes([...portes, newPorte]);
             
@@ -855,6 +867,18 @@ const ProspectingDoorsPage = () => {
                                                                                     </span>
                                                                                 </div>
                                                                             )}
+                                                                            {porte.statut === 'RDV' && porte.dateRendezVous && (
+                                                                                <div className="flex items-center justify-between rounded-lg border p-2 bg-sky-50">
+                                                                                    <span className="font-medium text-sm text-sky-700">Rendez-vous</span>
+                                                                                    <span className="font-bold text-sm text-sky-800">
+                                                                                        {new Date(porte.dateRendezVous).toLocaleDateString('fr-FR', {
+                                                                                            day: '2-digit',
+                                                                                            month: '2-digit',
+                                                                                            year: 'numeric'
+                                                                                        })}
+                                                                                    </span>
+                                                                                </div>
+                                                                            )}
                                                                         </CardContent>
                                                                     </div>
                                                                 </Card>
@@ -903,15 +927,64 @@ const ProspectingDoorsPage = () => {
                 </button>
 
                 {editingDoor && (
-                    <Modal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} title={`Mettre à jour: ${editingDoor.numero}`} maxWidth="sm:max-w-2xl">
-                        <div className="p-6 space-y-6">
-                            <div className="grid gap-2">
-                                <Label htmlFor="numero">Numéro de Porte</Label>
-                                <Input id="numero" value={editingDoor.numero || ''} onChange={(e) => setEditingDoor({ ...editingDoor, numero: e.target.value })} />
+                    <Modal isOpen={isModalOpen} onClose={() => {
+                        setIsModalOpen(false);
+                        setSelectedDate(undefined);
+                        setShowCalendar(false);
+                    }} title={`Mettre à jour: ${editingDoor.numero}`} maxWidth="sm:max-w-lg">
+                        <div className="relative overflow-hidden">
+                            {/* Header avec navigation */}
+                            <div className="flex items-center justify-between p-4 border-b border-slate-200">
+                                <div className="flex items-center gap-3">
+                                    {showCalendar && (
+                                        <Button
+                                            variant="ghost"
+                                            size="sm"
+                                            onClick={() => setShowCalendar(false)}
+                                            className="p-2 h-8 w-8"
+                                        >
+                                            <ArrowLeftIcon className="h-4 w-4" />
+                                        </Button>
+                                    )}
+                                    <div>
+                                        <h3 className="font-semibold text-slate-900">
+                                            {showCalendar ? 'Choisir une date' : 'Sélectionner un statut'}
+                                        </h3>
+                                        <p className="text-sm text-slate-500">
+                                            {showCalendar ? 'Sélectionnez la date du rendez-vous' : 'Choisissez le statut de la porte'}
+                                        </p>
+                                    </div>
+                                </div>
                             </div>
+
+                            {/* Contenu principal avec animation */}
+                            <div className="p-4">
+                                <AnimatePresence mode="wait">
+                                    {!showCalendar ? (
+                                        // Vue des statuts
+                                        <motion.div
+                                            key="status-view"
+                                            initial={{ opacity: 0, x: -20 }}
+                                            animate={{ opacity: 1, x: 0 }}
+                                            exit={{ opacity: 0, x: 20 }}
+                                            transition={{ duration: 0.3, ease: "easeInOut" }}
+                                            className="space-y-4"
+                                        >
+                                            {/* Numéro de porte */}
                             <div className="grid gap-2">
-                                <Label>Statut</Label>
-                                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                                                <Label htmlFor="numero" className="text-sm font-medium text-slate-700">Numéro de Porte</Label>
+                                                <Input 
+                                                    id="numero" 
+                                                    value={editingDoor.numero || ''} 
+                                                    onChange={(e) => setEditingDoor({ ...editingDoor, numero: e.target.value })}
+                                                    className="h-10"
+                                                />
+                            </div>
+
+                                            {/* Grille des statuts */}
+                            <div className="grid gap-2">
+                                                <Label className="text-sm font-medium text-slate-700">Statut</Label>
+                                                <div className="grid grid-cols-2 gap-2">
                                     {statusList.map((status) => {
                                         const config = statusConfig[status];
                                         const isSelected = editingDoor.statut === status;
@@ -919,12 +992,17 @@ const ProspectingDoorsPage = () => {
                                             <button
                                                 key={status}
                                                 type="button"
-                                                onClick={() => setEditingDoor({ ...editingDoor, statut: status })}
+                                                                onClick={() => {
+                                                                    setEditingDoor({ ...editingDoor, statut: status });
+                                                                    if (status === 'RDV') {
+                                                                        setShowCalendar(true);
+                                                                    }
+                                                                }}
                                                 className={cn(
-                                                    "w-full py-2.5 px-2 text-sm font-semibold rounded-lg flex items-center justify-center gap-2 transition-all duration-200 border",
+                                                                    "w-full py-3 px-3 text-sm font-semibold rounded-xl flex items-center justify-center gap-2 transition-all duration-200 border-2",
                                                     isSelected
-                                                        ? `${config.buttonClassName} text-white shadow-md ring-2 ring-offset-2 ring-blue-500`
-                                                        : `${config.badgeClassName} hover:shadow-sm hover:brightness-105`
+                                                                        ? `${config.buttonClassName} text-white shadow-lg ring-2 ring-offset-2 ring-blue-500 border-transparent`
+                                                                        : `${config.badgeClassName} hover:shadow-md hover:scale-105 border-transparent`
                                                 )}
                                             >
                                                 <config.icon className="h-4 w-4" />
@@ -934,19 +1012,183 @@ const ProspectingDoorsPage = () => {
                                     })}
                                 </div>
                             </div>
+
+                                            {/* Commentaire */}
                             <div className="grid gap-2">
-                                <Label htmlFor="commentaire">Commentaire</Label>
-                                <Input id="commentaire" value={editingDoor.commentaire || ''} onChange={(e) => setEditingDoor({ ...editingDoor, commentaire: e.target.value })} placeholder="Ajouter un commentaire..." />
+                                                <Label htmlFor="commentaire" className="text-sm font-medium text-slate-700">Commentaire</Label>
+                                                <Input 
+                                                    id="commentaire" 
+                                                    value={editingDoor.commentaire || ''} 
+                                                    onChange={(e) => setEditingDoor({ ...editingDoor, commentaire: e.target.value })} 
+                                                    placeholder="Ajouter un commentaire..." 
+                                                    className="h-10"
+                                                />
                             </div>
+                                        </motion.div>
+                                    ) : (
+                                        // Vue du calendrier
+                                        <motion.div
+                                            key="calendar-view"
+                                            initial={{ opacity: 0, x: 20 }}
+                                            animate={{ opacity: 1, x: 0 }}
+                                            exit={{ opacity: 0, x: -20 }}
+                                            transition={{ duration: 0.3, ease: "easeInOut" }}
+                                            className="space-y-4"
+                                        >
+                                            {/* Sélecteur rapide pour les prochains jours */}
+                                            <div className="grid gap-2">
+                                                <Label className="text-sm font-medium text-slate-700">Sélection rapide</Label>
+                                                <div className="grid grid-cols-3 gap-2">
+                                                    {[1, 2, 3, 7, 14, 30].map((days) => {
+                                                        const date = new Date();
+                                                        date.setDate(date.getDate() + days);
+                                                        const isSelected = selectedDate && 
+                                                            selectedDate.toDateString() === date.toDateString();
+                                                        return (
+                                                            <button
+                                                                key={days}
+                                                                onClick={() => setSelectedDate(date)}
+                                                                className={cn(
+                                                                    "p-3 rounded-xl border-2 text-center transition-all duration-200 min-h-[60px] flex flex-col justify-center",
+                                                                    isSelected
+                                                                        ? "border-blue-500 bg-blue-50 text-blue-700 font-semibold shadow-md"
+                                                                        : "border-slate-200 bg-white hover:border-blue-300 hover:bg-blue-50"
+                                                                )}
+                                                            >
+                                                                <div className="text-xs font-medium text-slate-600">
+                                                                    {days === 1 ? "Demain" : `+${days}j`}
                         </div>
-                        <div className="flex justify-end gap-3 p-6 bg-slate-50 border-t border-slate-200 rounded-b-xl">
-                            <Button type="button" variant="secondary" onClick={() => setIsModalOpen(false)}>Annuler</Button>
-                            <Button type="submit" onClick={() => handleSaveDoor(editingDoor)} className="bg-blue-600 text-white hover:bg-blue-700" disabled={isSaving}>
+                                                                <div className="text-sm font-bold">
+                                                                    {date.toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit' })}
+                                                                </div>
+                                                            </button>
+                                                        );
+                                                    })}
+                                                </div>
+                                            </div>
+
+                                            {/* Séparateur */}
+                                            <div className="relative">
+                                                <div className="absolute inset-0 flex items-center">
+                                                    <span className="w-full border-t border-slate-200" />
+                                                </div>
+                                                <div className="relative flex justify-center text-xs uppercase">
+                                                    <span className="bg-white px-3 text-slate-500 font-medium">Ou choisir une date</span>
+                                                </div>
+                                            </div>
+
+                                            {/* Calendrier moderne et responsive */}
+                                            <div className="grid gap-2">
+                                                <Label className="text-sm font-medium text-slate-700">Calendrier</Label>
+                                                <div className="flex justify-center">
+                                                    <div className="border border-slate-200 rounded-xl p-3 bg-white shadow-sm">
+                                                        <Calendar
+                                                            mode="single"
+                                                            selected={selectedDate}
+                                                            onSelect={setSelectedDate}
+                                                            className="rounded-md"
+                                                            classNames={{
+                                                                root: "w-auto",
+                                                                months: "w-auto",
+                                                                month: "w-auto",
+                                                                caption: "flex justify-center pt-1 relative items-center text-base font-bold text-slate-800 mb-3",
+                                                                caption_label: "text-base font-bold text-slate-800",
+                                                                nav: "space-x-1 flex items-center",
+                                                                nav_button: cn(
+                                                                    "h-8 w-8 bg-transparent p-0 opacity-50 hover:opacity-100 hover:bg-slate-100 rounded-lg transition-all duration-200"
+                                                                ),
+                                                                nav_button_previous: "absolute left-1",
+                                                                nav_button_next: "absolute right-1",
+                                                                table: "w-auto border-collapse space-y-1",
+                                                                head_row: "flex mb-2",
+                                                                head_cell: "text-slate-600 rounded-md w-8 sm:w-9 font-semibold text-xs",
+                                                                row: "flex w-full mt-1",
+                                                                cell: cn(
+                                                                    "relative p-0 text-center text-sm focus-within:relative focus-within:z-20 [&:has([aria-selected])]:bg-slate-50 first:[&:has([aria-selected])]:rounded-l-md last:[&:has([aria-selected])]:rounded-r-md"
+                                                                ),
+                                                                day: cn(
+                                                                    "h-8 w-8 sm:h-9 sm:w-9 p-0 font-normal aria-selected:opacity-100 hover:bg-slate-100 rounded-lg transition-all duration-200 text-sm"
+                                                                ),
+                                                                day_selected: "bg-blue-600 text-white hover:bg-blue-700 hover:text-white focus:bg-blue-600 focus:text-white",
+                                                                day_today: "bg-blue-100 text-blue-800 font-semibold",
+                                                                day_outside: "text-slate-400 opacity-50",
+                                                                day_disabled: "text-slate-400 opacity-50 cursor-not-allowed",
+                                                                day_range_middle: "aria-selected:bg-slate-100 aria-selected:text-slate-800",
+                                                                day_hidden: "invisible",
+                                                            }}
+                                                            disabled={(date) => date < new Date()}
+                                                        />
+                                                    </div>
+                                                </div>
+                                            </div>
+
+                                            {/* Affichage de la date sélectionnée */}
+                                            {selectedDate && (
+                                                <motion.div
+                                                    initial={{ opacity: 0, y: 10 }}
+                                                    animate={{ opacity: 1, y: 0 }}
+                                                    className="bg-blue-50 border border-blue-200 rounded-xl p-4"
+                                                >
+                                                    <div className="flex items-center gap-3">
+                                                        <div className="flex-shrink-0">
+                                                            <div className="w-12 h-12 bg-blue-600 rounded-full flex items-center justify-center">
+                                                                <CalendarIcon className="w-6 h-6 text-white" />
+                                                            </div>
+                                                        </div>
+                                                        <div className="flex-1">
+                                                            <div className="text-sm font-bold text-blue-800">
+                                                                {selectedDate.toLocaleDateString('fr-FR', {
+                                                                    weekday: 'long',
+                                                                    day: 'numeric',
+                                                                    month: 'long',
+                                                                    year: 'numeric'
+                                                                })}
+                                                            </div>
+                                                            <div className="text-xs text-blue-600">
+                                                                Rendez-vous confirmé
+                                                            </div>
+                                                        </div>
+                                                        <button
+                                                            onClick={() => setSelectedDate(undefined)}
+                                                            className="flex-shrink-0 p-2 text-blue-600 hover:bg-blue-100 rounded-full transition-colors"
+                                                        >
+                                                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                                                            </svg>
+                                                        </button>
+                                                    </div>
+                                                </motion.div>
+                                            )}
+                                        </motion.div>
+                                    )}
+                                </AnimatePresence>
+                            </div>
+
+                            {/* Footer avec boutons */}
+                            <div className="flex justify-end gap-3 p-4 bg-slate-50 border-t border-slate-200">
+                                <Button 
+                                    type="button" 
+                                    variant="secondary" 
+                                    onClick={() => {
+                                        setIsModalOpen(false);
+                                        setSelectedDate(undefined);
+                                        setShowCalendar(false);
+                                    }}
+                                >
+                                    Annuler
+                                </Button>
+                                <Button 
+                                    type="submit" 
+                                    onClick={() => handleSaveDoor(editingDoor)} 
+                                    className="bg-blue-600 text-white hover:bg-blue-700" 
+                                    disabled={isSaving}
+                                >
                                 {isSaving && <Repeat className="mr-2 h-4 w-4 animate-spin" />} 
                                 {isSaving ? "Enregistrement..." : "Enregistrer"}
                             </Button>
                         </div>
-                        {saveError && <p className="text-red-500 text-sm mt-2 px-6 pb-4">{saveError}</p>}
+                        </div>
+                        {saveError && <p className="text-red-500 text-sm mt-2 px-4 pb-4">{saveError}</p>}
                     </Modal>
                 )}
 

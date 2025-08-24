@@ -15,6 +15,7 @@ export type Porte = {
   statut: PorteStatus;
   commentaire: string | null;
   passage: number;
+  dateRendezVous?: string | null;
 };
 
 export const statusConfig: Record<PorteStatus, { 

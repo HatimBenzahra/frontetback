@@ -1,5 +1,5 @@
 import { PorteStatut } from '@prisma/client';
-import { IsEnum, IsNotEmpty, IsNumber, IsOptional, IsString } from 'class-validator';
+import { IsEnum, IsNotEmpty, IsNumber, IsOptional, IsString, IsDateString } from 'class-validator';
 
 export class CreatePorteDto {
   @IsString()
@@ -25,4 +25,8 @@ export class CreatePorteDto {
   @IsString()
   @IsNotEmpty()
   immeubleId: string;
+
+  @IsDateString()
+  @IsOptional()
+  dateRendezVous?: string;
 }
