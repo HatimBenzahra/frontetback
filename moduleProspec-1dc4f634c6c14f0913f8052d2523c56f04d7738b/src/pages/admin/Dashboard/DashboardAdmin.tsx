@@ -28,6 +28,7 @@ import { CommercialProgressCard } from '@/components/ui-admin/CommercialProgress
 import { CountdownCard } from '@/components/ui-admin/CountdownCard';
 import { AssignmentStatusCard } from '@/components/ui-admin/AssignmentStatusCard';
 import { AdminPageSkeleton } from '@/components/ui-admin/AdminPageSkeleton';
+import RendezVousAdmin from '@/components/ui-admin/RendezVousAdmin';
 
 // --- Types pour les données du tableau de bord ---
 type ActiviteRecenteItem = {
@@ -266,6 +267,11 @@ const DashboardAdmin = () => {
                 </div>
             </section>
             )}
+            
+            {/* Section Rendez-vous de la semaine */}
+            <section className="animate-in fade-in-0 [animation-delay:250ms] duration-500">
+                <RendezVousAdmin />
+            </section>
             
             {settings.statsVisibility.showManagerStats && (
             <section>

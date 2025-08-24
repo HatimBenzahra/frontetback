@@ -12,11 +12,18 @@ export type PorteFromAPI = {
   commentaire: string | null;
   dateRendezVous: string | null;
   immeubleId: string;
+  assigneeId?: string | null;
   immeuble?: {
     id: string;
     adresse: string;
     ville: string;
   };
+  assignee?: {
+    id: string;
+    nom: string;
+    prenom: string;
+    email: string;
+  } | null;
 };
 
 type CreatePortePayload = {
@@ -60,6 +67,11 @@ const getRendezVousSemaine = async (commercialId: string): Promise<PorteFromAPI[
   return response.data;
 };
 
+const getAllRendezVousSemaine = async (): Promise<PorteFromAPI[]> => {
+  const response = await axios.get(`${API_URL}/admin/rendez-vous-semaine`);
+  return response.data;
+};
+
 export const porteService = {
   getPortes,
   getPorteDetails,
@@ -67,4 +79,5 @@ export const porteService = {
   updatePorte,
   deletePorte,
   getRendezVousSemaine,
+  getAllRendezVousSemaine,
 };

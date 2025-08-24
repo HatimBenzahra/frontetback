@@ -44,4 +44,9 @@ export class PorteController {
   getRendezVousSemaine(@Param('commercialId') commercialId: string) {
     return this.porteService.getRendezVousSemaine(commercialId);
   }
+
+  @Get('admin/rendez-vous-semaine')
+  getAllRendezVousSemaine() {
+    return this.porteService.getAllRendezVousSemaine();
+  }
 }
