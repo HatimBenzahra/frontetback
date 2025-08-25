@@ -153,7 +153,7 @@ const StatistiquesPage = () => {
                             </div>
                         </div>
                         <button 
-                            className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-lg text-sm font-medium transition-all duration-200 disabled:pointer-events-none disabled:opacity-50 h-8 px-3 text-xs border-2 border-white/30 bg-transparent text-white hover:bg-white/20 hover:border-white/50 backdrop-blur-sm"
+                            className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-lg font-medium transition-all duration-200 disabled:pointer-events-none disabled:opacity-50 h-8 px-3 text-xs border-2 border-white/30 bg-transparent text-white hover:bg-white/20 hover:border-white/50 backdrop-blur-sm"
                             style={{
                                 borderColor: 'rgba(255, 255, 255, 0.3)',
                                 color: 'white',
