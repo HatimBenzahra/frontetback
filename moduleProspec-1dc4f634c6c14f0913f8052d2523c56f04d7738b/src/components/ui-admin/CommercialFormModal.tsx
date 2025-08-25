@@ -1,5 +1,4 @@
 import React, { useState } from 'react';
-import { motion } from 'framer-motion';
 import { Modal, ModalContent, ModalActions } from './Modal';
 import { ModernForm } from './ModernForm';
 import { Button } from './button';
@@ -217,13 +216,12 @@ export const CommercialFormModal: React.FC<CommercialFormModalProps> = ({
         <ModernForm
           steps={formSteps}
           initialData={initialData}
-          onSubmit={handleSubmit}
+          onSubmit={handleSubmit as (data: Record<string, any>) => void | Promise<void>}
           onCancel={onClose}
           submitText={isEditing ? "Mettre à jour" : "Créer le commercial"}
           cancelText="Annuler"
           loading={isSubmitting}
           showProgress={true}
-          allowStepNavigation={true}
         />
       </ModalContent>
     </Modal>

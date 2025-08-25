@@ -2,14 +2,12 @@ import React, { useState, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { cn } from '@/lib/utils';
 import { Button } from './button';
-import { FormField, FormSection, FormStep, FormValidation } from './FormField';
+import { FormField, FormSection, FormValidation } from './FormField';
 import { 
   ArrowRight, 
   ArrowLeft, 
   CheckCircle, 
-  AlertCircle, 
-  Info,
-  Loader2
+  AlertCircle
 } from 'lucide-react';
 
 interface FormStepConfig {
@@ -54,8 +52,7 @@ export const ModernForm: React.FC<ModernFormProps> = ({
   cancelText = "Annuler",
   loading = false,
   className,
-  showProgress = true,
-  allowStepNavigation = true
+  showProgress = true
 }) => {
   const [currentStep, setCurrentStep] = useState(0);
   const [formData, setFormData] = useState(initialData);
@@ -96,14 +93,14 @@ export const ModernForm: React.FC<ModernFormProps> = ({
   }, [steps, formData]);
 
   // Navigation entre les étapes
-  const goToStep = useCallback((stepIndex: number) => {
-    if (!allowStepNavigation) return;
-    
-    if (stepIndex >= 0 && stepIndex < steps.length) {
-      setCurrentStep(stepIndex);
-      setErrors({});
-    }
-  }, [steps.length, allowStepNavigation]);
+  // const goToStep = useCallback((_stepIndex: number) => {
+  //   if (!allowStepNavigation) return;
+  //   
+  //   if (_stepIndex >= 0 && _stepIndex < steps.length) {
+  //     setCurrentStep(_stepIndex);
+  //     setErrors({});
+  //   }
+  // }, [steps.length, allowStepNavigation]);
 
   const nextStep = useCallback(() => {
     if (validateStep(currentStep)) {
@@ -129,7 +126,7 @@ export const ModernForm: React.FC<ModernFormProps> = ({
     
     // Effacer l'erreur du champ si elle existe
     if (errors[name]) {
-      setErrors(prev => ({ ...prev, [name]: undefined }));
+      setErrors(prev => ({ ...prev, [name]: '' }));
     }
   }, [errors]);
 
@@ -156,7 +153,7 @@ export const ModernForm: React.FC<ModernFormProps> = ({
       id: field.name,
       name: field.name,
       value: value || '',
-      onChange: (e: React.ChangeEvent<HTMLInputElement>) => 
+      onChange: (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => 
         handleFieldChange(field.name, e.target.value),
       placeholder: field.placeholder,
       required: field.required,
@@ -175,7 +172,7 @@ export const ModernForm: React.FC<ModernFormProps> = ({
               {field.required && <span className="text-red-500 ml-1">*</span>}
             </label>
             <textarea
-              {...commonProps}
+              {...{ ...commonProps, onChange: (e: React.ChangeEvent<HTMLTextAreaElement>) => handleFieldChange(field.name, e.target.value) }}
               className={cn(
                 "w-full h-24 px-3 py-2 border-2 rounded-lg resize-none transition-all duration-200",
                 "focus:outline-none focus:ring-4 focus:ring-blue-100",
@@ -201,7 +198,7 @@ export const ModernForm: React.FC<ModernFormProps> = ({
               {field.required && <span className="text-red-500 ml-1">*</span>}
             </label>
             <select
-              {...commonProps}
+              {...{ ...commonProps, onChange: (e: React.ChangeEvent<HTMLSelectElement>) => handleFieldChange(field.name, e.target.value) }}
               className={cn(
                 "w-full h-12 px-3 border-2 rounded-lg transition-all duration-200",
                 "focus:outline-none focus:ring-4 focus:ring-blue-100",
@@ -248,6 +245,7 @@ export const ModernForm: React.FC<ModernFormProps> = ({
             key={field.name}
             {...commonProps}
             type={field.type}
+            label={field.label}
           />
         );
     }
@@ -374,7 +372,7 @@ export const useForm = <T extends Record<string, any>>(initialData: T) => {
   const updateField = useCallback((name: keyof T, value: any) => {
     setData(prev => ({ ...prev, [name]: value }));
     if (errors[name]) {
-      setErrors(prev => ({ ...prev, [name]: undefined }));
+      setErrors(prev => ({ ...prev, [name]: '' }));
     }
   }, [errors]);
 

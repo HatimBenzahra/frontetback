@@ -7,7 +7,7 @@ import {
     RefreshCw, Search, Filter, User, Smile, Frown, 
     Landmark, BellOff, Repeat, MessageSquare, Hash, Edit, Plus, Trash2,
     ChevronDown, ChevronUp, ChevronLeft, ChevronRight,
-    DoorOpen, X, Eye, EyeOff, Calendar, Clock
+    DoorOpen, X, Eye, EyeOff, Calendar
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
@@ -1351,6 +1351,7 @@ const ImmeubleDetailsPage = () => {
                 ...updates,
                 commentaire: updates.commentaire === null ? undefined : updates.commentaire,
                 assigneeId: updates.assigneeId === null ? undefined : updates.assigneeId,
+                dateRendezVous: updates.dateRendezVous === null ? undefined : updates.dateRendezVous,
             };
             
             await porteService.updatePorte(porteId, apiUpdates);

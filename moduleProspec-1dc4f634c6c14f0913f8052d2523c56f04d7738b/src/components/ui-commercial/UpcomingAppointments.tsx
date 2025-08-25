@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui-admin/card';
 import { Badge } from '@/components/ui-admin/badge';
 import { Button } from '@/components/ui-admin/button';
-import { Calendar, Clock, MapPin, Building, DoorOpen, ArrowRight, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Calendar, Clock, Building, DoorOpen, ArrowRight, ChevronLeft, ChevronRight } from 'lucide-react';
 import { porteService, type PorteFromAPI } from '@/services/porte.service';
 import { useAuth } from '@/contexts/AuthContext';
 import { motion, AnimatePresence } from 'framer-motion';

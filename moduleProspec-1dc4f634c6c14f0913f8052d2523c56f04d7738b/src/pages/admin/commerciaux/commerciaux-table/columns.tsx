@@ -27,7 +27,7 @@ const SortableHeader = ({ title, column }: { title: string, column: any }) => (
 export const createColumns = (
   isDeleteMode: boolean,
   onEdit: (commercial: Commercial) => void,
-  managerIdForBack?: string,
+  _managerIdForBack?: string,
   onAssign?: (commercial: Commercial) => void,
 ): ColumnDef<Commercial>[] => {
   const columns: ColumnDef<Commercial>[] = [
