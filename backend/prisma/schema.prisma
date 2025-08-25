@@ -108,6 +108,8 @@ model Porte {
   passage     Int
   commentaire String?
   dateRendezVous DateTime?
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @default(now()) @updatedAt
   immeubleId  String
   immeuble    Immeuble    @relation(fields: [immeubleId], references: [id])
   assigneeId  String?

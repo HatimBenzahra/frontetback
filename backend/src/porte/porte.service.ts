@@ -39,14 +39,20 @@ export class PorteService {
   }
 
   findOne(id: string) {
-    return this.prisma.porte.findUnique({ where: { id } });
+    return this.prisma.porte.findUnique({ 
+      where: { id },
+      include: {
+        immeuble: true,
+        assignee: true,
+      }
+    });
   }
 
   async update(id: string, updatePorteDto: UpdatePorteDto) {
     return this.prisma.$transaction(async (prisma) => {
       const existingPorte = await prisma.porte.findUnique({
         where: { id },
-        select: { statut: true, immeubleId: true, assigneeId: true },
+        select: { statut: true, immeubleId: true, assigneeId: true, updatedAt: true },
       });
 
       if (!existingPorte) {
@@ -56,6 +62,10 @@ export class PorteService {
       const updatedPorte = await prisma.porte.update({
         where: { id },
         data: updatePorteDto,
+        include: {
+          immeuble: true,
+          assignee: true,
+        },
       });
 
       // Émettre un événement WebSocket pour la synchronisation en temps réel
@@ -123,7 +133,8 @@ export class PorteService {
       ) {
         const commercialId = existingPorte.assigneeId;
         const immeubleId = existingPorte.immeubleId;
-        const dateProspection = new Date();
+        // Utiliser la date de mise à jour de la porte au lieu d'une date fixe
+        const dateProspection = new Date(updatedPorte.updatedAt);
         dateProspection.setHours(0, 0, 0, 0); // Set to beginning of the day
 
         let nbPortesVisitees = 0;
