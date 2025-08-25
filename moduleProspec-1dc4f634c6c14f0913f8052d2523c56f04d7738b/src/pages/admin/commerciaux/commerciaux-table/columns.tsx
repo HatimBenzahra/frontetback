@@ -75,6 +75,21 @@ export const createColumns = (
       )
     },
     {
+      accessorKey: "telephone",
+      header: () => <Header title="Téléphone" />,
+      cell: ({ row }) => {
+        const telephone = row.getValue("telephone") as string;
+        if (!telephone) {
+          return <span className="text-slate-500">Non renseigné</span>;
+        }
+        return (
+          <a href={`tel:${telephone}`} className="hover:underline">
+            {telephone}
+          </a>
+        );
+      }
+    },
+    {
       accessorKey: "manager",
       header: () => <Header title="Manager" />,
       cell: ({ row }) => {
@@ -101,6 +116,21 @@ export const createColumns = (
         const equipeLabel = row.original.equipe || "Non assignée";
         return <span className={equipeLabel === "Non assignée" ? "text-slate-500" : ""}>{equipeLabel}</span>;
       }
+    },
+    {
+      accessorKey: "totalContratsSignes",
+      header: ({ column }) => <div className="flex justify-center"><SortableHeader title="Contrats" column={column} /></div>,
+      meta: { className: "text-center" },
+      cell: ({ row }) => {
+        const contrats = row.getValue("totalContratsSignes") as number || 0;
+        return (
+          <div className="flex justify-center">
+            <Badge variant="outline" className="bg-emerald-50 text-emerald-700 border-emerald-200">
+              {contrats}
+            </Badge>
+          </div>
+        );
+      },
     },
     {
       accessorKey: "isAssigned",

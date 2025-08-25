@@ -154,7 +154,12 @@ export class StatisticsService {
             include: {
               commerciaux: {
                 include: {
-                  historiques: true,
+                  historiques: {
+                    orderBy: {
+                      dateProspection: 'desc',
+                    },
+                    take: 50, // Limiter pour les performances
+                  },
                 },
               },
             },
@@ -172,40 +177,121 @@ export class StatisticsService {
 
     if (!commercials.length) {
       return {
-        kpis: {
-          contratsSignes: 0,
-          rdvPris: 0,
-          tauxConclusion: 0,
-        },
+        totalContracts: 0,
+        totalRdv: 0,
+        totalCommerciaux: 0,
+        totalEquipes: managerWithEquipesAndCommerciaux.equipes.length,
+        averageRate: 0,
+        averageRdvPerTeam: 0,
+        totalPortes: 0,
+        bestTeam: 'N/A',
+        recentActivity: [],
+        equipesStats: [],
       };
     }
 
-    const stats = commercials.reduce(
+    // Calculer les statistiques globales
+    const globalStats = commercials.reduce(
       (acc, commercial) => {
         const commercialStats = commercial.historiques.reduce(
           (commAcc, h) => {
             commAcc.contratsSignes += h.nbContratsSignes;
             commAcc.rdvPris += h.nbRdvPris;
+            commAcc.portesVisitees += h.nbPortesVisitees;
             return commAcc;
           },
-          { contratsSignes: 0, rdvPris: 0 },
+          { contratsSignes: 0, rdvPris: 0, portesVisitees: 0 },
         );
         acc.totalContratsSignes += commercialStats.contratsSignes;
         acc.totalRdvPris += commercialStats.rdvPris;
+        acc.totalPortesVisitees += commercialStats.portesVisitees;
         return acc;
       },
-      { totalContratsSignes: 0, totalRdvPris: 0 },
+      { totalContratsSignes: 0, totalRdvPris: 0, totalPortesVisitees: 0 },
     );
 
-    const tauxConclusion =
-      stats.totalRdvPris > 0
-        ? (stats.totalContratsSignes / stats.totalRdvPris) * 100
+    // Calculer les statistiques par équipe
+    const equipesStats = managerWithEquipesAndCommerciaux.equipes.map(equipe => {
+      const equipeCommerciaux = equipe.commerciaux;
+      const equipeStats = equipeCommerciaux.reduce(
+        (acc, commercial) => {
+          const commercialStats = commercial.historiques.reduce(
+            (commAcc, h) => {
+              commAcc.contratsSignes += h.nbContratsSignes;
+              commAcc.rdvPris += h.nbRdvPris;
+              commAcc.portesVisitees += h.nbPortesVisitees;
+              return commAcc;
+            },
+            { contratsSignes: 0, rdvPris: 0, portesVisitees: 0 },
+          );
+          acc.totalContratsSignes += commercialStats.contratsSignes;
+          acc.totalRdvPris += commercialStats.rdvPris;
+          acc.totalPortesVisitees += commercialStats.portesVisitees;
+          return acc;
+        },
+        { totalContratsSignes: 0, totalRdvPris: 0, totalPortesVisitees: 0 },
+      );
+
+      const tauxConclusion = equipeStats.totalRdvPris > 0 
+        ? (equipeStats.totalContratsSignes / equipeStats.totalRdvPris) * 100 
         : 0;
 
+      return {
+        id: equipe.id,
+        nom: equipe.nom,
+        contratsSignes: equipeStats.totalContratsSignes,
+        rdvPris: equipeStats.totalRdvPris,
+        portesVisitees: equipeStats.totalPortesVisitees,
+        tauxConclusion: parseFloat(tauxConclusion.toFixed(2)),
+        nbCommerciaux: equipeCommerciaux.length,
+      };
+    });
+
+    // Trouver la meilleure équipe
+    const bestTeam = equipesStats.length > 0 
+      ? equipesStats.reduce((best, current) => 
+          current.contratsSignes > best.contratsSignes ? current : best
+        ).nom 
+      : 'N/A';
+
+    // Calculer les moyennes
+    const averageRate = equipesStats.length > 0 
+      ? equipesStats.reduce((sum, equipe) => sum + equipe.tauxConclusion, 0) / equipesStats.length 
+      : 0;
+
+    const averageRdvPerTeam = equipesStats.length > 0 
+      ? equipesStats.reduce((sum, equipe) => sum + equipe.rdvPris, 0) / equipesStats.length 
+      : 0;
+
+    // Générer l'activité récente
+    const recentActivity = commercials
+      .flatMap(commercial => 
+        commercial.historiques.slice(0, 5).map(history => ({
+          id: history.id,
+          commercial: `${commercial.prenom} ${commercial.nom}`,
+          action: history.nbContratsSignes > 0 ? 'Contrat signé' : 
+                  history.nbRdvPris > 0 ? 'RDV pris' : 
+                  history.nbRefus > 0 ? 'Refus' : 'Visite',
+          type: history.nbContratsSignes > 0 ? 'CONTRAT' : 
+                history.nbRdvPris > 0 ? 'RDV' : 
+                history.nbRefus > 0 ? 'REFUS' : 'VISITE',
+          temps: this.formatTimeAgo(history.dateProspection),
+        }))
+      )
+      .sort((a, b) => new Date(b.temps).getTime() - new Date(a.temps).getTime())
+      .slice(0, 20);
+
     return {
-      contratsSignes: stats.totalContratsSignes,
-      rdvPris: stats.totalRdvPris,
-      tauxConclusion: parseFloat(tauxConclusion.toFixed(2)),
+      totalContracts: globalStats.totalContratsSignes,
+      totalRdv: globalStats.totalRdvPris,
+      totalCommerciaux: commercials.length,
+      totalEquipes: managerWithEquipesAndCommerciaux.equipes.length,
+      averageRate: parseFloat(averageRate.toFixed(2)),
+      averageRdvPerTeam: Math.round(averageRdvPerTeam),
+      totalPortes: globalStats.totalPortesVisitees,
+      bestTeam,
+      recentActivity,
+      equipesStats,
     };
   }
 
@@ -223,26 +309,56 @@ export class StatisticsService {
       },
     });
 
+    // Grouper par période (semaine/mois/année)
+    const weeklyStats = new Map<string, { contrats: number; rdv: number }>();
     const monthlyStats = new Map<string, { contrats: number; rdv: number }>();
+    const yearlyStats = new Map<string, { contrats: number; rdv: number }>();
 
     histories.forEach((h) => {
-      const month = h.dateProspection.toISOString().substring(0, 7); // YYYY-MM
-      if (!monthlyStats.has(month)) {
-        monthlyStats.set(month, { contrats: 0, rdv: 0 });
-      }
-      const current = monthlyStats.get(month)!;
-      current.contrats += h.nbContratsSignes;
-      current.rdv += h.nbRdvPris;
+      const date = h.dateProspection;
+      
+      // Semaine (YYYY-WW)
+      const weekStart = new Date(date);
+      weekStart.setDate(date.getDate() - date.getDay() + 1);
+      const weekKey = `${weekStart.getFullYear()}-W${String(Math.ceil((weekStart.getDate() + weekStart.getDay()) / 7)).padStart(2, '0')}`;
+      
+      // Mois (YYYY-MM)
+      const monthKey = date.toISOString().substring(0, 7);
+      
+      // Année (YYYY)
+      const yearKey = date.getFullYear().toString();
+
+      // Mettre à jour les statistiques
+      [weeklyStats, monthlyStats, yearlyStats].forEach((statsMap, index) => {
+        const key = index === 0 ? weekKey : index === 1 ? monthKey : yearKey;
+        if (!statsMap.has(key)) {
+          statsMap.set(key, { contrats: 0, rdv: 0 });
+        }
+        const current = statsMap.get(key)!;
+        current.contrats += h.nbContratsSignes;
+        current.rdv += h.nbRdvPris;
+      });
     });
 
-    const perfHistory = Array.from(monthlyStats.entries())
-      .sort(([monthA], [monthB]) => monthA.localeCompare(monthB))
-      .map(([month, data]) => ({
-        name: month,
-        performance: data.rdv > 0 ? (data.contrats / data.rdv) * 100 : 0,
-      }));
+    // Convertir en format pour les graphiques
+    const formatData = (statsMap: Map<string, { contrats: number; rdv: number }>, periodType: string) => {
+      return Array.from(statsMap.entries())
+        .sort(([keyA], [keyB]) => keyA.localeCompare(keyB))
+        .map(([key, data]) => ({
+          periode: periodType === 'week' ? `Semaine ${key.split('-W')[1]}` : 
+                   periodType === 'month' ? key : 
+                   `Année ${key}`,
+          'Contrats Signés': data.contrats,
+          'RDV Pris': data.rdv,
+          tauxConclusion: data.rdv > 0 ? parseFloat(((data.contrats / data.rdv) * 100).toFixed(2)) : 0,
+        }));
+    };
 
-    return perfHistory;
+    return {
+      week: formatData(weeklyStats, 'week'),
+      month: formatData(monthlyStats, 'month'),
+      year: formatData(yearlyStats, 'year'),
+    };
   }
 
   async getStatistics(

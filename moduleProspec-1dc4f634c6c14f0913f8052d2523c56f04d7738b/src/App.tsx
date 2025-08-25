@@ -45,7 +45,12 @@ import RendezVousPage from './pages/commercial/rendez-vous/RendezVousPage';
 
 
 // --- Pages des autres Rôles (pour l'exemple) ---
+import ManagerLayout from './layout/ManagerLayout';
 import DashboardManager from './pages/manager/DashboardManager';
+import ManagerCommerciauxPage from './pages/manager/CommerciauxPage';
+import ManagerEquipesPage from './pages/manager/EquipesPage';
+import ManagerCommercialDetailsPage from './pages/manager/CommercialDetailsPage';
+import ManagerEquipeDetailsPage from './pages/manager/EquipeDetailsPage';
 import DashboardDirecteur from './pages/directeur/DashboardDirecteur';
 import DashboardBackoffice from './pages/backoffice/DashboardBackoffice';
 
@@ -109,9 +114,24 @@ function App() {
             <Route path="stats" element={<CommercialStatisticsPage />} />
             <Route path="rendez-vous" element={<RendezVousPage />} />
           </Route>
+
+          {/* --- Layout pour les managers --- */}
+          <Route path="/manager" element={<ManagerLayout />}>
+            <Route index element={<DashboardManager />} />
+            <Route path="commerciaux" element={<ManagerCommerciauxPage />} />
+            <Route path="commerciaux/:id" element={<ManagerCommercialDetailsPage />} />
+            <Route path="equipes" element={<ManagerEquipesPage />} />
+            <Route path="equipes/:id" element={<ManagerEquipeDetailsPage />} />
+            {/* <Route path="immeubles" element={<ManagerImmeublesPage />} />
+            <Route path="suivi" element={<ManagerSuiviPage />} />
+            <Route path="zones" element={<ManagerZonesPage />} />
+            <Route path="assignations-objectifs" element={<ManagerAssignmentGoalsPage />} />
+            <Route path="statistiques" element={<ManagerStatistiquesPage />} />
+            <Route path="rapports" element={<ManagerReportsPage />} />
+            <Route path="parametres" element={<ManagerParametresPage />} /> */}
+          </Route>
             
           {/* Routes pour les autres rôles */}
-          <Route path="/manager" element={<DashboardManager />} />
           <Route path="/directeur" element={<DashboardDirecteur />} />
           <Route path="/backoffice" element={<DashboardBackoffice />} />
 

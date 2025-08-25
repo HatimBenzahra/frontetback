@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo, useCallback } from "react";
-import { AlertTriangle } from "lucide-react";
+import { AlertTriangle, Users, UserCheck, TrendingUp, Target } from "lucide-react";
 import type { RowSelectionState } from "@tanstack/react-table";
 
 import { createColumns } from "./commerciaux-table/columns";
@@ -10,6 +10,7 @@ import { Label } from "@/components/ui-admin/label";
 import { Modal } from "@/components/ui-admin/Modal";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui-admin/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui-admin/select";
+import StatCard from "@/components/ui-admin/StatCard";
 
 import { commercialService } from "@/services/commercial.service";
 import { equipeService } from "@/services/equipe.service";
@@ -51,6 +52,29 @@ const CommerciauxPage = () => {
   const [newCommercialData, setNewCommercialData] = useState(initialFormState);
   const [addFormErrors, setAddFormErrors] = useState<{ [k: string]: string }>({});
   const [editingCommercial, setEditingCommercial] = useState<Commercial | null>(null);
+
+  // Calcul des statistiques globales
+  const globalStats = useMemo(() => {
+    if (!data.length) return {
+      totalCommerciaux: 0,
+      commerciauxAssignes: 0,
+      tauxAssignation: 0,
+      moyenneContrats: 0
+    };
+
+    const totalCommerciaux = data.length;
+    const commerciauxAssignes = data.filter(c => c.managerId && c.equipeId).length;
+    const tauxAssignation = totalCommerciaux > 0 ? Math.round((commerciauxAssignes / totalCommerciaux) * 100) : 0;
+    const totalContrats = data.reduce((sum, c) => sum + (c.totalContratsSignes || 0), 0);
+    const moyenneContrats = totalCommerciaux > 0 ? Math.round(totalContrats / totalCommerciaux) : 0;
+
+    return {
+      totalCommerciaux,
+      commerciauxAssignes,
+      tauxAssignation,
+      moyenneContrats
+    };
+  }, [data]);
 
   /* ---------------------- Fetch Data ---------------------- */
   useEffect(() => {
@@ -368,6 +392,38 @@ const CommerciauxPage = () => {
 
   return (
     <>
+      {/* Section Statistiques Globales */}
+      <div className="mb-8">
+        <h2 className="text-2xl font-bold text-gray-900 mb-6">Vue d'ensemble des Commerciaux</h2>
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+          <StatCard 
+            title="Total Commerciaux" 
+            value={globalStats.totalCommerciaux} 
+            Icon={Users} 
+            color="text-blue-500" 
+          />
+          <StatCard 
+            title="Commerciaux Assignés" 
+            value={globalStats.commerciauxAssignes} 
+            Icon={UserCheck} 
+            color="text-green-500" 
+          />
+          <StatCard 
+            title="Taux d'Assignation" 
+            value={globalStats.tauxAssignation} 
+            Icon={TrendingUp} 
+            suffix="%" 
+            color="text-purple-500" 
+          />
+          <StatCard 
+            title="Moyenne Contrats" 
+            value={globalStats.moyenneContrats} 
+            Icon={Target} 
+            color="text-orange-500" 
+          />
+        </div>
+      </div>
+
       <DataTable
         columns={columns}
         data={data}

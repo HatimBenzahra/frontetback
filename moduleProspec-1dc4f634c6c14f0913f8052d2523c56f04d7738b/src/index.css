@@ -45,6 +45,13 @@
   --winvest-blue-moyen: 216 70% 61%;    /* #4d86df */
   --winvest-blue-nuit: 221 100% 31%;     /* #002D9F */
   --winvest-blue-profond: 201 77% 35%; /* #14659e */
+  
+  /* Couleurs spécifiques pour les managers (verts) */
+  --winvest-green-clair: 142 71% 81%;    /* #A5F1B8 */
+  --winvest-green-moyen: 142 71% 45%;    /* #16a34a */
+  --winvest-green-nuit: 140 100% 20%;     /* #006b1d */
+  --winvest-green-profond: 140 77% 30%; /* #14a058 */
+  
   --winvest-grey: 0 0% 85.1%;          /* #d9d9d9 */
   --radius: 0.5rem;
 }

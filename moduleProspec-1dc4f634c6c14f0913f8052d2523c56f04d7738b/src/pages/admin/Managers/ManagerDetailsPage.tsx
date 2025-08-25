@@ -28,15 +28,30 @@ interface ManagerDetails {
 }
 
 interface ManagerStats {
-  contratsSignes: number;
-  rdvPris: number;
-  tauxConclusion: number;
+  totalContracts: number;
+  totalRdv: number;
+  totalCommerciaux: number;
+  totalEquipes: number;
+  averageRate: number;
+  averageRdvPerTeam: number;
+  totalPortes: number;
+  bestTeam: string;
+  recentActivity: any[];
+  equipesStats: any[];
 }
 
 interface PerformanceHistoryItem {
-  name: string;
-  performance: number;
+  periode: string;
+  'Contrats Signés': number;
+  'RDV Pris': number;
+  tauxConclusion: number;
   [key: string]: string | number;
+}
+
+interface PerformanceHistoryData {
+  week: PerformanceHistoryItem[];
+  month: PerformanceHistoryItem[];
+  year: PerformanceHistoryItem[];
 }
 
 const ManagerDetailsPage = () => {
@@ -45,8 +60,25 @@ const ManagerDetailsPage = () => {
     
     const [manager, setManager] = useState<ManagerDetails | null>(null);
     const [stats, setStats] = useState<ManagerStats | null>(null);
-    const [perfHistory, setPerfHistory] = useState<PerformanceHistoryItem[]>([]);
+    const [perfHistory, setPerfHistory] = useState<PerformanceHistoryData | null>(null);
+    const [selectedPeriod, setSelectedPeriod] = useState<'week' | 'month' | 'year'>('month');
     const [loading, setLoading] = useState(true);
+
+    // Fonction pour obtenir les données de performance selon la période sélectionnée
+    const getPerformanceDataForPeriod = () => {
+        if (!perfHistory) return [];
+        
+        switch (selectedPeriod) {
+            case 'week':
+                return perfHistory.week || [];
+            case 'month':
+                return perfHistory.month || [];
+            case 'year':
+                return perfHistory.year || [];
+            default:
+                return perfHistory.month || [];
+        }
+    };
     
     const [selectedTeam, setSelectedTeam] = useState<EquipeDuManager | null>(null);
     const [isModalOpen, setIsModalOpen] = useState(false);
@@ -156,9 +188,9 @@ const ManagerDetailsPage = () => {
     if (!manager) return <div>Manager non trouvé.</div>;
 
     const currentStats = {
-      rdvPris: stats?.rdvPris ?? 0,
-      contratsSignes: stats?.contratsSignes ?? 0,
-      tauxConclusion: stats?.tauxConclusion ?? 0,
+      rdvPris: stats?.totalRdv ?? 0,
+      contratsSignes: stats?.totalContracts ?? 0,
+      tauxConclusion: stats?.averageRate ?? 0,
     };
     const commerciauxDeLequipeSelectionnee = manager.equipes.find((e) => e.id === selectedTeam?.id)?.commerciaux || [];
 
@@ -193,20 +225,68 @@ const ManagerDetailsPage = () => {
                 <StatCard title="Contrats (Total)" value={currentStats.contratsSignes} Icon={CheckCircle} color="text-emerald-500" />
                 <StatCard title="RDV (Total)" value={currentStats.rdvPris} Icon={Briefcase} color="text-sky-500"/>
                 <StatCard title="Taux Conclusion" value={currentStats.tauxConclusion} Icon={Target} suffix="%" color="text-amber-500"/>
-                <StatCard title="Nb. Équipes" value={manager.equipes.length} Icon={Users} color="text-yellow-500"/>
+                <StatCard title="Nb. Équipes" value={stats?.totalEquipes ?? manager.equipes.length} Icon={Users} color="text-yellow-500"/>
+            </div>
+
+            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+                <StatCard title="Commerciaux" value={stats?.totalCommerciaux ?? 0} Icon={User} color="text-violet-500" />
+                <StatCard title="Portes Visitées" value={stats?.totalPortes ?? 0} Icon={Target} color="text-indigo-500" />
+                <StatCard title="RDV Moyen/Équipe" value={stats?.averageRdvPerTeam ?? 0} Icon={Briefcase} color="text-blue-500" />
+                <Card>
+                    <CardHeader className="pb-2">
+                        <CardTitle className="text-sm font-medium">Meilleure Équipe</CardTitle>
+                    </CardHeader>
+                    <CardContent className="pt-0">
+                        <div className="flex items-center gap-2">
+                            <CheckCircle className="h-4 w-4 text-green-500" />
+                            <span className="text-lg font-semibold">{stats?.bestTeam ?? 'N/A'}</span>
+                        </div>
+                    </CardContent>
+                </Card>
             </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 items-start">
                 <Card className="lg:col-span-2">
                     <CardHeader>
-                        <CardTitle>Performance Globale</CardTitle>
+                        <div className="flex items-center justify-between">
+                            <CardTitle>Performance Globale</CardTitle>
+                            <div className="flex items-center gap-2">
+                                <button
+                                    onClick={() => setSelectedPeriod('week')}
+                                    className={`px-3 py-1.5 rounded-full text-sm border transition-all ${selectedPeriod === 'week' ? 'bg-blue-600 text-white border-blue-600 shadow-sm' : 'bg-white text-blue-700 border-blue-200 hover:bg-blue-50'}`}
+                                >
+                                    Semaine
+                                </button>
+                                <button
+                                    onClick={() => setSelectedPeriod('month')}
+                                    className={`px-3 py-1.5 rounded-full text-sm border transition-all ${selectedPeriod === 'month' ? 'bg-blue-600 text-white border-blue-600 shadow-sm' : 'bg-white text-blue-700 border-blue-200 hover:bg-blue-50'}`}
+                                >
+                                    Mois
+                                </button>
+                                <button
+                                    onClick={() => setSelectedPeriod('year')}
+                                    className={`px-3 py-1.5 rounded-full text-sm border transition-all ${selectedPeriod === 'year' ? 'bg-blue-600 text-white border-blue-600 shadow-sm' : 'bg-white text-blue-700 border-blue-200 hover:bg-blue-50'}`}
+                                >
+                                    Année
+                                </button>
+                            </div>
+                        </div>
                     </CardHeader>
                     <CardContent className="h-96">
-                        <GenericLineChart 
-                            data={perfHistory} 
-                            xAxisDataKey="name" 
-                            lines={[{ dataKey: 'performance', stroke: '#3b82f6', name: 'Performance (%)' }]} 
-                        />
+                        {perfHistory && getPerformanceDataForPeriod().length > 0 ? (
+                            <GenericLineChart 
+                                data={getPerformanceDataForPeriod()} 
+                                xAxisDataKey="periode" 
+                                lines={[
+                                    { dataKey: 'Contrats Signés', stroke: '#10b981', name: 'Contrats Signés' },
+                                    { dataKey: 'RDV Pris', stroke: '#f59e0b', name: 'RDV Pris' }
+                                ]} 
+                            />
+                        ) : (
+                            <div className="flex items-center justify-center h-full text-gray-500">
+                                Aucune donnée disponible pour cette période
+                            </div>
+                        )}
                     </CardContent>
                 </Card>
                 <Card>
