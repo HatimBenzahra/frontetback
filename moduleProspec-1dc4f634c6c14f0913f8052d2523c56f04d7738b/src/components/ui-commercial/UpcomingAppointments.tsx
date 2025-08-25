@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui-admin/card';
 import { Badge } from '@/components/ui-admin/badge';
 import { Button } from '@/components/ui-admin/button';
-import { Calendar, Clock, MapPin, Building, DoorOpen, ArrowRight } from 'lucide-react';
+import { Calendar, Clock, MapPin, Building, DoorOpen, ArrowRight, ChevronLeft, ChevronRight } from 'lucide-react';
 import { porteService, type PorteFromAPI } from '@/services/porte.service';
 import { useAuth } from '@/contexts/AuthContext';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -19,6 +19,8 @@ const UpcomingAppointments: React.FC<UpcomingAppointmentsProps> = ({ className }
   const [appointments, setAppointments] = useState<PorteFromAPI[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [currentPage, setCurrentPage] = useState(1);
+  const appointmentsPerPage = 3;
 
   useEffect(() => {
     const fetchAppointments = async () => {
@@ -38,6 +40,11 @@ const UpcomingAppointments: React.FC<UpcomingAppointmentsProps> = ({ className }
 
     fetchAppointments();
   }, [user?.id]);
+
+  // Reset to first page when appointments change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [appointments]);
 
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);
@@ -136,18 +143,59 @@ const UpcomingAppointments: React.FC<UpcomingAppointmentsProps> = ({ className }
     return new Date(a.dateRendezVous).getTime() - new Date(b.dateRendezVous).getTime();
   });
 
+  // Pagination logic
+  const totalPages = Math.ceil(sortedAppointments.length / appointmentsPerPage);
+  const startIndex = (currentPage - 1) * appointmentsPerPage;
+  const endIndex = startIndex + appointmentsPerPage;
+  const currentAppointments = sortedAppointments.slice(startIndex, endIndex);
+
+  const handleNextPage = () => {
+    setCurrentPage(prev => Math.min(prev + 1, totalPages));
+  };
+
+  const handlePrevPage = () => {
+    setCurrentPage(prev => Math.max(prev - 1, 1));
+  };
+
   return (
     <Card className={cn("rounded-2xl bg-white border border-slate-200 shadow-sm", className)}>
       <CardHeader>
-        <CardTitle className="text-xl font-bold text-slate-900 flex items-center gap-2">
-          <Calendar className="h-5 w-5 text-blue-500" />
-          Rendez-vous de la semaine
-          {appointments.length > 0 && (
-            <Badge variant="secondary" className="ml-auto">
-              {appointments.length}
-            </Badge>
+        <div className="flex items-center justify-between">
+          <CardTitle className="text-xl font-bold text-slate-900 flex items-center gap-2">
+            <Calendar className="h-5 w-5 text-blue-500" />
+            Rendez-vous de la semaine
+            {appointments.length > 0 && (
+              <Badge variant="secondary">
+                {appointments.length}
+              </Badge>
+            )}
+          </CardTitle>
+          {totalPages > 1 && (
+            <div className="flex items-center gap-1">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={handlePrevPage}
+                disabled={currentPage === 1}
+                className="h-8 w-8 p-0"
+              >
+                <ChevronLeft className="h-4 w-4" />
+              </Button>
+              <span className="text-sm text-slate-500 px-2">
+                {currentPage}/{totalPages}
+              </span>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={handleNextPage}
+                disabled={currentPage === totalPages}
+                className="h-8 w-8 p-0"
+              >
+                <ChevronRight className="h-4 w-4" />
+              </Button>
+            </div>
           )}
-        </CardTitle>
+        </div>
       </CardHeader>
       <CardContent>
         <AnimatePresence>
@@ -163,7 +211,7 @@ const UpcomingAppointments: React.FC<UpcomingAppointmentsProps> = ({ className }
             </motion.div>
           ) : (
             <div className="space-y-3">
-              {sortedAppointments.map((appointment, index) => (
+              {currentAppointments.map((appointment, index) => (
                 <motion.div
                   key={appointment.id}
                   initial={{ opacity: 0, y: 10 }}

@@ -10,6 +10,7 @@ import {
   TrendingUp,
   Building2,
   ChevronRight,
+  ChevronLeft,
 } from 'lucide-react';
 import { porteService, type PorteFromAPI } from '../../services/porte.service';
 
@@ -17,6 +18,8 @@ const RendezVousAdmin: React.FC = () => {
   const [rendezVous, setRendezVous] = useState<PorteFromAPI[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [currentPage, setCurrentPage] = useState(1);
+  const rdvPerPage = 5;
 
   useEffect(() => {
     fetchRendezVous();
@@ -107,6 +110,25 @@ const RendezVousAdmin: React.FC = () => {
 
   const stats = getStats();
 
+  // Pagination logic
+  const totalPages = Math.ceil(rendezVous.length / rdvPerPage);
+  const startIndex = (currentPage - 1) * rdvPerPage;
+  const endIndex = startIndex + rdvPerPage;
+  const currentRendezVous = rendezVous.slice(startIndex, endIndex);
+
+  const handleNextPage = () => {
+    setCurrentPage(prev => Math.min(prev + 1, totalPages));
+  };
+
+  const handlePrevPage = () => {
+    setCurrentPage(prev => Math.max(prev - 1, 1));
+  };
+
+  // Reset to first page when rendez-vous change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [rendezVous]);
+
   if (loading) {
     return (
       <div className="bg-white rounded-xl shadow-sm border p-6">
@@ -154,6 +176,27 @@ const RendezVousAdmin: React.FC = () => {
               <p className="text-sm text-gray-600">Suivi des RDV commerciaux</p>
             </div>
           </div>
+          {totalPages > 1 && (
+            <div className="flex items-center space-x-2">
+              <button
+                onClick={handlePrevPage}
+                disabled={currentPage === 1}
+                className="p-1 rounded-md hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              >
+                <ChevronLeft className="w-4 h-4 text-gray-600" />
+              </button>
+              <span className="text-sm text-gray-600 px-2">
+                {currentPage}/{totalPages}
+              </span>
+              <button
+                onClick={handleNextPage}
+                disabled={currentPage === totalPages}
+                className="p-1 rounded-md hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              >
+                <ChevronRight className="w-4 h-4 text-gray-600" />
+              </button>
+            </div>
+          )}
         </div>
 
         {/* Statistiques compactes */}
@@ -197,7 +240,7 @@ const RendezVousAdmin: React.FC = () => {
           </div>
         ) : (
           <div className="space-y-2">
-            {rendezVous.map((rdv, index) => {
+            {currentRendezVous.map((rdv, index) => {
               const urgency = getUrgencyLevel(rdv.dateRendezVous!);
               return (
                 <motion.div
@@ -253,6 +296,34 @@ const RendezVousAdmin: React.FC = () => {
                 </motion.div>
               );
             })}
+          </div>
+        )}
+
+        {/* Pagination en bas si plus d'une page */}
+        {totalPages > 1 && (
+          <div className="flex items-center justify-between pt-4 mt-4 border-t border-gray-100">
+            <div className="text-sm text-gray-600">
+              Affichage de {startIndex + 1}-{Math.min(endIndex, rendezVous.length)} sur {rendezVous.length} RDV
+            </div>
+            <div className="flex items-center space-x-2">
+              <button
+                onClick={handlePrevPage}
+                disabled={currentPage === 1}
+                className="px-3 py-1.5 text-sm rounded-md border border-gray-200 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              >
+                Précédent
+              </button>
+              <span className="text-sm text-gray-600 px-2">
+                Page {currentPage} sur {totalPages}
+              </span>
+              <button
+                onClick={handleNextPage}
+                disabled={currentPage === totalPages}
+                className="px-3 py-1.5 text-sm rounded-md border border-gray-200 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              >
+                Suivant
+              </button>
+            </div>
           </div>
         )}
       </div>
