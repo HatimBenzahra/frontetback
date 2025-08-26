@@ -22,7 +22,7 @@ export class TranscriptionHistoryService {
     private textProcessingService: TextProcessingService
   ) {}
 
-  async saveSession(session: TranscriptionSession) {
+  async saveSession(session: TranscriptionSession, skipAI: boolean = false) {
     try {
       console.log('Sauvegarde session dans la base de données:', session.id);
       
@@ -54,9 +54,12 @@ export class TranscriptionHistoryService {
 
       console.log('Session transcription sauvegardée (texte original):', savedSession.id);
       
-      // 2. Si il y a du texte, lancer le traitement IA en arrière-plan
-      if (session.full_transcript && session.full_transcript.trim().length > 50) {
+      // 2. Si il y a du texte et qu'on ne skip pas l'IA, lancer le traitement IA en arrière-plan
+      if (!skipAI && session.full_transcript && session.full_transcript.trim().length > 50) {
+        console.log(`🤖 Traitement IA activé pour session: ${session.id}`);
         this.processSessionWithAI(session.id, session.full_transcript);
+      } else if (skipAI) {
+        console.log(`⏭️  Traitement IA sauté pour session: ${session.id} (sauvegarde temporaire)`);
       }
       
       return { success: true, sessionId: savedSession.id };

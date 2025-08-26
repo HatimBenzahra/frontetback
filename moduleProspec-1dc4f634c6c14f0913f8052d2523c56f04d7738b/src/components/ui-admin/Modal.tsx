@@ -3,6 +3,7 @@ import { X, AlertCircle, Info, CheckCircle } from 'lucide-react';
 import type { ReactNode } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { cn } from '@/lib/utils';
+import { createPortal } from 'react-dom';
 
 interface ModalProps {
   isOpen: boolean;
@@ -80,7 +81,7 @@ export const Modal = ({
     }
   };
 
-  return (
+  const modalContent = (
     <AnimatePresence>
       {isOpen && (
         <motion.div
@@ -167,6 +168,11 @@ export const Modal = ({
       )}
     </AnimatePresence>
   );
+
+  // Utiliser un portal pour rendre le modal à la fin du body
+  return typeof document !== 'undefined' 
+    ? createPortal(modalContent, document.body)
+    : modalContent;
 };
 
 // Composants utilitaires pour les modals

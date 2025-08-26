@@ -166,7 +166,8 @@ export class EventsGateway implements OnGatewayConnection, OnGatewayDisconnect {
         };
 
         // Utiliser l'ID original de la session (upsert mettra à jour si elle existe)
-        await this.transcriptionHistoryService.saveSession(sessionBackup);
+        // Sauvegarder SANS traitement IA (sauvegarde automatique)
+        await this.transcriptionHistoryService.saveSession(sessionBackup, true);
         console.log(`💾 Session active ${commercialId} sauvegardée (backup)`);
       } catch (error) {
         console.error(`❌ Erreur sauvegarde session active ${commercialId}:`, error);
@@ -185,7 +186,8 @@ export class EventsGateway implements OnGatewayConnection, OnGatewayDisconnect {
       };
 
       // Utiliser l'ID original de la session (upsert mettra à jour si elle existe)
-      await this.transcriptionHistoryService.saveSession(sessionBackup);
+      // Sauvegarder SANS traitement IA (sauvegarde temporaire)
+      await this.transcriptionHistoryService.saveSession(sessionBackup, true);
       console.log(`💾 Session active ${commercialId} sauvegardée immédiatement (${sessionBackup.full_transcript.length} chars)`);
     } catch (error) {
       console.error(`❌ Erreur sauvegarde immédiate ${commercialId}:`, error);
@@ -325,10 +327,10 @@ export class EventsGateway implements OnGatewayConnection, OnGatewayDisconnect {
         transcript_length: session.full_transcript.length
       });
       
-      // Sauvegarder en base de données de façon persistante
+      // Sauvegarder en base de données de façon persistante AVEC traitement IA (sauvegarde finale)
       try {
-        await this.transcriptionHistoryService.saveSession(session);
-        console.log(`💾 Session ${session.id} sauvegardée en base de données`);
+        await this.transcriptionHistoryService.saveSession(session); // skipAI = false par défaut
+        console.log(`💾 Session ${session.id} sauvegardée en base de données avec traitement IA`);
       } catch (error) {
         console.error(`❌ Erreur sauvegarde session ${session.id}:`, error);
       }
@@ -494,8 +496,9 @@ export class EventsGateway implements OnGatewayConnection, OnGatewayDisconnect {
         }
         console.log(`📝 Session ${session.id} - Texte accumulé: ${session.full_transcript.length} caractères`);
 
-        // Sauvegarde immédiate de la session mise à jour (sauvegarde incrémentale)
-        this.saveActiveSessionImmediate(data.commercial_id, session);
+        // Sauvegarde immédiate désactivée - la sauvegarde automatique toutes les 30s suffit
+        // pour éviter les appels IA répétés après chaque phrase
+        // this.saveActiveSessionImmediate(data.commercial_id, session);
       }
     }
 

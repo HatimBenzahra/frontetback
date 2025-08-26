@@ -32,6 +32,7 @@ import SuiviPage from './pages/admin/suivi/SuiviPage';
 import AssignmentGoalsPage from './pages/admin/assignment-goals/AssignmentGoalsPage';
 import GPSTrackingPage from './pages/admin/gps-tracking/GPSTrackingPage';
 import TranscriptionsPage from './pages/admin/transcriptions/TranscriptionsPage';
+import CommercialTranscriptionPage from './pages/admin/transcriptions/CommercialTranscriptionPage';
 import ReportsPage from './pages/admin/rapports/ReportsPage';
 import ParametresPage from './pages/admin/parametres/ParametresPage';
 
@@ -92,6 +93,7 @@ function App() {
             <Route path="suivi" element={<SuiviPage />} />
             <Route path="gps-tracking" element={<GPSTrackingPage />} />
             <Route path="transcriptions" element={<TranscriptionsPage />} />
+            <Route path="transcriptions/:commercialId" element={<CommercialTranscriptionPage />} />
             <Route path="rapports" element={<ReportsPage />} />
             <Route path="assignations-objectifs" element={<AssignmentGoalsPage />} />
             <Route path="parametres" element={<ParametresPage />} />
