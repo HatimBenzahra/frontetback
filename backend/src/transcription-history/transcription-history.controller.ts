@@ -51,6 +51,7 @@ export class TranscriptionHistoryController {
     return this.transcriptionHistoryService.restructureTranscription(id);
   }
 
+
   @Get(':id/stats')
   async getTranscriptionStats(@Param('id') id: string) {
     console.log('Statistiques demandées pour session:', id);

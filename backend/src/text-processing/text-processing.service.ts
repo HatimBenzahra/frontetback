@@ -70,7 +70,10 @@ export class TextProcessingService {
         this.logger.log('Traitement basique seulement (IA désactivée ou texte trop court)');
       }
 
-      // 4. ANALYSE FINALE
+      // 4. FORMATAGE FINAL AUTOMATIQUE avec retours à la ligne
+      finalText = this.formatDialogueWithLineBreaks(finalText);
+      
+      // 5. ANALYSE FINALE
       const finalAnalysis = this.analyzeText(finalText);
       const processingTime = Date.now() - startTime;
 
@@ -263,7 +266,44 @@ export class TextProcessingService {
       // Nettoyer les espaces multiples
       .replace(/\s+/g, ' ')
       .trim();
+    
+    // Note: Le formatage avec retours à la ligne sera appliqué automatiquement 
+    // dans le processus principal après ce nettoyage
   }
+
+  /**
+   * Formater un dialogue avec des retours à la ligne entre les interlocuteurs
+   */
+  private formatDialogueWithLineBreaks(text: string): string {
+    if (!text || text.trim().length === 0) return text;
+
+    // Pattern pour détecter les marqueurs de dialogue (ex: **Commercial :** ou **Prospect :**)
+    const speakerPattern = /(\*\*[^*]+\s*:\s*\*\*)/g;
+    
+    // Diviser le texte en utilisant le pattern des interlocuteurs
+    const parts = text.split(speakerPattern).filter(part => part.trim().length > 0);
+    
+    let formattedText = '';
+    
+    for (let i = 0; i < parts.length; i++) {
+      const part = parts[i].trim();
+      
+      // Si c'est un marqueur d'interlocuteur (commence par ** et finit par **)
+      if (speakerPattern.test(part)) {
+        // Ajouter un retour à la ligne avant chaque nouveau locuteur (sauf le premier)
+        if (formattedText.length > 0) {
+          formattedText += '\n\n';
+        }
+        formattedText += part;
+      } else {
+        // C'est le texte parlé, l'ajouter avec un espace
+        formattedText += ' ' + part;
+      }
+    }
+    
+    return formattedText.trim();
+  }
+
 
   /**
    * Traitement en temps réel (pour la transcription live)

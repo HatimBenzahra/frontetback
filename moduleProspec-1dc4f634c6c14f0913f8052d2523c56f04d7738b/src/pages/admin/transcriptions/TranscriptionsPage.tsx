@@ -966,16 +966,17 @@ const TranscriptionsPage = () => {
           setOpenSessionBuilding(null);
         }}
         title="Détails de la session de transcription"
-        maxWidth="max-w-4xl"
+        maxWidth="max-w-7xl"
         overlayClassName="backdrop-blur-sm bg-black/10"
       >
         {openSession && (
-          <div className="space-y-6">
-            <div className="mb-4 text-sm text-muted-foreground">
-              Détails complets de la session de transcription incluant le commercial, la localisation, la durée et le contenu.
-            </div>
-            
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div className="flex flex-col lg:flex-row gap-6 h-[80vh]">
+            {/* Colonne gauche - Informations */}
+            <div className="w-full lg:w-1/3 space-y-6 overflow-y-auto lg:pr-4 max-h-[40vh] lg:max-h-full">
+              <div className="text-sm text-muted-foreground">
+                Informations détaillées de la session de transcription.
+              </div>
+              
               <Card>
                 <CardHeader>
                   <CardTitle className="text-base flex items-center gap-2">
@@ -1059,48 +1060,128 @@ const TranscriptionsPage = () => {
               </Card>
             </div>
 
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-base flex items-center gap-2">
-                  <FileText className="h-4 w-4 text-purple-600" />
-                  Transcription complète
-                </CardTitle>
-                <CardDescription>Contenu intégral de la session de transcription.</CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="flex items-center gap-3">
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={() => copyText(openSession.full_transcript || '')}
-                    className="gap-2 bg-blue-50 border-blue-200 text-blue-700 hover:bg-blue-100 transition-colors"
-                  >
-                    <Copy className="h-4 w-4" />
-                    Copier
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={() =>
-                      downloadText(
-                        `transcription_${openSession.commercial_name || openSession.commercial_id}_${new Date(openSession.start_time).toISOString().split('T')[0]}.txt`,
-                        openSession.full_transcript || ''
-                      )
-                    }
-                    className="gap-2 bg-green-50 border-green-200 text-green-700 hover:bg-green-100 transition-colors"
-                  >
-                    <Download className="h-4 w-4" />
-                    Télécharger
-                  </Button>
-                </div>
-                
-                <div className="max-h-[50vh] overflow-y-auto border border-gray-200 rounded-lg bg-gray-50">
-                  <pre className="whitespace-pre-wrap text-sm p-4 leading-relaxed text-gray-700 font-mono">
-                    {openSession.full_transcript || 'Aucune transcription disponible'}
-                  </pre>
-                </div>
-              </CardContent>
-            </Card>
+            {/* Colonne droite - Transcription */}
+            <div className="flex-1 flex flex-col min-h-[40vh] lg:min-h-0">
+              <Card className="flex-1 flex flex-col">
+                <CardHeader className="flex-shrink-0 bg-gradient-to-r from-purple-50 to-pink-50 border-b">
+                  <div className="flex items-center justify-between">
+                    <CardTitle className="text-base flex items-center gap-2">
+                      <FileText className="h-4 w-4 text-purple-600" />
+                      Transcription complète
+                    </CardTitle>
+                    <div className="flex items-center gap-2">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => copyText(openSession.full_transcript || '')}
+                        className="gap-2 bg-blue-50 border-blue-200 text-blue-700 hover:bg-blue-100 transition-colors hidden sm:flex"
+                      >
+                        <Copy className="h-3 w-3" />
+                        <span className="hidden md:inline">Copier</span>
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => copyText(openSession.full_transcript || '')}
+                        className="gap-2 bg-blue-50 border-blue-200 text-blue-700 hover:bg-blue-100 transition-colors sm:hidden p-2"
+                      >
+                        <Copy className="h-3 w-3" />
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() =>
+                          downloadText(
+                            `transcription_${openSession.commercial_name || openSession.commercial_id}_${new Date(openSession.start_time).toISOString().split('T')[0]}.txt`,
+                            openSession.full_transcript || ''
+                          )
+                        }
+                        className="gap-2 bg-green-50 border-green-200 text-green-700 hover:bg-green-100 transition-colors hidden sm:flex"
+                      >
+                        <Download className="h-3 w-3" />
+                        <span className="hidden md:inline">Télécharger</span>
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() =>
+                          downloadText(
+                            `transcription_${openSession.commercial_name || openSession.commercial_id}_${new Date(openSession.start_time).toISOString().split('T')[0]}.txt`,
+                            openSession.full_transcript || ''
+                          )
+                        }
+                        className="gap-2 bg-green-50 border-green-200 text-green-700 hover:bg-green-100 transition-colors sm:hidden p-2"
+                      >
+                        <Download className="h-3 w-3" />
+                      </Button>
+                    </div>
+                  </div>
+                  <CardDescription>Contenu intégral de la session de transcription avec formatage optimisé.</CardDescription>
+                </CardHeader>
+                <CardContent className="flex-1 p-0 min-h-0">
+                  <div className="h-full bg-gradient-to-br from-slate-50 to-white border-0 relative">
+                    {/* Décoration d'arrière-plan */}
+                    <div className="absolute inset-0 bg-[radial-gradient(circle_at_30%_20%,rgba(120,119,198,0.05),transparent_50%)]" />
+                    <div className="absolute inset-0 bg-[radial-gradient(circle_at_70%_80%,rgba(255,131,131,0.03),transparent_50%)]" />
+                    
+                    <ScrollArea className="h-full relative z-10">
+                      <div className="p-4 sm:p-8">
+                        {openSession.full_transcript ? (
+                          <div className="relative">
+                            {/* Indicateur de longueur du texte */}
+                            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-6 pb-3 border-b border-gray-200/60 gap-2">
+                              <div className="flex flex-wrap items-center gap-2 sm:gap-3 text-xs sm:text-sm text-gray-600">
+                                <div className="flex items-center gap-2">
+                                  <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
+                                  <span className="font-medium">Transcription active</span>
+                                </div>
+                                <span className="text-gray-400">•</span>
+                                <span>{openSession.full_transcript.length.toLocaleString()} caractères</span>
+                                <span className="text-gray-400">•</span>
+                                <span>{openSession.full_transcript.split(' ').length.toLocaleString()} mots</span>
+                              </div>
+                            </div>
+                            
+                            {/* Contenu de la transcription avec style amélioré */}
+                            <div className="bg-white/80 backdrop-blur-sm rounded-lg border border-gray-200/60 shadow-sm">
+                              <div className="p-4 sm:p-6">
+                                <pre className="whitespace-pre-wrap text-xs sm:text-sm leading-6 sm:leading-7 text-gray-800 font-sans tracking-wide">
+                                  {openSession.full_transcript}
+                                </pre>
+                              </div>
+                            </div>
+                          </div>
+                        ) : (
+                          <div className="flex items-center justify-center h-full">
+                            <div className="text-center py-16 px-8">
+                              <div className="relative mb-6">
+                                <div className="w-20 h-20 bg-gradient-to-br from-purple-100 to-pink-100 rounded-full mx-auto flex items-center justify-center shadow-lg">
+                                  <FileText className="h-10 w-10 text-purple-500" />
+                                </div>
+                                <div className="absolute -top-1 -right-1 w-6 h-6 bg-gradient-to-br from-yellow-400 to-orange-400 rounded-full flex items-center justify-center shadow-md">
+                                  <span className="text-xs text-white font-bold">!</span>
+                                </div>
+                              </div>
+                              <h3 className="text-xl font-semibold text-gray-700 mb-2">
+                                Aucune transcription disponible
+                              </h3>
+                              <p className="text-sm text-gray-500 leading-relaxed max-w-md">
+                                Cette session ne contient pas encore de contenu transcrit. 
+                                La transcription apparaîtra automatiquement une fois le traitement terminé.
+                              </p>
+                              <div className="mt-6 inline-flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-full border border-blue-200/60">
+                                <div className="w-2 h-2 bg-blue-500 rounded-full animate-pulse"></div>
+                                <span className="text-xs font-medium text-blue-700">En attente de données</span>
+                              </div>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    </ScrollArea>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
           </div>
         )}
       </Modal>
