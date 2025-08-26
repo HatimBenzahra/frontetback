@@ -26,39 +26,13 @@ export class TranscriptionHistoryService {
     try {
       console.log('Sauvegarde session dans la base de données:', session.id);
       
-      // Traitement centralisé du texte (basique + IA)
-      let processedTranscript = session.full_transcript;
-      
-      if (session.full_transcript && session.full_transcript.trim().length > 0) {
-        try {
-          console.log('Traitement centralisé de la transcription...');
-          const processed = await this.textProcessingService.processTranscription(
-            session.full_transcript,
-            {
-              useAI: true,
-              minLengthForAI: 50
-            }
-          );
-          
-          processedTranscript = processed.processedText;
-          console.log(`Transcription traitée (${processed.processingType}) - ${processed.wordCount} mots`);
-          
-        } catch (processingError) {
-          console.error('Erreur traitement texte, sauvegarde du texte original:', processingError.message);
-          // En cas d'erreur, on garde le texte original
-          processedTranscript = session.full_transcript;
-        }
-      } else {
-        console.log('Transcription vide, pas de traitement');
-      }
-      
-      // Utiliser upsert pour éviter les doublons
+      // 1. Sauvegarder d'abord la session sans traitement IA
       const savedSession = await this.prisma.transcriptionSession.upsert({
         where: { id: session.id },
         update: {
           commercial_name: session.commercial_name,
           end_time: new Date(session.end_time),
-          full_transcript: processedTranscript,
+          full_transcript: session.full_transcript, // Texte original
           duration_seconds: session.duration_seconds,
           building_id: session.building_id,
           building_name: session.building_name,
@@ -70,7 +44,7 @@ export class TranscriptionHistoryService {
           commercial_name: session.commercial_name,
           start_time: new Date(session.start_time),
           end_time: new Date(session.end_time),
-          full_transcript: processedTranscript,
+          full_transcript: session.full_transcript, // Texte original
           duration_seconds: session.duration_seconds,
           building_id: session.building_id,
           building_name: session.building_name,
@@ -78,12 +52,49 @@ export class TranscriptionHistoryService {
         },
       });
 
-      console.log('Session transcription sauvegardée avec traitement Gemini:', savedSession.id);
+      console.log('Session transcription sauvegardée (texte original):', savedSession.id);
+      
+      // 2. Si il y a du texte, lancer le traitement IA en arrière-plan
+      if (session.full_transcript && session.full_transcript.trim().length > 50) {
+        this.processSessionWithAI(session.id, session.full_transcript);
+      }
       
       return { success: true, sessionId: savedSession.id };
     } catch (error) {
       console.error('Erreur sauvegarde session transcription:', error);
       throw error;
+    }
+  }
+
+  /**
+   * Traitement IA asynchrone d'une session
+   */
+  private async processSessionWithAI(sessionId: string, originalText: string) {
+    try {
+      console.log(`🤖 Début traitement IA pour session: ${sessionId}`);
+      
+      // Traitement IA
+      const processed = await this.textProcessingService.processTranscription(
+        originalText,
+        {
+          useAI: true,
+          minLengthForAI: 50
+        }
+      );
+      
+      // Mettre à jour la session avec le texte traité
+      await this.prisma.transcriptionSession.update({
+        where: { id: sessionId },
+        data: {
+          full_transcript: processed.processedText
+        }
+      });
+      
+      console.log(`✅ Traitement IA terminé pour session: ${sessionId} (${processed.processingType})`);
+      
+    } catch (error) {
+      console.error(`❌ Erreur traitement IA pour session: ${sessionId}:`, error);
+      // En cas d'erreur, on garde le texte original
     }
   }
 

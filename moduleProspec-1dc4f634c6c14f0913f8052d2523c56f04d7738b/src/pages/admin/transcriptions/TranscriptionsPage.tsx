@@ -63,6 +63,12 @@ const TranscriptionsPage = () => {
   const [dateFilter, setDateFilter] = useState<string>('all');
   const [durationFilter, setDurationFilter] = useState<string>('all');
 
+  // États pour le loading IA
+  const [aiProcessingSessions, setAiProcessingSessions] = useState<Set<string>>(new Set());
+
+  // État pour le loading du refresh
+  const [isRefreshing, setIsRefreshing] = useState(false);
+
   const [liveMaxChars] = useState<number>(8000);
 
   // Debounce partiels
@@ -91,6 +97,19 @@ const TranscriptionsPage = () => {
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url; a.download = filename; a.click(); URL.revokeObjectURL(url);
+  };
+
+  // Fonction pour gérer le loading IA
+  const setAiProcessing = (sessionId: string, isProcessing: boolean) => {
+    setAiProcessingSessions(prev => {
+      const newSet = new Set(prev);
+      if (isProcessing) {
+        newSet.add(sessionId);
+      } else {
+        newSet.delete(sessionId);
+      }
+      return newSet;
+    });
   };
 
   // DB: commerciaux
@@ -292,12 +311,16 @@ const TranscriptionsPage = () => {
       const fullLocal = getLiveCombinedFor(cid);
       console.log('Session terminée, texte local complet:', fullLocal.length, 'caractères');
 
-      // 2. Recharger l'historique pour obtenir la version serveur
+      // 2. Marquer la session comme en cours de traitement IA IMMÉDIATEMENT
+      setAiProcessing(session.id, true);
+      console.log('🤖 Loading IA activé pour session:', session.id);
+
+      // 3. Recharger l'historique pour obtenir la version serveur
       if (cid === selectedCommercialId) {
         await loadHistoryForSelected();
       }
 
-      // 3. Retrouver la session côté client après reload
+      // 4. Retrouver la session côté client après reload
       const serverSession = sessions.find(s => s.id === session.id);
       const serverText = serverSession?.full_transcript || '';
 
@@ -331,6 +354,81 @@ const TranscriptionsPage = () => {
       socket.emit('leaveRoom', 'audio-streaming');
     };
   }, [socket, selectedCommercialId, loadHistoryForSelected, liveMaxChars, clearLiveBuffersFor, getLiveCombinedFor, sessions]);
+
+  // Effet pour nettoyer le loading IA quand les sessions sont mises à jour
+  useEffect(() => {
+    const processingSessions = Array.from(aiProcessingSessions);
+    processingSessions.forEach(sessionId => {
+      const session = sessions.find(s => s.id === sessionId);
+      if (session && session.full_transcript && session.full_transcript.length > 0) {
+        // Vérifier si le texte a été traité par l'IA (contient des marqueurs **Commercial :** ou **Prospect :**)
+        const hasAiProcessing = session.full_transcript.includes('**Commercial :**') || 
+                               session.full_transcript.includes('**Prospect :**');
+        
+        if (hasAiProcessing) {
+          console.log('✅ Traitement IA détecté pour session:', sessionId);
+          setAiProcessing(sessionId, false);
+        } else {
+          // Si pas encore traité, continuer le loading
+          console.log('⏳ Session en cours de traitement IA:', sessionId);
+        }
+      }
+    });
+  }, [sessions, aiProcessingSessions]);
+
+  // Fonction de rafraîchissement complet de la page
+  const refreshAllData = useCallback(async () => {
+    try {
+      setIsRefreshing(true);
+      console.log('🔄 Rafraîchissement complet des données...');
+      
+      // 1. Recharger les commerciaux
+      await loadAllCommercials();
+      
+      // 2. Recharger l'historique si un commercial est sélectionné
+      if (selectedCommercialId) {
+        await loadHistoryForSelected();
+      }
+      
+      // 3. Demander le statut des commerciaux via WebSocket
+      if (socket) {
+        socket.emit('request_commercials_status');
+      }
+      
+      console.log('✅ Rafraîchissement terminé');
+    } catch (error) {
+      console.error('❌ Erreur lors du rafraîchissement:', error);
+    } finally {
+      setIsRefreshing(false);
+    }
+  }, [loadAllCommercials, loadHistoryForSelected, selectedCommercialId, socket]);
+
+  // Polling pour recharger l'historique quand il y a des sessions en traitement IA
+  useEffect(() => {
+    if (aiProcessingSessions.size > 0 && selectedCommercialId) {
+      const interval = setInterval(() => {
+        console.log('🔄 Polling pour sessions en traitement IA...');
+        loadHistoryForSelected();
+      }, 2000); // Recharger toutes les 2 secondes
+
+      return () => clearInterval(interval);
+    }
+  }, [aiProcessingSessions.size, selectedCommercialId, loadHistoryForSelected]);
+
+  // Raccourci clavier pour le refresh (Ctrl+R ou Cmd+R)
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if ((event.ctrlKey || event.metaKey) && event.key === 'r') {
+        event.preventDefault(); // Empêcher le refresh du navigateur
+        if (!isRefreshing) {
+          refreshAllData();
+        }
+      }
+    };
+
+    document.addEventListener('keydown', handleKeyDown);
+    return () => document.removeEventListener('keydown', handleKeyDown);
+  }, [refreshAllData, isRefreshing]);
 
   // Liste commerciaux fusionnée
   const commercials: CommercialItem[] = useMemo(() => {
@@ -520,16 +618,20 @@ const TranscriptionsPage = () => {
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-3xl font-bold text-gray-900">Transcriptions</h1>
-            <p className="text-gray-600 mt-1">Gestion et consultation des sessions de transcription</p>
+            <p className="text-gray-600 mt-1">
+              Gestion et consultation des sessions de transcription
+              <span className="text-xs text-gray-400 ml-2">(Ctrl+R pour actualiser)</span>
+            </p>
           </div>
           <div className="flex items-center gap-2">
             <Button
-              onClick={loadAllCommercials}
+              onClick={refreshAllData}
+              disabled={isRefreshing}
               variant="outline"
-              className="gap-2 bg-white/80 backdrop-blur-sm border-gray-200 hover:bg-white"
+              className="gap-2 bg-white/80 backdrop-blur-sm border-gray-200 hover:bg-white disabled:opacity-50"
             >
-              <RefreshCw className="h-4 w-4" />
-              Actualiser
+              <RefreshCw className={`h-4 w-4 ${isRefreshing ? 'animate-spin' : ''}`} />
+              {isRefreshing ? 'Actualisation...' : 'Actualiser'}
             </Button>
           </div>
         </div>
@@ -686,8 +788,19 @@ const TranscriptionsPage = () => {
                     </div>
                     Historique - {commercials.find(c => c.id === selectedCommercialId)?.name || selectedCommercialId}
                   </CardTitle>
-                  <div className="text-sm text-gray-600 bg-white/80 px-3 py-1 rounded-full">
-                    {sessions.length} session{sessions.length !== 1 ? 's' : ''}
+                  <div className="flex items-center gap-2">
+                    <div className="text-sm text-gray-600 bg-white/80 px-3 py-1 rounded-full">
+                      {sessions.length} session{sessions.length !== 1 ? 's' : ''}
+                    </div>
+                    <Button
+                      onClick={loadHistoryForSelected}
+                      disabled={loadingHistory}
+                      variant="ghost"
+                      size="sm"
+                      className="h-8 w-8 p-0 bg-white/80 hover:bg-white"
+                    >
+                      <RefreshCw className={`h-3 w-3 ${loadingHistory ? 'animate-spin' : ''}`} />
+                    </Button>
                   </div>
                 </div>
 
@@ -752,11 +865,14 @@ const TranscriptionsPage = () => {
                         <div className="space-y-2 pr-4">
                           {sessions.map(session => {
                             const displayTranscript = session.full_transcript || '';
+                            const isAiProcessing = aiProcessingSessions.has(session.id);
 
                             return (
                               <div
                                 key={session.id}
-                                className="p-4 hover:bg-gradient-to-r hover:from-blue-50 hover:to-indigo-50 rounded-xl cursor-pointer transition-all duration-300 group border border-transparent hover:border-blue-200 hover:shadow-md"
+                                className={`p-4 hover:bg-gradient-to-r hover:from-blue-50 hover:to-indigo-50 rounded-xl cursor-pointer transition-all duration-300 group border border-transparent hover:border-blue-200 hover:shadow-md ${
+                                  isAiProcessing ? 'bg-gradient-to-r from-yellow-50 to-orange-50 border-yellow-200' : ''
+                                }`}
                                 onClick={() => {
                                   setOpenSession(session);
                                   // Charger les détails de l'immeuble si building_id existe
@@ -773,7 +889,11 @@ const TranscriptionsPage = () => {
                               >
                                 <div className="flex items-start gap-3">
                                   <div className="p-1.5 bg-blue-100 rounded-lg flex-shrink-0">
-                                    <Clock className="h-3 w-3 text-blue-600" />
+                                    {isAiProcessing ? (
+                                      <div className="animate-spin h-3 w-3 border-2 border-orange-500 border-t-transparent rounded-full" />
+                                    ) : (
+                                      <Clock className="h-3 w-3 text-blue-600" />
+                                    )}
                                   </div>
                                   <div className="flex-1 min-w-0">
                                     <div className="flex items-center gap-2 mb-1">
@@ -783,6 +903,12 @@ const TranscriptionsPage = () => {
                                       <Badge variant="secondary" className="text-xs bg-purple-100 text-purple-800">
                                         {formatDuration(session.duration_seconds)}
                                       </Badge>
+                                      {isAiProcessing && (
+                                        <Badge variant="secondary" className="text-xs bg-orange-100 text-orange-800 animate-pulse">
+                                          <div className="w-2 h-2 bg-orange-500 rounded-full animate-pulse mr-1" />
+                                          IA en cours...
+                                        </Badge>
+                                      )}
                                     </div>
                                     <div className="text-xs text-gray-600 mb-2">
                                       <span className="font-medium">
@@ -797,7 +923,14 @@ const TranscriptionsPage = () => {
                                       )}
                                     </div>
                                     <p className="text-sm text-gray-700 line-clamp-3 group-hover:text-gray-900 transition-colors">
-                                      {displayTranscript || 'Aucune transcription'}
+                                      {isAiProcessing ? (
+                                        <span className="flex items-center gap-2">
+                                          <span className="text-orange-600 font-medium">Traitement IA en cours...</span>
+                                          <div className="w-3 h-3 border-2 border-orange-500 border-t-transparent rounded-full animate-spin" />
+                                        </span>
+                                      ) : (
+                                        displayTranscript || 'Aucune transcription'
+                                      )}
                                     </p>
                                   </div>
                                 </div>
