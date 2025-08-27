@@ -326,7 +326,19 @@ export class TranscriptionHistoryService {
    * Traitement chunk live avec merge intelligent
    */
   processLiveChunk(chunk: string, committed: string = '', isFinal: boolean = false, maxChars: number = 8000) {
-    return this.textProcessingService.processLiveChunk(chunk, committed, isFinal, maxChars);
+    // Simplification : retourner directement le chunk sans traitement complexe
+    const newCommitted = committed + (committed && !committed.endsWith(' ') ? ' ' : '') + chunk;
+    
+    // Limiter la longueur si nécessaire
+    const finalCommitted = newCommitted.length > maxChars 
+      ? newCommitted.slice(newCommitted.length - maxChars) 
+      : newCommitted;
+    
+    return {
+      processedChunk: chunk,
+      newCommitted: finalCommitted,
+      shouldFinalize: isFinal
+    };
   }
 
   /**

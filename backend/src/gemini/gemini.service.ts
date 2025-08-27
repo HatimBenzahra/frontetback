@@ -8,7 +8,7 @@ export class GeminiService {
   constructor() {
     // Utiliser l'URL du LLM local depuis les variables d'environnement
     this.localLLMUrl = process.env.LOCAL_LLM_URL || 'http://192.168.1.120:1234';
-    this.logger.log(`🤖 LLM local configuré: ${this.localLLMUrl}`);
+    this.logger.log(`LLM local configuré: ${this.localLLMUrl}`);
   }
 
   async restructureDialogue(transcription: string): Promise<string> {
@@ -61,9 +61,6 @@ RÈGLES DE FORMATAGE OBLIGATOIRES :
 
 IMPORTANT : Chaque interlocuteur doit être sur sa propre ligne avec une ligne vide entre eux.
 
-TRANSCRIPTION À TRAITER :
-${transcription}
-
 RÉSULTAT (avec retours à la ligne obligatoires) :`;
 
         // Appel à l'API locale
@@ -76,11 +73,15 @@ RÉSULTAT (avec retours à la ligne obligatoires) :`;
             model: 'qwen/qwen3-4b-2507', // modèle local détecté
             messages: [
               {
-                role: 'user',
+                role: 'system',
                 content: prompt
+              },
+              {
+                role: 'user',
+                content: 'Voici les données à traiter : ' + transcription
               }
             ],
-            temperature: 0.7,
+            temperature: 0.3,
             max_tokens: 2000
           })
         });
@@ -96,11 +97,8 @@ RÉSULTAT (avec retours à la ligne obligatoires) :`;
           throw new Error('Réponse vide du LLM local');
         }
 
-        // Nettoyage post-traitement pour s'assurer des retours à la ligne
-        const cleanedText = this.cleanAndFormatDialogue(restructuredText);
-
         this.logger.log('Restructuration terminée avec succès');
-        return cleanedText;
+        return restructuredText;
 
       } catch (error: any) {
         lastError = error;
@@ -123,82 +121,5 @@ RÉSULTAT (avec retours à la ligne obligatoires) :`;
     }
     
     throw new Error(`Échec après ${maxRetries} tentatives: ${lastError.message}`);
-  }
-
-  /**
-   * Nettoie et formate le dialogue pour s'assurer des retours à la ligne
-   */
-  private cleanAndFormatDialogue(text: string): string {
-    if (!text) return text;
-
-    // 1. Nettoyer les espaces multiples et retours à la ligne
-    let cleaned = text
-      .replace(/\r\n/g, '\n')
-      .replace(/\r/g, '\n')
-      .replace(/\n\s*\n\s*\n/g, '\n\n') // Supprimer les lignes vides multiples
-      .trim();
-
-    // 2. FORÇER les retours à la ligne entre interlocuteurs - méthode plus agressive
-    // Remplacer tous les patterns **Commercial :** ou **Prospect :** suivis directement d'un autre interlocuteur
-    cleaned = cleaned.replace(/(\*\*Commercial\s*:\*\*[^]*?)(\*\*Prospect\s*:\*\*)/g, '$1\n\n$2');
-    cleaned = cleaned.replace(/(\*\*Prospect\s*:\*\*[^]*?)(\*\*Commercial\s*:\*\*)/g, '$1\n\n$2');
-
-    // 3. Si le texte ne contient pas de retours à la ligne, les forcer
-    if (!cleaned.includes('\n\n')) {
-      // Diviser le texte en segments d'interlocuteurs
-      const segments = cleaned.split(/(\*\*[^*]+\*\*)/);
-      const formattedSegments: string[] = [];
-      
-      for (let i = 0; i < segments.length; i++) {
-        const segment = segments[i];
-        if (segment.includes('**')) {
-          // C'est un marqueur d'interlocuteur
-          formattedSegments.push(segment);
-        } else if (segment.trim()) {
-          // C'est du contenu, l'ajouter
-          formattedSegments.push(segment.trim());
-        }
-      }
-      
-      // Reconstruire avec des retours à la ligne
-      cleaned = '';
-      for (let i = 0; i < formattedSegments.length; i += 2) {
-        if (i + 1 < formattedSegments.length) {
-          cleaned += formattedSegments[i] + ' ' + formattedSegments[i + 1];
-        } else {
-          cleaned += formattedSegments[i];
-        }
-        
-        // Ajouter un retour à la ligne si ce n'est pas le dernier segment
-        if (i + 2 < formattedSegments.length) {
-          cleaned += '\n\n';
-        }
-      }
-    }
-
-    // 4. Nettoyer les espaces en début/fin de chaque ligne
-    cleaned = cleaned
-      .split('\n')
-      .map(line => line.trim())
-      .filter(line => line.length > 0) // Supprimer les lignes vides
-      .join('\n');
-
-    // 5. Ajouter un retour à la ligne entre chaque interlocuteur (méthode finale)
-    const lines = cleaned.split('\n');
-    const formattedLines: string[] = [];
-    
-    for (let i = 0; i < lines.length; i++) {
-      const line = lines[i];
-      const nextLine = lines[i + 1];
-      
-      formattedLines.push(line);
-      
-      // Si la ligne actuelle contient un interlocuteur et la suivante aussi, ajouter une ligne vide
-      if (line.includes('**') && nextLine && nextLine.includes('**')) {
-        formattedLines.push('');
-      }
-    }
-
-    return formattedLines.join('\n');
   }
 }
