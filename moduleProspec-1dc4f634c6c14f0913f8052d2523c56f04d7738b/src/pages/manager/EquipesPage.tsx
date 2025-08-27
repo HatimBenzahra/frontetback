@@ -2,8 +2,8 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { useBreadcrumb } from '@/contexts/BreadcrumbContext';
-import { equipeService, type EquipeFromApi } from '@/services/equipe.service';
-import { statisticsService } from '@/services/statistics.service';
+import { managerService } from '@/services/manager.service';
+import type { EquipeFromApi } from '@/services/equipe.service';
 import { DataTable } from '@/components/data-table/DataTable';
 import { Badge } from '@/components/ui-admin/badge';
 import StatCard from '@/components/ui-admin/StatCard';
@@ -75,16 +75,8 @@ const EquipesPage = () => {
         setLoading(true);
         setError(null);
         
-        // Récupérer les statistiques du manager qui incluent les données des équipes
-        const managerStats = await statisticsService.getStatsForManager(user.id);
-        
-        // Récupérer toutes les équipes pour filtrer celles du manager
-        const allEquipes = await equipeService.getEquipes();
-        
-        // Filtrer les équipes qui appartiennent au manager
-        const managerEquipes = allEquipes.filter((equipe: any) => {
-          return equipe.managerId === user.id;
-        });
+        // Récupérer les équipes du manager en utilisant la nouvelle route spécifique
+        const managerEquipes = await managerService.getManagerEquipes(user.id);
 
         // Enrichir les données avec les statistiques
         const enriched: EnrichedEquipe[] = managerEquipes.map((equipe: any) => {

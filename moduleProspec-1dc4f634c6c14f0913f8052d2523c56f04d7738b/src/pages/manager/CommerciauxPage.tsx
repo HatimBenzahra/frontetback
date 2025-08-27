@@ -2,8 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { useBreadcrumb } from '@/contexts/BreadcrumbContext';
-import { commercialService } from '@/services/commercial.service';
-import { statisticsService } from '@/services/statistics.service';
+import { managerService } from '@/services/manager.service';
 import { DataTable } from '@/components/data-table/DataTable';
 import { Badge } from '@/components/ui-admin/badge';
 import StatCard from '@/components/ui-admin/StatCard';
@@ -76,17 +75,8 @@ const CommerciauxPage = () => {
         setLoading(true);
         setError(null);
         
-        // Récupérer les statistiques du manager qui incluent les données des commerciaux
-        const managerStats = await statisticsService.getStatsForManager(user.id);
-        
-        // Récupérer tous les commerciaux pour filtrer ceux du manager
-        const allCommerciaux = await commercialService.getCommerciaux();
-        
-        // Filtrer les commerciaux qui appartiennent aux équipes du manager
-        const managerCommerciaux = allCommerciaux.filter((commercial: any) => {
-          return commercial.managerId === user.id || 
-                 (commercial.equipe && commercial.equipe.managerId === user.id);
-        });
+        // Récupérer les commerciaux du manager en utilisant la nouvelle route spécifique
+        const managerCommerciaux = await managerService.getManagerCommerciaux(user.id);
 
         // Enrichir les données avec les statistiques
         const enriched: EnrichedCommercial[] = managerCommerciaux.map((commercial: any) => {

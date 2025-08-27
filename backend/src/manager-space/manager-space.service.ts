@@ -1,0 +1,297 @@
+import { Injectable, ForbiddenException, NotFoundException } from '@nestjs/common';
+import { PrismaService } from '../prisma/prisma.service';
+
+@Injectable()
+export class ManagerSpaceService {
+  constructor(private prisma: PrismaService) {}
+
+  // Récupérer les commerciaux d'un manager spécifique
+  async getManagerCommerciaux(managerId: string) {
+    // Vérifier que le manager existe
+    const manager = await this.prisma.manager.findUnique({
+      where: { id: managerId }
+    });
+
+    if (!manager) {
+      throw new NotFoundException(`Manager with ID ${managerId} not found`);
+    }
+
+    // Récupérer les commerciaux du manager
+    const commerciaux = await this.prisma.commercial.findMany({
+      where: {
+        OR: [
+          { managerId: managerId },
+          {
+            equipe: {
+              managerId: managerId
+            }
+          }
+        ]
+      },
+      include: {
+        equipe: {
+          include: {
+            manager: true
+          }
+        },
+        historiques: true,
+        zones: {
+          include: {
+            zone: true
+          }
+        }
+      }
+    });
+
+    return commerciaux;
+  }
+
+  // Récupérer les équipes d'un manager spécifique
+  async getManagerEquipes(managerId: string) {
+    // Vérifier que le manager existe
+    const manager = await this.prisma.manager.findUnique({
+      where: { id: managerId }
+    });
+
+    if (!manager) {
+      throw new NotFoundException(`Manager with ID ${managerId} not found`);
+    }
+
+    // Récupérer les équipes du manager
+    const equipes = await this.prisma.equipe.findMany({
+      where: {
+        managerId: managerId
+      },
+      include: {
+        manager: true,
+        commerciaux: {
+          include: {
+            historiques: true,
+            zones: {
+              include: {
+                zone: true
+              }
+            }
+          }
+        }
+      }
+    });
+
+    return equipes;
+  }
+
+  // Récupérer un commercial spécifique d'un manager (avec vérification d'autorisation)
+  async getManagerCommercial(managerId: string, commercialId: string) {
+    // Vérifier que le manager existe
+    const manager = await this.prisma.manager.findUnique({
+      where: { id: managerId }
+    });
+
+    if (!manager) {
+      throw new NotFoundException(`Manager with ID ${managerId} not found`);
+    }
+
+    // Récupérer le commercial avec vérification d'appartenance au manager
+    const commercial = await this.prisma.commercial.findFirst({
+      where: {
+        id: commercialId,
+        OR: [
+          { managerId: managerId },
+          {
+            equipe: {
+              managerId: managerId
+            }
+          }
+        ]
+      },
+      include: {
+        equipe: {
+          include: {
+            manager: true
+          }
+        },
+        historiques: {
+          include: {
+            immeuble: true
+          },
+          orderBy: {
+            dateProspection: 'desc'
+          }
+        },
+        zones: {
+          include: {
+            zone: true
+          }
+        }
+      }
+    });
+
+    if (!commercial) {
+      throw new ForbiddenException(`Commercial with ID ${commercialId} is not managed by manager ${managerId} or does not exist`);
+    }
+
+    return commercial;
+  }
+
+  // Récupérer une équipe spécifique d'un manager (avec vérification d'autorisation)
+  async getManagerEquipe(managerId: string, equipeId: string) {
+    // Vérifier que le manager existe
+    const manager = await this.prisma.manager.findUnique({
+      where: { id: managerId }
+    });
+
+    if (!manager) {
+      throw new NotFoundException(`Manager with ID ${managerId} not found`);
+    }
+
+    // Récupérer l'équipe avec vérification d'appartenance au manager
+    const equipe = await this.prisma.equipe.findFirst({
+      where: {
+        id: equipeId,
+        managerId: managerId
+      },
+      include: {
+        manager: true,
+        commerciaux: {
+          include: {
+            historiques: {
+              include: {
+                immeuble: true
+              },
+              orderBy: {
+                dateProspection: 'desc'
+              }
+            },
+            zones: {
+              include: {
+                zone: true
+              }
+            }
+          }
+        }
+      }
+    });
+
+    if (!equipe) {
+      throw new ForbiddenException(`Equipe with ID ${equipeId} is not managed by manager ${managerId} or does not exist`);
+    }
+
+    return equipe;
+  }
+
+  // Récupérer les zones assignées aux équipes/commerciaux d'un manager
+  async getManagerZones(managerId: string) {
+    // Vérifier que le manager existe
+    const manager = await this.prisma.manager.findUnique({
+      where: { id: managerId }
+    });
+
+    if (!manager) {
+      throw new NotFoundException(`Manager with ID ${managerId} not found`);
+    }
+
+    // Récupérer les zones assignées au manager directement
+    const managerZones = await this.prisma.zone.findMany({
+      where: {
+        managerId: managerId
+      },
+      include: {
+        commerciaux: {
+          include: {
+            commercial: true
+          }
+        },
+        immeubles: true
+      }
+    });
+
+    // Récupérer les zones assignées aux équipes du manager
+    const equipeZones = await this.prisma.zone.findMany({
+      where: {
+        equipe: {
+          managerId: managerId
+        }
+      },
+      include: {
+        commerciaux: {
+          include: {
+            commercial: true
+          }
+        },
+        immeubles: true,
+        equipe: true
+      }
+    });
+
+    // Récupérer les zones assignées aux commerciaux du manager
+    const commercialZones = await this.prisma.zone.findMany({
+      where: {
+        commerciaux: {
+          some: {
+            commercial: {
+              OR: [
+                { managerId: managerId },
+                {
+                  equipe: {
+                    managerId: managerId
+                  }
+                }
+              ]
+            }
+          }
+        }
+      },
+      include: {
+        commerciaux: {
+          include: {
+            commercial: {
+              include: {
+                equipe: true
+              }
+            }
+          }
+        },
+        immeubles: true
+      }
+    });
+
+    // Combiner et dédoublonner les zones
+    const allZones = [...managerZones, ...equipeZones, ...commercialZones];
+    const uniqueZones = allZones.filter((zone, index, self) => 
+      index === self.findIndex(z => z.id === zone.id)
+    );
+
+    return uniqueZones;
+  }
+
+  // Vérifier si un manager a accès à un commercial
+  async verifyManagerAccess(managerId: string, commercialId: string): Promise<boolean> {
+    const commercial = await this.prisma.commercial.findFirst({
+      where: {
+        id: commercialId,
+        OR: [
+          { managerId: managerId },
+          {
+            equipe: {
+              managerId: managerId
+            }
+          }
+        ]
+      }
+    });
+
+    return !!commercial;
+  }
+
+  // Vérifier si un manager a accès à une équipe
+  async verifyManagerTeamAccess(managerId: string, equipeId: string): Promise<boolean> {
+    const equipe = await this.prisma.equipe.findFirst({
+      where: {
+        id: equipeId,
+        managerId: managerId
+      }
+    });
+
+    return !!equipe;
+  }
+}

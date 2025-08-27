@@ -34,9 +34,35 @@ const updateManager = async (id: string, data: UpdateManagerPayload): Promise<Ma
   const response = await axios.patch(`${API_URL}/${id}`, data);
   return response.data;
 };
-// AJOUT DE LA NOUVELLE FONCTION
+// AJOUT DES NOUVELLES FONCTIONS POUR L'ESPACE MANAGER
 const getManagerDetails = async (id: string): Promise<any> => {
   const response = await axios.get(`${API_URL}/${id}`);
+  return response.data;
+};
+
+// Nouvelles fonctions utilisant les routes manager-space
+const getManagerCommerciaux = async (managerId: string): Promise<any> => {
+  const response = await axios.get(`${API_BASE_URL}/manager-space/${managerId}/commerciaux`);
+  return response.data;
+};
+
+const getManagerEquipes = async (managerId: string): Promise<any> => {
+  const response = await axios.get(`${API_BASE_URL}/manager-space/${managerId}/equipes`);
+  return response.data;
+};
+
+const getManagerZones = async (managerId: string): Promise<any> => {
+  const response = await axios.get(`${API_BASE_URL}/manager-space/${managerId}/zones`);
+  return response.data;
+};
+
+const getManagerCommercial = async (managerId: string, commercialId: string): Promise<any> => {
+  const response = await axios.get(`${API_BASE_URL}/manager-space/${managerId}/commerciaux/${commercialId}`);
+  return response.data;
+};
+
+const getManagerEquipe = async (managerId: string, equipeId: string): Promise<any> => {
+  const response = await axios.get(`${API_BASE_URL}/manager-space/${managerId}/equipes/${equipeId}`);
   return response.data;
 };
 // Fonction pour supprimer un manager
@@ -50,4 +76,10 @@ export const managerService = {
   getManagerDetails,
   updateManager,
   deleteManager,
+  // Nouvelles fonctions pour l'espace manager
+  getManagerCommerciaux,
+  getManagerEquipes,
+  getManagerZones,
+  getManagerCommercial,
+  getManagerEquipe,
 };

@@ -80,8 +80,7 @@ export class TranscriptionHistoryService {
       const processed = await this.textProcessingService.processTranscription(
         originalText,
         {
-          useAI: true,
-          minLengthForAI: 50
+          useAI: true
         }
       );
       
@@ -289,8 +288,7 @@ export class TranscriptionHistoryService {
       const processed = await this.textProcessingService.processTranscription(
         session.full_transcript,
         {
-          useAI: true,
-          minLengthForAI: 10 // Plus permissif pour la restructuration manuelle
+          useAI: true
         }
       );
 

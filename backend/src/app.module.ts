@@ -17,6 +17,7 @@ import { ProspectionModule } from './prospection/prospection.module';
 import { EventsModule } from './events/events.module';
 import { TranscriptionHistoryModule } from './transcription-history/transcription-history.module';
 import { ExportsModule } from './exports/exports.module';
+import { ManagerSpaceModule } from './manager-space/manager-space.module';
 
 @Module({
   imports: [
@@ -39,6 +40,7 @@ import { ExportsModule } from './exports/exports.module';
     EventsModule,
     TranscriptionHistoryModule,
     ExportsModule,
+    ManagerSpaceModule,
   ],
   controllers: [AppController],
   providers: [AppService],
