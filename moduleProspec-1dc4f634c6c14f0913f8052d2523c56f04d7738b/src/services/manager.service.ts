@@ -65,6 +65,18 @@ const getManagerEquipe = async (managerId: string, equipeId: string): Promise<an
   const response = await axios.get(`${API_BASE_URL}/manager-space/${managerId}/equipes/${equipeId}`);
   return response.data;
 };
+
+// Fonction pour récupérer les immeubles des commerciaux d'un manager
+const getManagerImmeubles = async (managerId: string): Promise<any[]> => {
+  const response = await axios.get(`${API_BASE_URL}/manager-space/${managerId}/immeubles`);
+  return response.data;
+};
+
+// Fonction pour supprimer un immeuble d'un commercial du manager
+const deleteManagerImmeuble = async (managerId: string, immeubleId: string, _commercialId?: string) => {
+  const response = await axios.delete(`${API_BASE_URL}/manager-space/${managerId}/immeubles/${immeubleId}`);
+  return response.data;
+};
 // Fonction pour supprimer un manager
 const deleteManager = async (id: string): Promise<void> => {
   await axios.delete(`${API_URL}/${id}`);
@@ -82,4 +94,6 @@ export const managerService = {
   getManagerZones,
   getManagerCommercial,
   getManagerEquipe,
+  getManagerImmeubles,
+  deleteManagerImmeuble,
 };

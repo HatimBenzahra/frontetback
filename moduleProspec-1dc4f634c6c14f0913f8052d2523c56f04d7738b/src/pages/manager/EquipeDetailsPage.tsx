@@ -3,13 +3,13 @@ import { useParams, useNavigate, Link } from "react-router-dom";
 import { DataTable } from "@/components/data-table/DataTable";
 import { Button } from "@/components/ui-admin/button";
 import { Badge } from "@/components/ui-admin/badge";
-import { ArrowLeft, Users, CheckCircle, Briefcase, Target, Trophy, Flag, Mail, Eye } from "lucide-react";
+import { ArrowLeft, CheckCircle, Briefcase, Target, Trophy, Flag, Mail, Eye } from "lucide-react";
 import StatCard from "@/components/ui-admin/StatCard";
 import { GenericLineChart } from "@/components/charts/GenericLineChart";
 import { equipeService, type EquipeDetailsFromApi } from "@/services/equipe.service";
 import { AdminPageSkeleton } from "@/components/ui-admin/AdminPageSkeleton";
 import { useBreadcrumb } from "@/contexts/BreadcrumbContext";
-import type { Commercial } from "@/types/types";
+
 
 const EquipeDetailsPage = () => {
   const { id } = useParams<{ id: string }>();

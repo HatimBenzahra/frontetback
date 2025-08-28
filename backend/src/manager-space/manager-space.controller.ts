@@ -1,6 +1,7 @@
 import {
   Controller,
   Get,
+  Delete,
   Param,
   UseGuards,
   Request,
@@ -90,6 +91,50 @@ export class ManagerSpaceController {
     // }
     
     return this.managerSpaceService.getManagerZones(managerId);
+  }
+
+  // Récupérer les immeubles des commerciaux du manager connecté
+  @Get(':managerId/immeubles')
+  async getMyImmeubles(
+    @Param('managerId') managerId: string,
+    // @Request() req: any // TODO: Récupérer l'ID du manager depuis le token JWT
+  ) {
+    // TODO: Vérifier que req.user.id === managerId pour sécuriser l'accès
+    // if (req.user.id !== managerId) {
+    //   throw new ForbiddenException('You can only access your own team buildings');
+    // }
+    
+    return this.managerSpaceService.getManagerImmeubles(managerId);
+  }
+
+  // Récupérer un immeuble spécifique des commerciaux du manager connecté
+  @Get(':managerId/immeubles/:immeubleId')
+  async getMyImmeuble(
+    @Param('managerId') managerId: string,
+    @Param('immeubleId') immeubleId: string,
+    // @Request() req: any // TODO: Récupérer l'ID du manager depuis le token JWT
+  ) {
+    // TODO: Vérifier que req.user.id === managerId pour sécuriser l'accès
+    // if (req.user.id !== managerId) {
+    //   throw new ForbiddenException('You can only access your own team buildings');
+    // }
+    
+    return this.managerSpaceService.getManagerImmeuble(managerId, immeubleId);
+  }
+
+  // Supprimer un immeuble des commerciaux du manager connecté
+  @Delete(':managerId/immeubles/:immeubleId')
+  async deleteMyImmeuble(
+    @Param('managerId') managerId: string,
+    @Param('immeubleId') immeubleId: string,
+    // @Request() req: any // TODO: Récupérer l'ID du manager depuis le token JWT
+  ) {
+    // TODO: Vérifier que req.user.id === managerId pour sécuriser l'accès
+    // if (req.user.id !== managerId) {
+    //   throw new ForbiddenException('You can only delete your own team buildings');
+    // }
+    
+    return this.managerSpaceService.deleteManagerImmeuble(managerId, immeubleId);
   }
 
   // Route pour vérifier l'accès à un commercial (utilitaire)

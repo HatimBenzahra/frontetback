@@ -52,6 +52,7 @@ import ManagerCommerciauxPage from './pages/manager/CommerciauxPage';
 import ManagerEquipesPage from './pages/manager/EquipesPage';
 import ManagerCommercialDetailsPage from './pages/manager/CommercialDetailsPage';
 import ManagerEquipeDetailsPage from './pages/manager/EquipeDetailsPage';
+import ManagerImmeublesPage from './pages/manager/immeubles/ImmeublesPage';
 import DashboardDirecteur from './pages/directeur/DashboardDirecteur';
 import DashboardBackoffice from './pages/backoffice/DashboardBackoffice';
 
@@ -124,8 +125,8 @@ function App() {
             <Route path="commerciaux/:id" element={<ManagerCommercialDetailsPage />} />
             <Route path="equipes" element={<ManagerEquipesPage />} />
             <Route path="equipes/:id" element={<ManagerEquipeDetailsPage />} />
-            {/* <Route path="immeubles" element={<ManagerImmeublesPage />} />
-            <Route path="suivi" element={<ManagerSuiviPage />} />
+            <Route path="immeubles" element={<ManagerImmeublesPage />} />
+            {/* <Route path="suivi" element={<ManagerSuiviPage />} />
             <Route path="zones" element={<ManagerZonesPage />} />
             <Route path="assignations-objectifs" element={<ManagerAssignmentGoalsPage />} />
             <Route path="statistiques" element={<ManagerStatistiquesPage />} />

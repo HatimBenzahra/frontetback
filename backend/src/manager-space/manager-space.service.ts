@@ -294,4 +294,199 @@ export class ManagerSpaceService {
 
     return !!equipe;
   }
+
+  // Récupérer les immeubles de tous les commerciaux d'un manager
+  async getManagerImmeubles(managerId: string) {
+    // Vérifier que le manager existe
+    const manager = await this.prisma.manager.findUnique({
+      where: { id: managerId }
+    });
+
+    if (!manager) {
+      throw new NotFoundException(`Manager with ID ${managerId} not found`);
+    }
+
+    // Récupérer tous les immeubles des commerciaux du manager
+    const immeubles = await this.prisma.immeuble.findMany({
+      where: {
+        prospectors: {
+          some: {
+            OR: [
+              { managerId: managerId },
+              {
+                equipe: {
+                  managerId: managerId
+                }
+              }
+            ]
+          }
+        }
+      },
+      include: {
+        zone: true,
+        prospectors: {
+          where: {
+            OR: [
+              { managerId: managerId },
+              {
+                equipe: {
+                  managerId: managerId
+                }
+              }
+            ]
+          },
+          include: {
+            equipe: true
+          }
+        },
+        portes: true,
+        historiques: {
+          include: {
+            commercial: true
+          },
+          orderBy: {
+            dateProspection: 'desc'
+          }
+        }
+      }
+    });
+
+    return immeubles;
+  }
+
+  // Récupérer un immeuble spécifique d'un manager (avec vérification d'autorisation)
+  async getManagerImmeuble(managerId: string, immeubleId: string) {
+    // Vérifier que le manager existe
+    const manager = await this.prisma.manager.findUnique({
+      where: { id: managerId }
+    });
+
+    if (!manager) {
+      throw new NotFoundException(`Manager with ID ${managerId} not found`);
+    }
+
+    // Récupérer l'immeuble avec vérification d'appartenance au manager
+    const immeuble = await this.prisma.immeuble.findFirst({
+      where: {
+        id: immeubleId,
+        prospectors: {
+          some: {
+            OR: [
+              { managerId: managerId },
+              {
+                equipe: {
+                  managerId: managerId
+                }
+              }
+            ]
+          }
+        }
+      },
+      include: {
+        zone: true,
+        prospectors: {
+          where: {
+            OR: [
+              { managerId: managerId },
+              {
+                equipe: {
+                  managerId: managerId
+                }
+              }
+            ]
+          },
+          include: {
+            equipe: true
+          }
+        },
+        portes: true,
+        historiques: {
+          include: {
+            commercial: true
+          },
+          orderBy: {
+            dateProspection: 'desc'
+          }
+        }
+      }
+    });
+
+    if (!immeuble) {
+      throw new ForbiddenException(`Immeuble with ID ${immeubleId} is not managed by any of manager ${managerId}'s commercials or does not exist`);
+    }
+
+    return immeuble;
+  }
+
+  // Supprimer un immeuble d'un manager (avec vérification d'autorisation)
+  async deleteManagerImmeuble(managerId: string, immeubleId: string) {
+    // Vérifier que le manager existe
+    const manager = await this.prisma.manager.findUnique({
+      where: { id: managerId }
+    });
+
+    if (!manager) {
+      throw new NotFoundException(`Manager with ID ${managerId} not found`);
+    }
+
+    // Vérifier que l'immeuble appartient bien à un commercial du manager
+    const immeuble = await this.prisma.immeuble.findFirst({
+      where: {
+        id: immeubleId,
+        prospectors: {
+          some: {
+            OR: [
+              { managerId: managerId },
+              {
+                equipe: {
+                  managerId: managerId
+                }
+              }
+            ]
+          }
+        }
+      },
+      include: {
+        prospectors: {
+          where: {
+            OR: [
+              { managerId: managerId },
+              {
+                equipe: {
+                  managerId: managerId
+                }
+              }
+            ]
+          }
+        }
+      }
+    });
+
+    if (!immeuble) {
+      throw new ForbiddenException(`Immeuble with ID ${immeubleId} is not managed by any of manager ${managerId}'s commercials or does not exist`);
+    }
+
+    // Supprimer l'immeuble via transaction pour inclure les données associées
+    return this.prisma.$transaction(async (prisma) => {
+      // Supprimer d'abord toutes les portes associées
+      await prisma.porte.deleteMany({
+        where: { immeubleId: immeubleId },
+      });
+
+      // Supprimer tous les historiques associés
+      await prisma.historiqueProspection.deleteMany({
+        where: { immeubleId: immeubleId },
+      });
+
+      // Supprimer toutes les requêtes de prospection associées
+      await prisma.prospectionRequest.deleteMany({
+        where: { immeubleId: immeubleId },
+      });
+
+      // Finalement, supprimer l'immeuble lui-même
+      return prisma.immeuble.delete({
+        where: { id: immeubleId },
+      });
+    });
+  }
 }
