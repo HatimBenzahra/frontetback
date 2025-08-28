@@ -197,6 +197,18 @@ export class ManagerSpaceService {
       },
       include: {
         commerciaux: {
+          where: {
+            commercial: {
+              OR: [
+                { managerId: managerId },
+                {
+                  equipe: {
+                    managerId: managerId
+                  }
+                }
+              ]
+            }
+          },
           include: {
             commercial: true
           }
@@ -214,6 +226,18 @@ export class ManagerSpaceService {
       },
       include: {
         commerciaux: {
+          where: {
+            commercial: {
+              OR: [
+                { managerId: managerId },
+                {
+                  equipe: {
+                    managerId: managerId
+                  }
+                }
+              ]
+            }
+          },
           include: {
             commercial: true
           }
@@ -243,6 +267,18 @@ export class ManagerSpaceService {
       },
       include: {
         commerciaux: {
+          where: {
+            commercial: {
+              OR: [
+                { managerId: managerId },
+                {
+                  equipe: {
+                    managerId: managerId
+                  }
+                }
+              ]
+            }
+          },
           include: {
             commercial: {
               include: {
@@ -488,5 +524,149 @@ export class ManagerSpaceService {
         where: { id: immeubleId },
       });
     });
+  }
+
+  // Récupérer tous les historiques de prospection des commerciaux d'un manager (page suivi)
+  async getManagerHistoriques(managerId: string) {
+    // Vérifier que le manager existe
+    const manager = await this.prisma.manager.findUnique({
+      where: { id: managerId }
+    });
+
+    if (!manager) {
+      throw new NotFoundException(`Manager with ID ${managerId} not found`);
+    }
+
+    // Récupérer tous les historiques des commerciaux du manager
+    const historiques = await this.prisma.historiqueProspection.findMany({
+      where: {
+        commercial: {
+          OR: [
+            { managerId: managerId },
+            {
+              equipe: {
+                managerId: managerId
+              }
+            }
+          ]
+        }
+      },
+      include: {
+        commercial: {
+          include: {
+            equipe: true
+          }
+        },
+        immeuble: {
+          include: {
+            zone: true,
+            portes: true
+          }
+        }
+      },
+      orderBy: {
+        dateProspection: 'desc'
+      }
+    });
+
+    return historiques;
+  }
+
+  // Récupérer les historiques d'un commercial spécifique du manager
+  async getCommercialHistoriques(managerId: string, commercialId: string) {
+    // Vérifier l'accès au commercial
+    const hasAccess = await this.verifyManagerAccess(managerId, commercialId);
+    if (!hasAccess) {
+      throw new ForbiddenException(`Commercial with ID ${commercialId} is not managed by manager ${managerId} or does not exist`);
+    }
+
+    // Récupérer les historiques du commercial
+    const historiques = await this.prisma.historiqueProspection.findMany({
+      where: {
+        commercialId: commercialId
+      },
+      include: {
+        commercial: {
+          include: {
+            equipe: true
+          }
+        },
+        immeuble: {
+          include: {
+            zone: true,
+            portes: true
+          }
+        }
+      },
+      orderBy: {
+        dateProspection: 'desc'
+      }
+    });
+
+    return historiques;
+  }
+
+  // Récupérer toutes les transcriptions des commerciaux d'un manager
+  async getManagerTranscriptions(managerId: string) {
+    // Vérifier que le manager existe
+    const manager = await this.prisma.manager.findUnique({
+      where: { id: managerId }
+    });
+
+    if (!manager) {
+      throw new NotFoundException(`Manager with ID ${managerId} not found`);
+    }
+
+    // D'abord, récupérer les IDs des commerciaux du manager
+    const commerciaux = await this.prisma.commercial.findMany({
+      where: {
+        OR: [
+          { managerId: managerId },
+          {
+            equipe: {
+              managerId: managerId
+            }
+          }
+        ]
+      },
+      select: { id: true }
+    });
+
+    const commercialIds = commerciaux.map(c => c.id);
+
+    // Récupérer toutes les transcriptions de ces commerciaux
+    const transcriptions = await this.prisma.transcriptionSession.findMany({
+      where: {
+        commercial_id: {
+          in: commercialIds
+        }
+      },
+      orderBy: {
+        start_time: 'desc'
+      }
+    });
+
+    return transcriptions;
+  }
+
+  // Récupérer les transcriptions d'un commercial spécifique du manager
+  async getCommercialTranscriptions(managerId: string, commercialId: string) {
+    // Vérifier l'accès au commercial
+    const hasAccess = await this.verifyManagerAccess(managerId, commercialId);
+    if (!hasAccess) {
+      throw new ForbiddenException(`Commercial with ID ${commercialId} is not managed by manager ${managerId} or does not exist`);
+    }
+
+    // Récupérer les transcriptions du commercial
+    const transcriptions = await this.prisma.transcriptionSession.findMany({
+      where: {
+        commercial_id: commercialId
+      },
+      orderBy: {
+        start_time: 'desc'
+      }
+    });
+
+    return transcriptions;
   }
 }

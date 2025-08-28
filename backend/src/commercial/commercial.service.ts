@@ -82,9 +82,20 @@ export class CommercialService {
       select: { managerId: true, equipeId: true },
     });
 
+    // Si on change d'équipe, récupérer le manager de la nouvelle équipe
+    let effectiveManagerId = managerId ?? existing?.managerId ?? null;
+    if (equipeId && equipeId !== existing?.equipeId) {
+      const newEquipe = await this.prisma.equipe.findUnique({
+        where: { id: equipeId },
+        select: { managerId: true }
+      });
+      if (newEquipe) {
+        effectiveManagerId = newEquipe.managerId;
+      }
+    }
+
     const shouldRecomputeAssignment =
       typeof managerId !== 'undefined' || typeof equipeId !== 'undefined';
-    const effectiveManagerId = managerId ?? existing?.managerId ?? null;
     const effectiveEquipeId = equipeId ?? existing?.equipeId ?? null;
     const isAssignedUpdate = shouldRecomputeAssignment
       ? { isAssigned: Boolean(effectiveManagerId && effectiveEquipeId) }
@@ -94,7 +105,7 @@ export class CommercialService {
       where: { id },
       data: {
         ...otherData,
-        ...(typeof managerId !== 'undefined' ? { managerId } : {}),
+        managerId: effectiveManagerId,
         ...(equipeId ? { equipe: { connect: { id: equipeId } } } : {}),
         ...isAssignedUpdate,
       },

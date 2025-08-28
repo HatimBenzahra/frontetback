@@ -78,6 +78,24 @@ const deleteManagerImmeuble = async (immeubleId: string) => {
   const response = await axios.delete(`${API_BASE_URL}/manager-space/immeubles/${immeubleId}`);
   return response.data;
 };
+
+// Fonction pour récupérer les transcriptions de tous les commerciaux du manager
+const getManagerTranscriptions = async (): Promise<any> => {
+  const response = await axios.get(`${API_BASE_URL}/manager-space/transcriptions`);
+  return response.data;
+};
+
+// Fonction pour récupérer les transcriptions d'un commercial spécifique
+const getCommercialTranscriptions = async (commercialId: string): Promise<any> => {
+  const response = await axios.get(`${API_BASE_URL}/manager-space/transcriptions/commercial/${commercialId}`);
+  return response.data;
+};
+
+// Fonction pour récupérer le suivi de prospection du manager
+const getManagerSuivi = async (): Promise<any> => {
+  const response = await axios.get(`${API_BASE_URL}/manager-space/suivi`);
+  return response.data;
+};
 // Fonction pour supprimer un manager
 const deleteManager = async (id: string): Promise<void> => {
   await axios.delete(`${API_URL}/${id}`);
@@ -97,4 +115,8 @@ export const managerService = {
   getManagerEquipe,
   getManagerImmeubles,
   deleteManagerImmeuble,
+  // Fonctions pour transcriptions et suivi
+  getManagerTranscriptions,
+  getCommercialTranscriptions,
+  getManagerSuivi,
 };

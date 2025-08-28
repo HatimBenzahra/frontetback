@@ -125,4 +125,42 @@ export class ManagerSpaceController {
     const hasAccess = await this.managerSpaceService.verifyManagerTeamAccess(managerId, equipeId);
     return { hasAccess };
   }
+
+  // Récupérer tous les historiques de prospection des commerciaux du manager (page suivi)
+  @Get('suivi')
+  async getSuiviProspection(
+    @Request() req: AuthRequest
+  ) {
+    const managerId = req.user.managerId;
+    return this.managerSpaceService.getManagerHistoriques(managerId);
+  }
+
+  // Récupérer les historiques d'un commercial spécifique (pour le suivi détaillé)
+  @Get('suivi/commercial/:commercialId')
+  async getSuiviCommercial(
+    @Param('commercialId') commercialId: string,
+    @Request() req: AuthRequest
+  ) {
+    const managerId = req.user.managerId;
+    return this.managerSpaceService.getCommercialHistoriques(managerId, commercialId);
+  }
+
+  // Récupérer les transcriptions de tous les commerciaux du manager
+  @Get('transcriptions')
+  async getTranscriptions(
+    @Request() req: AuthRequest
+  ) {
+    const managerId = req.user.managerId;
+    return this.managerSpaceService.getManagerTranscriptions(managerId);
+  }
+
+  // Récupérer les transcriptions d'un commercial spécifique
+  @Get('transcriptions/commercial/:commercialId')
+  async getCommercialTranscriptions(
+    @Param('commercialId') commercialId: string,
+    @Request() req: AuthRequest
+  ) {
+    const managerId = req.user.managerId;
+    return this.managerSpaceService.getCommercialTranscriptions(managerId, commercialId);
+  }
 }

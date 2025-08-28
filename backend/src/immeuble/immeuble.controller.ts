@@ -21,7 +21,7 @@ import { Roles } from '../auth/roles.decorator';
 // Admin Controller
 @Controller('admin/immeubles')
 @UseGuards(JwtAuthGuard, RolesGuard)
-@Roles('admin')
+@Roles('admin', 'commercial', 'manager')
 export class ImmeubleController {
   constructor(private readonly immeubleService: ImmeubleService) {}
 
