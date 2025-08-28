@@ -34,15 +34,42 @@ export class JwtAuthGuard implements CanActivate {
       // In production, you should verify against Keycloak's public key
       const payload = decoded.payload as any;
       
-      // Find manager in database by email to get the real managerId
+      // Find user in database by email to get role and managerId
       let managerId = null;
+      let dbRoles: string[] = [];
+      
       if (payload.email) {
+        // Check if user is a manager
         const manager = await this.prisma.manager.findFirst({
           where: { email: payload.email },
           select: { id: true }
         });
-        managerId = manager?.id || null;
+        
+        if (manager) {
+          managerId = manager.id;
+          dbRoles.push('manager');
+        }
+        
+        // Check if user is a commercial
+        const commercial = await this.prisma.commercial.findFirst({
+          where: { email: payload.email },
+          select: { id: true }
+        });
+        
+        if (commercial) {
+          dbRoles.push('commercial');
+        }
+        
+        // Check if user is admin (you can create an admin table or check by email)
+        // For now, check if email matches admin pattern or create admin logic
+        if (payload.email === 'benzahrahatim90@gmail.com') {
+          dbRoles.push('admin');
+        }
       }
+      
+      // Combine Keycloak roles with database roles
+      const keycloakRoles = this.extractRoles(payload);
+      const allRoles = [...new Set([...keycloakRoles, ...dbRoles])];
       
       // Add user info to request
       request.user = {
@@ -50,7 +77,7 @@ export class JwtAuthGuard implements CanActivate {
         // Use the database manager ID, not the Keycloak user ID
         managerId: managerId,
         userId: payload.sub, // Keep Keycloak user ID for reference
-        roles: this.extractRoles(payload),
+        roles: allRoles,
         email: payload.email,
         preferredUsername: payload.preferred_username,
       };

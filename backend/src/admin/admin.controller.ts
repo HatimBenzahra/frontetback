@@ -1,10 +1,13 @@
-import { Body, Controller, Post, Delete, Param, BadRequestException, Logger } from '@nestjs/common';
+import { Body, Controller, Post, Delete, Param, BadRequestException, Logger, UseGuards } from '@nestjs/common';
 import { KeycloakService } from '../auth/keycloak.service';
 import { JwtUtil } from '../auth/jwt.util';
 import { MailerService } from '../auth/mailer.service';
 import { ConfigService } from '@nestjs/config';
 import { CommercialService } from '../commercial/commercial.service';
 import { ManagerService } from '../manager/manager.service';
+import { JwtAuthGuard } from '../auth/jwt-auth.guard';
+import { RolesGuard } from '../auth/roles.guard';
+import { Roles } from '../auth/roles.decorator';
 
 interface CreateCommercialWithAuthDto {
   nom: string;
@@ -23,6 +26,8 @@ interface CreateManagerWithAuthDto {
 }
 
 @Controller('admin')
+@UseGuards(JwtAuthGuard, RolesGuard)
+@Roles('admin')
 export class AdminController {
   private readonly logger = new Logger(AdminController.name);
 

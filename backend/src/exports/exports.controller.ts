@@ -1,9 +1,14 @@
-import { Controller, Get, Query, Param, Res, BadRequestException } from '@nestjs/common';
+import { Controller, Get, Query, Param, Res, BadRequestException, UseGuards } from '@nestjs/common';
 import { ExportsService } from './exports.service';
 import { Response } from 'express';
 import { PeriodType, StatEntityType } from '@prisma/client';
+import { JwtAuthGuard } from '../auth/jwt-auth.guard';
+import { RolesGuard } from '../auth/roles.guard';
+import { Roles } from '../auth/roles.decorator';
 
 @Controller('exports')
+@UseGuards(JwtAuthGuard, RolesGuard)
+@Roles('admin')
 export class ExportsController {
   constructor(private readonly exportsService: ExportsService) {}
 

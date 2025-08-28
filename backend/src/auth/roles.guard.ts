@@ -35,7 +35,12 @@ export class RolesGuard implements CanActivate {
   }
 
   private extractRolesFromToken(tokenPayload: any): string[] {
-    // Keycloak token structure for realm roles
+    // First check if roles are already extracted by JwtAuthGuard
+    if (tokenPayload.roles && Array.isArray(tokenPayload.roles)) {
+      return tokenPayload.roles;
+    }
+
+    // Fallback: Keycloak token structure for realm roles
     if (tokenPayload.realm_access?.roles) {
       return tokenPayload.realm_access.roles;
     }

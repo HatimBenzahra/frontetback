@@ -1,8 +1,13 @@
-import { Controller, Get, Query, Param, Post, Body } from '@nestjs/common';
+import { Controller, Get, Query, Param, Post, Body, UseGuards } from '@nestjs/common';
 import { StatisticsService } from './statistics.service';
 import { PeriodType, StatEntityType } from '@prisma/client';
+import { JwtAuthGuard } from '../auth/jwt-auth.guard';
+import { RolesGuard } from '../auth/roles.guard';
+import { Roles } from '../auth/roles.decorator';
 
 @Controller('statistics')
+@UseGuards(JwtAuthGuard, RolesGuard)
+@Roles('admin')
 export class StatisticsController {
   constructor(private readonly statisticsService: StatisticsService) {}
 

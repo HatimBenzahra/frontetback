@@ -6,12 +6,18 @@ import {
   Patch,
   Param,
   Delete,
+  UseGuards,
 } from '@nestjs/common';
 import { CommercialService } from './commercial.service';
 import { CreateCommercialDto } from './dto/create-commercial.dto';
 import { UpdateCommercialDto } from './dto/update-commercial.dto';
+import { JwtAuthGuard } from '../auth/jwt-auth.guard';
+import { RolesGuard } from '../auth/roles.guard';
+import { Roles } from '../auth/roles.decorator';
 
 @Controller('commerciaux')
+@UseGuards(JwtAuthGuard, RolesGuard)
+@Roles('admin')
 export class CommercialController {
   constructor(private readonly commercialService: CommercialService) {}
 

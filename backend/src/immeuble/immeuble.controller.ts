@@ -6,20 +6,23 @@ import {
   Patch,
   Param,
   Delete,
+  UseGuards,
 } from '@nestjs/common';
 import { ImmeubleService } from './immeuble.service';
 import { CreateImmeubleDto } from './dto/create-immeuble.dto';
 import { UpdateImmeubleDto } from './dto/update-immeuble.dto';
 import { CreateCommercialImmeubleDto } from './dto/create-commercial-immeuble.dto';
 import { UpdateCommercialImmeubleDto } from './dto/update-commercial-immeuble.dto';
-import { Request as ExpressRequest } from 'express';
+import { JwtAuthGuard } from '../auth/jwt-auth.guard';
+import { RolesGuard } from '../auth/roles.guard';
+import { Roles } from '../auth/roles.decorator';
 
-interface AuthRequest extends ExpressRequest {
-  user: any; 
-}
 
 // Admin Controller
-@Controller('admin/immeubles')export class ImmeubleController {
+@Controller('admin/immeubles')
+@UseGuards(JwtAuthGuard, RolesGuard)
+@Roles('admin')
+export class ImmeubleController {
   constructor(private readonly immeubleService: ImmeubleService) {}
 
   @Post()
@@ -58,6 +61,8 @@ interface AuthRequest extends ExpressRequest {
 
 // Commercial Controller
 @Controller('commercial/:commercialId/immeubles')
+@UseGuards(JwtAuthGuard, RolesGuard)
+@Roles('commercial')
 export class CommercialImmeubleController {
   constructor(private readonly immeubleService: ImmeubleService) {}
 
