@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { useBreadcrumb } from '@/contexts/BreadcrumbContext';
@@ -11,12 +11,8 @@ import { AdminPageSkeleton } from '@/components/ui-admin/AdminPageSkeleton';
 import { 
   Users, 
   Flag, 
-  Target, 
-  TrendingUp, 
-  Award, 
   Briefcase, 
   FileSignature,
-  UserCheck,
   Eye
 } from 'lucide-react';
 
