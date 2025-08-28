@@ -385,6 +385,29 @@ export class AuthController {
     return null;
   }
 
+  @Post('refresh-token')
+  async refreshToken(@Body('refresh_token') refreshToken: string) {
+    if (!refreshToken) {
+      throw new BadRequestException('Refresh token is required');
+    }
+
+    try {
+      const tokenData = await this.keycloakService.refreshToken(refreshToken);
+      
+      this.logger.log('Token refreshed successfully');
+      
+      return {
+        success: true,
+        access_token: tokenData.access_token,
+        refresh_token: tokenData.refresh_token,
+        expires_in: tokenData.expires_in,
+      };
+    } catch (error) {
+      this.logger.error('Token refresh failed', error);
+      throw new HttpException('Invalid or expired refresh token', HttpStatus.UNAUTHORIZED);
+    }
+  }
+
   @Post('resend-setup')
   async resendSetup(@Body('email') email: string) {
     if (!email) {

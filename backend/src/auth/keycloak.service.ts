@@ -131,6 +131,29 @@ export class KeycloakService {
     }
   }
 
+  async refreshToken(refreshToken: string) {
+    const params = new URLSearchParams({
+      grant_type: 'refresh_token',
+      client_id: this.cfg('KEYCLOAK_CLIENT_ID'),
+      client_secret: this.cfg('KEYCLOAK_CLIENT_SECRET'),
+      refresh_token: refreshToken,
+    });
+    
+    try {
+      const { data } = await axios.post(
+        `${this.cfg('KEYCLOAK_BASE_URL')}/realms/${this.cfg('KEYCLOAK_REALM')}/protocol/openid-connect/token`, 
+        params, 
+        {
+          headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        }
+      );
+      return data;  
+    } catch (error) {
+      this.logger.error('Token refresh failed', error);
+      throw new HttpException('Invalid or expired refresh token', 401);
+    }
+  }
+
   async getUserByEmail(email: string) {
     try {
       const { data } = await this.kc.get(`/users?email=${email}`, { headers: await this.hdr() });

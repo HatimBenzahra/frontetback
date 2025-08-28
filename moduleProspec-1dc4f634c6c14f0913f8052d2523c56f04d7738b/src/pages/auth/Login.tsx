@@ -48,7 +48,7 @@ const Login = () => {
       // Store tokens
       authService.storeToken(response.access_token);
       if (response.refresh_token) {
-        localStorage.setItem('refresh_token', response.refresh_token);
+        authService.storeRefreshToken(response.refresh_token);
       }
       
       // Store user info (prefer localId for commercial calls when present)
