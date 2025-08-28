@@ -11,15 +11,15 @@ const RoleBasedRedirect = () => {
   // En fonction du rôle de l'utilisateur, on le redirige vers le bon dashboard
   switch (user.role) {
     case 'admin':
-      return <Navigate to="/admin" />; // Cette route existe
+      return <Navigate to="/admin" />;
     case 'manager':
-      return <Navigate to="/manager" />; // Cette route existe
+      return <Navigate to="/manager" />;
     case 'directeur':
-      return <Navigate to="/directeur" />; // Cette route existe
+      return <Navigate to="/directeur" />; 
     case 'backoffice':
-      return <Navigate to="/backoffice" />; // Cette route existe
+      return <Navigate to="/backoffice" />;
     case 'commercial':
-      return <Navigate to="/commercial" />; // Cette route existe
+      return <Navigate to="/commercial" />; 
     default:
       return <Navigate to="/login" />;
   }
