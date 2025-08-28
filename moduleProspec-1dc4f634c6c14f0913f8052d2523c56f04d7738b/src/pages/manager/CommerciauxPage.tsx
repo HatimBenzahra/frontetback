@@ -76,7 +76,7 @@ const CommerciauxPage = () => {
         setError(null);
         
         // Récupérer les commerciaux du manager en utilisant la nouvelle route spécifique
-        const managerCommerciaux = await managerService.getManagerCommerciaux(user.id);
+        const managerCommerciaux = await managerService.getManagerCommerciaux();
 
         // Enrichir les données avec les statistiques
         const enriched: EnrichedCommercial[] = managerCommerciaux.map((commercial: any) => {

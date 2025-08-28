@@ -6,8 +6,6 @@ import {
   Patch,
   Param,
   Delete,
-  UseGuards,
-  Request,
 } from '@nestjs/common';
 import { ImmeubleService } from './immeuble.service';
 import { CreateImmeubleDto } from './dto/create-immeuble.dto';
@@ -17,7 +15,7 @@ import { UpdateCommercialImmeubleDto } from './dto/update-commercial-immeuble.dt
 import { Request as ExpressRequest } from 'express';
 
 interface AuthRequest extends ExpressRequest {
-  user: any; // or a more specific type if you know it
+  user: any; 
 }
 
 // Admin Controller

@@ -123,8 +123,8 @@ const ImmeublesPage = () => {
         setLoading(true);
         try {
             const [immeublesFromApi, zonesFromApi] = await Promise.all([
-                managerService.getManagerImmeubles(managerId),
-                managerService.getManagerZones(managerId)
+                managerService.getManagerImmeubles(),
+                managerService.getManagerZones()
             ]);
             
             const formattedImmeubles: Immeuble[] = immeublesFromApi.map(imm => {
@@ -382,7 +382,7 @@ const ImmeublesPage = () => {
                 return;
             }
             
-            await managerService.deleteManagerImmeuble(managerId, immeubleToDelete, immeubleToDeleteData.commercialId);
+            await managerService.deleteManagerImmeuble(immeubleToDelete);
             fetchData(); // Refresh data after deletion
             toast.success("Immeuble supprimé avec succès.");
         } catch (error) {
@@ -897,7 +897,7 @@ const ImmeublesPage = () => {
                             onClick={async () => {
                                 try {
                                     await Promise.all(itemsToDelete.map(i => 
-                                        managerService.deleteManagerImmeuble(managerId, i.id, i.commercialId)
+                                        managerService.deleteManagerImmeuble(i.id)
                                     ));
                                     toast.success("Immeubles supprimés.");
                                     setItemsToDelete([]);

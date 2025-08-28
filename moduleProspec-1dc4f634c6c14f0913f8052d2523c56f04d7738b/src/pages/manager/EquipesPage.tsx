@@ -76,7 +76,7 @@ const EquipesPage = () => {
         setError(null);
         
         // Récupérer les équipes du manager en utilisant la nouvelle route spécifique
-        const managerEquipes = await managerService.getManagerEquipes(user.id);
+        const managerEquipes = await managerService.getManagerEquipes();
 
         // Enrichir les données avec les statistiques
         const enriched: EnrichedEquipe[] = managerEquipes.map((equipe: any) => {

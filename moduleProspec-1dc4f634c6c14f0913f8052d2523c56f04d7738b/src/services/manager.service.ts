@@ -40,41 +40,42 @@ const getManagerDetails = async (id: string): Promise<any> => {
   return response.data;
 };
 
-// Nouvelles fonctions utilisant les routes manager-space
-const getManagerCommerciaux = async (managerId: string): Promise<any> => {
-  const response = await axios.get(`${API_BASE_URL}/manager-space/${managerId}/commerciaux`);
+// Nouvelles fonctions utilisant les routes manager-space sécurisées
+// Note: managerId n'est plus nécessaire car il est extrait du token JWT
+const getManagerCommerciaux = async (): Promise<any> => {
+  const response = await axios.get(`${API_BASE_URL}/manager-space/commerciaux`);
   return response.data;
 };
 
-const getManagerEquipes = async (managerId: string): Promise<any> => {
-  const response = await axios.get(`${API_BASE_URL}/manager-space/${managerId}/equipes`);
+const getManagerEquipes = async (): Promise<any> => {
+  const response = await axios.get(`${API_BASE_URL}/manager-space/equipes`);
   return response.data;
 };
 
-const getManagerZones = async (managerId: string): Promise<any> => {
-  const response = await axios.get(`${API_BASE_URL}/manager-space/${managerId}/zones`);
+const getManagerZones = async (): Promise<any> => {
+  const response = await axios.get(`${API_BASE_URL}/manager-space/zones`);
   return response.data;
 };
 
-const getManagerCommercial = async (managerId: string, commercialId: string): Promise<any> => {
-  const response = await axios.get(`${API_BASE_URL}/manager-space/${managerId}/commerciaux/${commercialId}`);
+const getManagerCommercial = async (commercialId: string): Promise<any> => {
+  const response = await axios.get(`${API_BASE_URL}/manager-space/commerciaux/${commercialId}`);
   return response.data;
 };
 
-const getManagerEquipe = async (managerId: string, equipeId: string): Promise<any> => {
-  const response = await axios.get(`${API_BASE_URL}/manager-space/${managerId}/equipes/${equipeId}`);
+const getManagerEquipe = async (equipeId: string): Promise<any> => {
+  const response = await axios.get(`${API_BASE_URL}/manager-space/equipes/${equipeId}`);
   return response.data;
 };
 
-// Fonction pour récupérer les immeubles des commerciaux d'un manager
-const getManagerImmeubles = async (managerId: string): Promise<any[]> => {
-  const response = await axios.get(`${API_BASE_URL}/manager-space/${managerId}/immeubles`);
+// Fonction pour récupérer les immeubles des commerciaux d'un manager connecté
+const getManagerImmeubles = async (): Promise<any[]> => {
+  const response = await axios.get(`${API_BASE_URL}/manager-space/immeubles`);
   return response.data;
 };
 
-// Fonction pour supprimer un immeuble d'un commercial du manager
-const deleteManagerImmeuble = async (managerId: string, immeubleId: string, _commercialId?: string) => {
-  const response = await axios.delete(`${API_BASE_URL}/manager-space/${managerId}/immeubles/${immeubleId}`);
+// Fonction pour supprimer un immeuble d'un commercial du manager connecté
+const deleteManagerImmeuble = async (immeubleId: string) => {
+  const response = await axios.delete(`${API_BASE_URL}/manager-space/immeubles/${immeubleId}`);
   return response.data;
 };
 // Fonction pour supprimer un manager
