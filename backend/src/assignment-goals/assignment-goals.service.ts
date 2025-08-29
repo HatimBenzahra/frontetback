@@ -421,10 +421,11 @@ export class AssignmentGoalsService {
 
     if (commercial.equipeId) {
       whereConditions.push({ equipeId: commercial.equipeId }); // Zones assignées à son équipe
-    }
-
-    if (commercial.managerId) {
-      whereConditions.push({ managerId: commercial.managerId }); // Zones assignées à son manager
+      
+      // Seulement si le commercial fait partie d'une équipe, il peut voir les zones du manager
+      if (commercial.managerId) {
+        whereConditions.push({ managerId: commercial.managerId }); // Zones assignées à son manager
+      }
     }
 
     const zones = await this.prisma.zone.findMany({
@@ -526,32 +527,50 @@ export class AssignmentGoalsService {
     }
 
     let commerciaux: any[] = [];
+    const commercialIds = new Set<string>(); // Pour éviter les doublons
 
     // 1. Commerciaux assignés directement à la zone
     if (zone.commerciaux && zone.commerciaux.length > 0) {
-      commerciaux = zone.commerciaux.map((zc: any) => ({
-        ...zc.commercial,
-        assignmentType: 'DIRECT',
-        assignmentReason: 'Assignation directe à la zone'
-      }));
+      zone.commerciaux.forEach((zc: any) => {
+        if (!commercialIds.has(zc.commercial.id)) {
+          commerciaux.push({
+            ...zc.commercial,
+            assignmentType: 'DIRECT',
+            assignmentReason: 'Assignation directe à la zone'
+          });
+          commercialIds.add(zc.commercial.id);
+        }
+      });
     }
+
     // 2. Si la zone est assignée à une équipe, ajouter tous les commerciaux de cette équipe
-    else if (zone.equipe && zone.equipe.commerciaux) {
-      commerciaux = zone.equipe.commerciaux.map((commercial: any) => ({
-        ...commercial,
-        assignmentType: 'EQUIPE',
-        assignmentReason: `Via équipe: ${zone.equipe?.nom}`
-      }));
+    if (zone.equipe && zone.equipe.commerciaux) {
+      zone.equipe.commerciaux.forEach((commercial: any) => {
+        if (!commercialIds.has(commercial.id)) {
+          commerciaux.push({
+            ...commercial,
+            assignmentType: 'EQUIPE',
+            assignmentReason: `Via équipe: ${zone.equipe?.nom}`
+          });
+          commercialIds.add(commercial.id);
+        }
+      });
     }
+
     // 3. Si la zone est assignée à un manager, ajouter tous les commerciaux de toutes ses équipes
-    else if (zone.manager && zone.manager.equipes) {
-      commerciaux = zone.manager.equipes.flatMap(equipe => 
-        equipe.commerciaux.map((commercial: any) => ({
-          ...commercial,
-          assignmentType: 'MANAGER',
-          assignmentReason: `Via manager: ${zone.manager?.prenom} ${zone.manager?.nom} (Équipe: ${equipe.nom})`
-        }))
-      );
+    if (zone.manager && zone.manager.equipes) {
+      zone.manager.equipes.forEach(equipe => {
+        equipe.commerciaux.forEach((commercial: any) => {
+          if (!commercialIds.has(commercial.id)) {
+            commerciaux.push({
+              ...commercial,
+              assignmentType: 'MANAGER',
+              assignmentReason: `Via manager: ${zone.manager?.prenom} ${zone.manager?.nom} (Équipe: ${equipe.nom})`
+            });
+            commercialIds.add(commercial.id);
+          }
+        });
+      });
     }
 
     return commerciaux;
@@ -914,10 +933,11 @@ export class AssignmentGoalsService {
 
     if (commercial.equipeId) {
       whereConditions.push({ equipeId: commercial.equipeId }); // Zones assignées à son équipe
-    }
-
-    if (commercial.managerId) {
-      whereConditions.push({ managerId: commercial.managerId }); // Zones assignées à son manager
+      
+      // Seulement si le commercial fait partie d'une équipe, il peut voir les zones du manager
+      if (commercial.managerId) {
+        whereConditions.push({ managerId: commercial.managerId }); // Zones assignées à son manager
+      }
     }
 
     // Récupérer toutes les zones avec leurs assignations actives

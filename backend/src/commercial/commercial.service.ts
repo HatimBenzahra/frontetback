@@ -144,6 +144,33 @@ export class CommercialService {
       },
     });
 
+    // Si l'équipe a changé, nettoyer les anciennes assignations de zones
+    if (equipeId && equipeId !== existing?.equipeId) {
+      try {
+        // Supprimer toutes les assignations directes de ce commercial (zones qui ne lui appartiennent plus)
+        // Garder seulement les assignations directes explicites (pas celles héritées d'équipe/manager)
+        await this.prisma.zoneCommercial.deleteMany({
+          where: { 
+            commercialId: id,
+            // Supprimer les assignations qui ne correspondent pas aux nouvelles zones accessibles
+            zone: {
+              NOT: {
+                OR: [
+                  // Zones assignées à la nouvelle équipe
+                  ...(equipeId ? [{ equipeId: equipeId }] : []),
+                  // Zones assignées au nouveau manager  
+                  ...(effectiveManagerId ? [{ managerId: effectiveManagerId }] : [])
+                ]
+              }
+            }
+          }
+        });
+        console.log(`✅ Nettoyage des assignations de zones pour le commercial ${id} suite au changement d'équipe`);
+      } catch (error) {
+        console.error('❌ Erreur lors du nettoyage des assignations de zones:', error);
+      }
+    }
+
     // Mettre à jour le nom dans les transcriptions existantes
     try {
       const newName = `${updatedCommercial.prenom} ${updatedCommercial.nom}`;
