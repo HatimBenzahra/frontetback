@@ -19,6 +19,9 @@ export class AssignmentGoalsService {
     assignedByUserId?: string,
     assignedByUserName?: string,
   ) {
+    // Validation des paramètres de date
+    this.validateAssignmentDates(startDate, durationDays);
+    
     const zone = await this.prisma.zone.findUnique({ where: { id: zoneId } });
     if (!zone) {
       throw new NotFoundException(`Zone with ID ${zoneId} not found`);
@@ -261,6 +264,10 @@ export class AssignmentGoalsService {
     if (!goal || goal <= 0) {
       throw new BadRequestException('Invalid goal');
     }
+    
+    // Validation des dates pour les objectifs globaux
+    this.validateGlobalGoalDates(startDate, durationMonths);
+    
     const start = startDate ?? new Date();
     const months = durationMonths && durationMonths > 0 ? durationMonths : 1;
     const end = new Date(start);
@@ -1127,5 +1134,81 @@ export class AssignmentGoalsService {
     }
 
     return updatedAssignment;
+  }
+
+  private validateAssignmentDates(startDate?: Date, durationDays?: number) {
+    const now = new Date();
+    const oneYearAgo = new Date();
+    oneYearAgo.setFullYear(oneYearAgo.getFullYear() - 1);
+    const twoYearsFromNow = new Date();
+    twoYearsFromNow.setFullYear(twoYearsFromNow.getFullYear() + 2);
+
+    // Validation de la date de début
+    if (startDate) {
+      if (startDate < oneYearAgo) {
+        throw new BadRequestException('La date de début ne peut pas être antérieure à un an');
+      }
+      if (startDate > twoYearsFromNow) {
+        throw new BadRequestException('La date de début ne peut pas être supérieure à 2 ans dans le futur');
+      }
+    }
+
+    // Validation de la durée
+    if (durationDays !== undefined) {
+      if (durationDays <= 0) {
+        throw new BadRequestException('La durée doit être positive');
+      }
+      if (durationDays > 730) { // 2 ans max
+        throw new BadRequestException('La durée ne peut pas excéder 730 jours (2 ans)');
+      }
+    }
+
+    // Validation de la cohérence date début + durée
+    if (startDate && durationDays) {
+      const endDate = new Date(startDate);
+      endDate.setDate(endDate.getDate() + durationDays);
+      
+      if (endDate > twoYearsFromNow) {
+        throw new BadRequestException('La date de fin calculée ne peut pas dépasser 2 ans dans le futur');
+      }
+    }
+  }
+
+  private validateGlobalGoalDates(startDate?: Date, durationMonths?: number) {
+    const now = new Date();
+    const oneYearAgo = new Date();
+    oneYearAgo.setFullYear(oneYearAgo.getFullYear() - 1);
+    const twoYearsFromNow = new Date();
+    twoYearsFromNow.setFullYear(twoYearsFromNow.getFullYear() + 2);
+
+    // Validation de la date de début
+    if (startDate) {
+      if (startDate < oneYearAgo) {
+        throw new BadRequestException('La date de début ne peut pas être antérieure à un an');
+      }
+      if (startDate > twoYearsFromNow) {
+        throw new BadRequestException('La date de début ne peut pas être supérieure à 2 ans dans le futur');
+      }
+    }
+
+    // Validation de la durée en mois
+    if (durationMonths !== undefined) {
+      if (durationMonths <= 0) {
+        throw new BadRequestException('La durée doit être positive');
+      }
+      if (durationMonths > 24) { // 2 ans max
+        throw new BadRequestException('La durée ne peut pas excéder 24 mois (2 ans)');
+      }
+    }
+
+    // Validation de la cohérence date début + durée
+    if (startDate && durationMonths) {
+      const endDate = new Date(startDate);
+      endDate.setMonth(endDate.getMonth() + durationMonths);
+      
+      if (endDate > twoYearsFromNow) {
+        throw new BadRequestException('La date de fin calculée ne peut pas dépasser 2 ans dans le futur');
+      }
+    }
   }
 }

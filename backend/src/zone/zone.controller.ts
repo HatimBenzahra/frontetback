@@ -59,39 +59,118 @@ export class ZoneController {
   }
 
   @Get(':id/details')
-  getZoneDetails(@Param('id') id: string) {
-    return this.zoneService.getZoneDetails(id);
+  async getZoneDetails(@Param('id') id: string, @Request() req: AuthRequest) {
+    const { roles, managerId } = req.user;
+    
+    if (roles.includes('admin')) {
+      // Admin voit tous les détails
+      return this.zoneService.getZoneDetails(id);
+    } 
+    else if (roles.includes('manager')) {
+      // Manager voit seulement les détails de ses zones
+      return this.zoneService.getZoneDetailsForManager(id, managerId);
+    }
+    else if (roles.includes('commercial')) {
+      // Commercial voit seulement les détails des zones qui lui sont assignées
+      return this.zoneService.getZoneDetailsForCommercial(id, req.user.userId);
+    }
+    
+    throw new ForbiddenException('Access denied');
   }
 
   @Get(':id')
-  findOne(@Param('id') id: string) {
-    return this.zoneService.findOne(id);
+  async findOne(@Param('id') id: string, @Request() req: AuthRequest) {
+    const { roles, managerId } = req.user;
+    
+    if (roles.includes('admin')) {
+      // Admin voit toutes les zones
+      return this.zoneService.findOne(id);
+    } 
+    else if (roles.includes('manager')) {
+      // Manager voit seulement ses zones
+      return this.zoneService.findOneForManager(id, managerId);
+    }
+    else if (roles.includes('commercial')) {
+      // Commercial voit toutes les zones (infos générales seulement)
+      return this.zoneService.findOne(id);
+    }
+    
+    throw new ForbiddenException('Access denied');
   }
 
   @Patch(':id')
-  update(@Param('id') id: string, @Body() updateZoneDto: UpdateZoneDto) {
-    return this.zoneService.update(id, updateZoneDto);
+  async update(@Param('id') id: string, @Body() updateZoneDto: UpdateZoneDto, @Request() req: AuthRequest) {
+    const { roles, managerId } = req.user;
+    
+    // Seuls les admins et managers peuvent modifier les zones
+    if (!roles.includes('admin') && !roles.includes('manager')) {
+      throw new ForbiddenException('Seuls les admins et managers peuvent modifier les zones');
+    }
+    
+    if (roles.includes('admin')) {
+      // Admin peut modifier toutes les zones
+      return this.zoneService.update(id, updateZoneDto);
+    } 
+    else if (roles.includes('manager')) {
+      // Manager peut seulement modifier ses zones
+      return this.zoneService.updateForManager(id, updateZoneDto, managerId);
+    }
+    
+    throw new ForbiddenException('Access denied');
   }
 
   @Delete(':id')
-  remove(@Param('id') id: string) {
+  async remove(@Param('id') id: string, @Request() req: AuthRequest) {
+    const { roles, managerId } = req.user;
+    
+    // Seuls les admins peuvent supprimer les zones (opération trop critique pour les managers)
+    if (!roles.includes('admin')) {
+      throw new ForbiddenException('Seuls les admins peuvent supprimer les zones');
+    }
+    
     return this.zoneService.remove(id);
   }
 
   @Post(':zoneId/assign-commercial')
-  assignCommercialToZone(
+  async assignCommercialToZone(
     @Param('zoneId') zoneId: string,
     @Body('commercialId') commercialId: string,
-    @Body('assignedBy') assignedBy?: string
+    @Body('assignedBy') assignedBy: string,
+    @Request() req: AuthRequest
   ) {
-    return this.zoneService.assignCommercialToZone(zoneId, commercialId, assignedBy);
+    const { roles, managerId, userId } = req.user;
+    
+    // Seuls les admins et managers peuvent assigner des commerciaux à des zones
+    if (!roles.includes('admin') && !roles.includes('manager')) {
+      throw new ForbiddenException('Seuls les admins et managers peuvent assigner des commerciaux aux zones');
+    }
+    
+    // Si c'est un manager, vérifier qu'il a l'autorité sur ce commercial et cette zone
+    if (roles.includes('manager') && !roles.includes('admin')) {
+      await this.zoneService.validateManagerAssignmentAuthority(managerId, zoneId, commercialId);
+    }
+    
+    return this.zoneService.assignCommercialToZone(zoneId, commercialId, assignedBy || userId);
   }
 
   @Post(':zoneId/unassign-commercial')
-  unassignCommercialFromZone(
+  async unassignCommercialFromZone(
     @Param('zoneId') zoneId: string,
-    @Body('commercialId') commercialId: string
+    @Body('commercialId') commercialId: string,
+    @Request() req: AuthRequest
   ) {
+    const { roles, managerId } = req.user;
+    
+    // Seuls les admins et managers peuvent désassigner des commerciaux
+    if (!roles.includes('admin') && !roles.includes('manager')) {
+      throw new ForbiddenException('Seuls les admins et managers peuvent désassigner des commerciaux des zones');
+    }
+    
+    // Si c'est un manager, vérifier qu'il a l'autorité sur ce commercial et cette zone
+    if (roles.includes('manager') && !roles.includes('admin')) {
+      await this.zoneService.validateManagerAssignmentAuthority(managerId, zoneId, commercialId);
+    }
+    
     return this.zoneService.unassignCommercialFromZone(zoneId, commercialId);
   }
 }

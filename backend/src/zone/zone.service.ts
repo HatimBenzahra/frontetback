@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, NotFoundException, ForbiddenException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateZoneDto } from './dto/create-zone.dto';
 import { UpdateZoneDto } from './dto/update-zone.dto';
@@ -104,14 +104,163 @@ export class ZoneService {
     };
   }
 
+  async getZoneDetailsForManager(zoneId: string, managerId: string) {
+    const zone = await this.prisma.zone.findFirst({
+      where: {
+        id: zoneId,
+        OR: [
+          { managerId: managerId },
+          { equipe: { managerId: managerId } }
+        ]
+      },
+      include: {
+        immeubles: {
+          include: {
+            historiques: true,
+            prospectors: true,
+          },
+        },
+        equipe: true,
+        manager: true,
+        commerciaux: {
+          where: { isActive: true },
+          include: { commercial: true }
+        },
+      },
+    });
+
+    if (!zone) {
+      throw new ForbiddenException(`Zone non trouvée ou accès non autorisé`);
+    }
+
+    // Utiliser la même logique de stats que getZoneDetails
+    const stats = (zone as any).immeubles.reduce(
+      (acc: any, immeuble: any) => {
+        acc.nbImmeubles++;
+        const immeubleStats = immeuble.historiques.reduce(
+          (iAcc: any, h: any) => {
+            iAcc.contratsSignes += h.nbContratsSignes;
+            iAcc.rdvPris += h.nbRdvPris;
+            return iAcc;
+          },
+          { contratsSignes: 0, rdvPris: 0 },
+        );
+        acc.totalContratsSignes += immeubleStats.contratsSignes;
+        acc.totalRdvPris += immeubleStats.rdvPris;
+        return acc;
+      },
+      { nbImmeubles: 0, totalContratsSignes: 0, totalRdvPris: 0 },
+    );
+
+    return {
+      ...zone,
+      stats,
+    };
+  }
+
+  async getZoneDetailsForCommercial(zoneId: string, commercialId: string) {
+    // Vérifier que le commercial a accès à cette zone
+    const hasAccess = await this.prisma.zone.findFirst({
+      where: {
+        id: zoneId,
+        OR: [
+          // Assigné directement
+          {
+            commerciaux: {
+              some: {
+                commercialId: commercialId,
+                isActive: true
+              }
+            }
+          },
+          // Via équipe
+          {
+            equipe: {
+              commerciaux: {
+                some: { id: commercialId }
+              }
+            }
+          },
+          // Via manager
+          {
+            manager: {
+              equipes: {
+                some: {
+                  commerciaux: {
+                    some: { id: commercialId }
+                  }
+                }
+              }
+            }
+          }
+        ]
+      }
+    });
+
+    if (!hasAccess) {
+      throw new ForbiddenException(`Zone non trouvée ou accès non autorisé`);
+    }
+
+    // Retourner les détails complets pour les commerciaux assignés
+    return this.getZoneDetails(zoneId);
+  }
+
+  async findOneForManager(zoneId: string, managerId: string) {
+    const zone = await this.prisma.zone.findFirst({
+      where: {
+        id: zoneId,
+        OR: [
+          { managerId: managerId },
+          { equipe: { managerId: managerId } }
+        ]
+      },
+      include: { 
+        equipe: true, 
+        manager: true, 
+        commerciaux: {
+          where: { isActive: true },
+          include: { commercial: true }
+        }
+      },
+    });
+
+    if (!zone) {
+      throw new ForbiddenException(`Zone non trouvée ou accès non autorisé`);
+    }
+
+    return zone;
+  }
+
   async update(id: string, updateZoneDto: UpdateZoneDto) {
     return this.prisma.zone.update({ where: { id }, data: updateZoneDto });
   }
 
+  async updateForManager(id: string, updateZoneDto: UpdateZoneDto, managerId: string) {
+    // Vérifier que le manager a l'autorité sur cette zone
+    const zone = await this.prisma.zone.findFirst({
+      where: {
+        id: id,
+        OR: [
+          { managerId: managerId },
+          { equipe: { managerId: managerId } }
+        ]
+      }
+    });
+
+    if (!zone) {
+      throw new ForbiddenException(`Zone non trouvée ou vous n'avez pas l'autorité pour la modifier`);
+    }
+
+    return this.prisma.zone.update({ where: { id }, data: updateZoneDto });
+  }
+
   async assignCommercialToZone(zoneId: string, commercialId: string, assignedBy?: string) {
-    // Supprimer complètement les anciennes assignations de ce commercial (une seule zone active)
+    // Supprimer seulement les anciennes assignations de ce commercial à CETTE zone spécifique
     await this.prisma.zoneCommercial.deleteMany({
-      where: { commercialId }
+      where: { 
+        commercialId,
+        zoneId // ✅ Filtrer aussi par zone pour ne pas affecter les autres zones
+      }
     });
 
     // Créer la nouvelle assignation
@@ -149,6 +298,53 @@ export class ZoneService {
         commercial: true
       }
     });
+  }
+
+  async validateManagerAssignmentAuthority(managerId: string, zoneId: string, commercialId: string) {
+    // Vérifier que le commercial appartient aux équipes du manager
+    const commercial = await this.prisma.commercial.findUnique({
+      where: { id: commercialId },
+      include: { 
+        equipe: { 
+          include: { manager: true } 
+        } 
+      }
+    });
+
+    if (!commercial) {
+      throw new NotFoundException(`Commercial avec l'ID ${commercialId} non trouvé`);
+    }
+
+    // Le commercial doit soit être directement sous ce manager, soit dans une équipe de ce manager
+    const isAuthorized = commercial.managerId === managerId || 
+                        (commercial.equipe && commercial.equipe.managerId === managerId);
+
+    if (!isAuthorized) {
+      throw new ForbiddenException(`Vous n'avez pas l'autorité sur ce commercial`);
+    }
+
+    // Vérifier que la zone appartient au manager ou est accessible via ses équipes
+    const zone = await this.prisma.zone.findUnique({
+      where: { id: zoneId },
+      include: { 
+        manager: true, 
+        equipe: { include: { manager: true } } 
+      }
+    });
+
+    if (!zone) {
+      throw new NotFoundException(`Zone avec l'ID ${zoneId} non trouvée`);
+    }
+
+    // La zone doit soit être assignée au manager, soit à une de ses équipes
+    const zoneIsAccessible = zone.managerId === managerId || 
+                            (zone.equipe && zone.equipe.managerId === managerId);
+
+    if (!zoneIsAccessible) {
+      throw new ForbiddenException(`Vous n'avez pas l'autorité sur cette zone`);
+    }
+
+    return true;
   }
 
   remove(id: string) {
