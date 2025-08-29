@@ -1,18 +1,32 @@
 import { Injectable, CanActivate, ExecutionContext, UnauthorizedException, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import * as jwt from 'jsonwebtoken';
-import axios from 'axios';
 import { PrismaService } from '../prisma/prisma.service';
+import * as jwksClient from 'jwks-rsa';
 
 @Injectable()
 export class JwtAuthGuard implements CanActivate {
   private readonly logger = new Logger(JwtAuthGuard.name);
-  private publicKeyCache: { key: string; expiry: number } | null = null;
+  private jwksClientInstance: jwksClient.JwksClient | null = null;
 
   constructor(
     private configService: ConfigService,
     private prisma: PrismaService
-  ) {}
+  ) {
+    // Initialize JWKS client for Keycloak
+    const keycloakBaseUrl = this.configService.get<string>('KEYCLOAK_BASE_URL');
+    const keycloakRealm = this.configService.get<string>('KEYCLOAK_REALM');
+    
+    if (keycloakBaseUrl && keycloakRealm) {
+      this.jwksClientInstance = jwksClient({
+        jwksUri: `${keycloakBaseUrl}/realms/${keycloakRealm}/protocol/openid-connect/certs`,
+        cache: true,
+        cacheMaxAge: 10 * 60 * 1000, // 10 minutes
+        rateLimit: true,
+        jwksRequestsPerMinute: 5
+      });
+    }
+  }
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
     const request = context.switchToHttp().getRequest();
@@ -23,16 +37,59 @@ export class JwtAuthGuard implements CanActivate {
     }
 
     try {
-      // First decode without verification to get the payload structure
-      const decoded = jwt.decode(token, { complete: true });
+      // First decode to get the header for key ID
+      const decodedHeader = jwt.decode(token, { complete: true });
       
-      if (!decoded) {
+      if (!decodedHeader || !decodedHeader.header) {
         throw new UnauthorizedException('Invalid token format');
       }
 
-      // For development, we can skip verification and just extract the payload
-      // In production, you should verify against Keycloak's public key
-      const payload = decoded.payload as any;
+      // JWT Validation - STRICT MODE with full verification
+      let payload: any;
+      
+      try {
+        const publicKey = await this.getPublicKey(decodedHeader.header.kid || '');
+      
+      // Get Keycloak configuration for strict validation
+      const keycloakBaseUrl = this.configService.get('KEYCLOAK_BASE_URL');
+      const keycloakRealm = this.configService.get('KEYCLOAK_REALM');
+      const clientId = this.configService.get('KEYCLOAK_CLIENT_ID');
+      
+      if (!keycloakBaseUrl || !keycloakRealm) {
+        throw new UnauthorizedException('Keycloak configuration missing - cannot validate tokens');
+      }
+      
+      // Strict validation options - verify everything
+      const verifyOptions: jwt.VerifyOptions = {
+        algorithms: ['RS256'],
+        issuer: `${keycloakBaseUrl}/realms/${keycloakRealm}`,
+        ignoreExpiration: false,
+        ignoreNotBefore: false,
+        clockTolerance: 30 // 30 seconds clock skew tolerance
+      };
+      
+      // Skip audience validation for now - Keycloak often doesn't include it
+      // if (clientId) {
+      //   verifyOptions.audience = clientId;
+      // }
+      
+      payload = jwt.verify(token, publicKey, verifyOptions) as any;
+      
+      this.logger.debug('✅ JWT fully verified (signature + issuer + timing)');
+    } catch (verifyError) {
+        this.logger.error('JWT verification failed:', verifyError.message);
+        
+        // Log additional details for debugging
+        if (verifyError.name === 'TokenExpiredError') {
+          throw new UnauthorizedException('Token expired');
+        } else if (verifyError.name === 'JsonWebTokenError') {
+          throw new UnauthorizedException('Invalid token signature');
+        } else if (verifyError.name === 'NotBeforeError') {
+          throw new UnauthorizedException('Token not active yet');
+        }
+        
+        throw new UnauthorizedException(`Token validation failed: ${verifyError.message}`);
+      }
       
       // Find user in database by email to get role and managerId
       let managerId = null;
@@ -111,5 +168,25 @@ export class JwtAuthGuard implements CanActivate {
     
     return [...realmRoles, ...resourceRoles];
   }
+
+  private async getPublicKey(kid: string): Promise<string> {
+    if (!kid) {
+      throw new UnauthorizedException('Token missing key ID (kid)');
+    }
+
+    try {
+      if (this.jwksClientInstance) {
+        // Use jwks-rsa client for reliable key retrieval
+        const key = await this.jwksClientInstance.getSigningKey(kid);
+        return key.getPublicKey();
+      } else {
+        throw new Error('JWKS client not initialized. Check Keycloak configuration.');
+      }
+    } catch (error) {
+      this.logger.error('Failed to get public key', error);
+      throw new UnauthorizedException('Unable to verify token signature');
+    }
+  }
+
 
 }
