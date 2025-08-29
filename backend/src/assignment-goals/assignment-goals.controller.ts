@@ -1,8 +1,13 @@
-import { Controller, Post, Body, Get, Param, Query, Patch } from '@nestjs/common';
+import { Controller, Post, Body, Get, Param, Query, Patch, UseGuards } from '@nestjs/common';
 import { AssignmentGoalsService } from './assignment-goals.service';
 import { AssignmentType } from '@prisma/client';
+import { JwtAuthGuard } from '../auth/jwt-auth.guard';
+import { RolesGuard } from '../auth/roles.guard';
+import { Roles } from '../auth/roles.decorator';
 
 @Controller('assignment-goals')
+@UseGuards(JwtAuthGuard, RolesGuard)
+@Roles('admin', 'manager', 'commercial')
 export class AssignmentGoalsController {
   constructor(
     private readonly assignmentGoalsService: AssignmentGoalsService,

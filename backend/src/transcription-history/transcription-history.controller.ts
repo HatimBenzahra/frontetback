@@ -1,7 +1,12 @@
-import { Controller, Post, Get, Delete, Body, Param, Query, Patch } from '@nestjs/common';
+import { Controller, Post, Get, Delete, Body, Param, Query, Patch, UseGuards } from '@nestjs/common';
 import { TranscriptionHistoryService, TranscriptionSession } from './transcription-history.service';
+import { JwtAuthGuard } from '../auth/jwt-auth.guard';
+import { RolesGuard } from '../auth/roles.guard';
+import { Roles } from '../auth/roles.decorator';
 
 @Controller('api/transcription-history')
+@UseGuards(JwtAuthGuard, RolesGuard)
+@Roles('admin', 'manager', 'commercial')
 export class TranscriptionHistoryController {
   constructor(private readonly transcriptionHistoryService: TranscriptionHistoryService) {}
 

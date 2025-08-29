@@ -6,12 +6,18 @@ import {
   Patch,
   Param,
   Delete,
+  UseGuards,
 } from '@nestjs/common';
 import { PorteService } from './porte.service';
 import { CreatePorteDto } from './dto/create-porte.dto';
 import { UpdatePorteDto } from './dto/update-porte.dto';
+import { JwtAuthGuard } from '../auth/jwt-auth.guard';
+import { RolesGuard } from '../auth/roles.guard';
+import { Roles } from '../auth/roles.decorator';
 
 @Controller('portes')
+@UseGuards(JwtAuthGuard, RolesGuard)
+@Roles('admin', 'manager', 'commercial')
 export class PorteController {
   constructor(private readonly porteService: PorteService) {}
 
