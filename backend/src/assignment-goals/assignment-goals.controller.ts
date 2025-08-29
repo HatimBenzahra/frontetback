@@ -1,9 +1,19 @@
-import { Controller, Post, Body, Get, Param, Query, Patch, UseGuards } from '@nestjs/common';
+import { Controller, Post, Body, Get, Param, Query, Patch, UseGuards, Request, ForbiddenException } from '@nestjs/common';
 import { AssignmentGoalsService } from './assignment-goals.service';
 import { AssignmentType } from '@prisma/client';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { RolesGuard } from '../auth/roles.guard';
 import { Roles } from '../auth/roles.decorator';
+
+interface AuthRequest extends Request {
+  user: {
+    managerId: string;
+    userId: string;
+    roles: string[];
+    email: string;
+    preferredUsername: string;
+  };
+}
 
 @Controller('assignment-goals')
 @UseGuards(JwtAuthGuard, RolesGuard)
@@ -108,8 +118,23 @@ export class AssignmentGoalsController {
   }
 
   @Get('admin/assignments-status')
-  getAllAssignmentsWithStatus() {
-    return this.assignmentGoalsService.getAllAssignmentsWithStatus();
+  async getAllAssignmentsWithStatus(@Request() req: AuthRequest) {
+    const { roles, managerId } = req.user;
+    
+    if (roles.includes('admin')) {
+      // Admin voit toutes les assignations
+      return this.assignmentGoalsService.getAllAssignmentsWithStatus();
+    } 
+    else if (roles.includes('manager')) {
+      // Manager voit seulement les assignations de ses équipes/commerciaux
+      return this.assignmentGoalsService.getAllAssignmentsWithStatusForManager(managerId);
+    }
+    else if (roles.includes('commercial')) {
+      // Commercial voit toutes les assignations (pour informations générales)
+      return this.assignmentGoalsService.getAllAssignmentsWithStatus();
+    }
+    
+    throw new ForbiddenException('Access denied');
   }
 
   @Patch('stop-assignment/:assignmentId')

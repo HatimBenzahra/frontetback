@@ -590,6 +590,174 @@ export class AssignmentGoalsService {
     return summary;
   }
 
+  // Nouvelle méthode pour obtenir toutes les assignations avec leur statut temporel pour un manager
+  async getAllAssignmentsWithStatusForManager(managerId: string) {
+    const now = new Date();
+    
+    // Récupérer seulement les assignations liées à ce manager
+    // 1. Assignations directes au manager
+    // 2. Assignations aux équipes du manager  
+    // 3. Assignations aux commerciaux des équipes du manager
+    const assignments = await this.prisma.zoneAssignmentHistory.findMany({
+      where: {
+        OR: [
+          // Assignations directes au manager
+          {
+            assignedToType: 'MANAGER',
+            assignedToId: managerId
+          },
+          // Assignations aux équipes de ce manager
+          {
+            assignedToType: 'EQUIPE',
+            assignedToId: {
+              in: await this.prisma.equipe.findMany({
+                where: { managerId },
+                select: { id: true }
+              }).then(equipes => equipes.map(e => e.id))
+            }
+          },
+          // Assignations aux commerciaux des équipes de ce manager
+          {
+            assignedToType: 'COMMERCIAL',
+            assignedToId: {
+              in: await this.prisma.commercial.findMany({
+                where: {
+                  OR: [
+                    { managerId: managerId },
+                    {
+                      equipe: {
+                        managerId: managerId
+                      }
+                    }
+                  ]
+                },
+                select: { id: true }
+              }).then(commerciaux => commerciaux.map(c => c.id))
+            }
+          }
+        ]
+      },
+      orderBy: { createdAt: 'desc' },
+      include: {
+        zone: true
+      }
+    });
+
+    const enrichedAssignments = await Promise.all(
+      assignments.map(async (assignment) => {
+        let assigneeName = '';
+        let affectedCommercials: any[] = [];
+        
+        switch (assignment.assignedToType) {
+          case 'COMMERCIAL':
+            const commercial = await this.prisma.commercial.findUnique({
+              where: { id: assignment.assignedToId },
+              select: { nom: true, prenom: true },
+            });
+            assigneeName = commercial ? `${commercial.prenom} ${commercial.nom}` : 'Commercial inconnu';
+            affectedCommercials = [commercial ? { id: assignment.assignedToId, nom: commercial.nom, prenom: commercial.prenom } : null].filter(Boolean);
+            break;
+          case 'EQUIPE':
+            const equipe = await this.prisma.equipe.findUnique({
+              where: { id: assignment.assignedToId },
+              include: { commerciaux: true }
+            });
+            assigneeName = equipe ? `Équipe ${equipe.nom}` : 'Équipe inconnue';
+            affectedCommercials = equipe?.commerciaux.map(c => ({ id: c.id, nom: c.nom, prenom: c.prenom })) || [];
+            break;
+          case 'MANAGER':
+            const manager = await this.prisma.manager.findUnique({
+              where: { id: assignment.assignedToId },
+              include: {
+                equipes: {
+                  include: { commerciaux: true }
+                }
+              }
+            });
+            assigneeName = manager ? `${manager.prenom} ${manager.nom}` : 'Manager inconnu';
+            affectedCommercials = manager?.equipes.flatMap(equipe => 
+              equipe.commerciaux.map(c => ({ id: c.id, nom: c.nom, prenom: c.prenom }))
+            ) || [];
+            break;
+        }
+
+        // Calculer le statut temporel
+        const endDate = assignment.endDate || new Date();
+        const isActive = assignment.startDate <= now && endDate > now;
+        const isFuture = assignment.startDate > now;
+        const isExpired = endDate <= now;
+        
+        let status = 'expired';
+        let timeInfo = '';
+        
+        if (isFuture) {
+          status = 'future';
+          const daysUntilStart = Math.ceil((assignment.startDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+          timeInfo = `Commence dans ${daysUntilStart} jour(s)`;
+        } else if (isActive) {
+          status = 'active';
+          const daysUntilEnd = Math.ceil((endDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+          timeInfo = `Se termine dans ${daysUntilEnd} jour(s)`;
+        } else {
+          status = 'expired';
+          const daysSinceEnd = Math.ceil((now.getTime() - endDate.getTime()) / (1000 * 60 * 60 * 24));
+          timeInfo = `Terminée depuis ${daysSinceEnd} jour(s)`;
+        }
+
+        const totalDuration = Math.ceil((endDate.getTime() - assignment.startDate.getTime()) / (1000 * 60 * 60 * 24));
+        let remainingDays = 0;
+        let progressPercentage = 0;
+        
+        if (isActive) {
+          remainingDays = Math.ceil((endDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+          const elapsedDays = totalDuration - remainingDays;
+          progressPercentage = Math.min(100, Math.max(0, (elapsedDays / totalDuration) * 100));
+        } else if (isExpired) {
+          progressPercentage = 100;
+        }
+
+        return {
+          id: assignment.id,
+          zoneId: assignment.zoneId,
+          zoneName: assignment.zone?.nom,
+          assignedToType: assignment.assignedToType,
+          assignedToId: assignment.assignedToId,
+          assigneeName,
+          assignedByUserId: assignment.assignedByUserId,
+          assignedByUserName: assignment.assignedByUserName || 'Système',
+          startDate: assignment.startDate,
+          endDate: assignment.endDate,
+          createdAt: assignment.createdAt,
+          affectedCommercials,
+          affectedCommercialsCount: affectedCommercials.length,
+          status,
+          timeInfo,
+          totalDurationDays: totalDuration,
+          remainingDays,
+          progressPercentage: Math.round(progressPercentage)
+        };
+      })
+    );
+
+    // Grouper par statut pour faciliter l'affichage
+    const grouped = {
+      active: enrichedAssignments.filter(a => a.status === 'active'),
+      future: enrichedAssignments.filter(a => a.status === 'future'),
+      expired: enrichedAssignments.filter(a => a.status === 'expired')
+    };
+
+    return {
+      assignments: enrichedAssignments,
+      grouped,
+      summary: {
+        total: enrichedAssignments.length,
+        active: grouped.active.length,
+        future: grouped.future.length,
+        expired: grouped.expired.length
+      }
+    };
+  }
+
   // Nouvelle méthode pour obtenir toutes les assignations avec leur statut temporel pour l'admin
   async getAllAssignmentsWithStatus() {
     const now = new Date();
