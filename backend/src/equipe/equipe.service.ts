@@ -24,6 +24,22 @@ export class EquipeService {
     });
   }
 
+  findAllForManager(managerId: string) {
+    return this.prisma.equipe.findMany({
+      where: {
+        managerId: managerId
+      },
+      include: {
+        manager: true,
+        commerciaux: {
+          include: {
+            historiques: true,
+          },
+        },
+      },
+    });
+  }
+
   findOne(id: string) {
     return this.prisma.equipe.findUnique({
       where: { id },

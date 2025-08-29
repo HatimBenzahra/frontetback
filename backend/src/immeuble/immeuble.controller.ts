@@ -7,6 +7,8 @@ import {
   Param,
   Delete,
   UseGuards,
+  Request,
+  ForbiddenException,
 } from '@nestjs/common';
 import { ImmeubleService } from './immeuble.service';
 import { CreateImmeubleDto } from './dto/create-immeuble.dto';
@@ -16,6 +18,16 @@ import { UpdateCommercialImmeubleDto } from './dto/update-commercial-immeuble.dt
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { RolesGuard } from '../auth/roles.guard';
 import { Roles } from '../auth/roles.decorator';
+
+interface AuthRequest extends Request {
+  user: {
+    managerId: string;
+    userId: string;
+    roles: string[];
+    email: string;
+    preferredUsername: string;
+  };
+}
 
 
 // Admin Controller
@@ -31,8 +43,23 @@ export class ImmeubleController {
   }
 
   @Get()
-  findAll() {
-    return this.immeubleService.findAll();
+  async findAll(@Request() req: AuthRequest) {
+    const { roles, managerId } = req.user;
+    
+    if (roles.includes('admin')) {
+      // Admin voit tous les immeubles
+      return this.immeubleService.findAll();
+    } 
+    else if (roles.includes('manager')) {
+      // Manager voit seulement les immeubles de ses commerciaux
+      return this.immeubleService.findAllForManager(managerId);
+    }
+    else if (roles.includes('commercial')) {
+      // Commercial voit tous les immeubles (pour informations générales)
+      return this.immeubleService.findAll();
+    }
+    
+    throw new ForbiddenException('Access denied');
   }
 
   @Get(':id/details')

@@ -36,6 +36,26 @@ export class ImmeubleService {
     });
   }
 
+  findAllForManager(managerId: string) {
+    return this.prisma.immeuble.findMany({
+      where: {
+        prospectors: {
+          some: {
+            OR: [
+              { managerId: managerId },
+              {
+                equipe: {
+                  managerId: managerId
+                }
+              }
+            ]
+          }
+        }
+      },
+      include: { zone: true, prospectors: true, portes: true, historiques: true },
+    });
+  }
+
   findOne(id: string) {
     return this.prisma.immeuble.findUnique({
       where: { id },

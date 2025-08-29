@@ -7,6 +7,8 @@ import {
   Param,
   Delete,
   UseGuards,
+  Request,
+  ForbiddenException,
 } from '@nestjs/common';
 import { ZoneService } from './zone.service';
 import { CreateZoneDto } from './dto/create-zone.dto';
@@ -14,6 +16,16 @@ import { UpdateZoneDto } from './dto/update-zone.dto';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { RolesGuard } from '../auth/roles.guard';
 import { Roles } from '../auth/roles.decorator';
+
+interface AuthRequest extends Request {
+  user: {
+    managerId: string;
+    userId: string;
+    roles: string[];
+    email: string;
+    preferredUsername: string;
+  };
+}
 
 @Controller('zones')
 @UseGuards(JwtAuthGuard, RolesGuard)
@@ -27,8 +39,23 @@ export class ZoneController {
   }
 
   @Get()
-  findAll() {
-    return this.zoneService.findAll();
+  async findAll(@Request() req: AuthRequest) {
+    const { roles, managerId } = req.user;
+    
+    if (roles.includes('admin')) {
+      // Admin voit toutes les zones
+      return this.zoneService.findAll();
+    } 
+    else if (roles.includes('manager')) {
+      // Manager voit seulement ses zones
+      return this.zoneService.findAllForManager(managerId);
+    }
+    else if (roles.includes('commercial')) {
+      // Commercial voit toutes les zones (pour informations générales)
+      return this.zoneService.findAll();
+    }
+    
+    throw new ForbiddenException('Access denied');
   }
 
   @Get(':id/details')

@@ -24,6 +24,25 @@ export class ZoneService {
     });
   }
 
+  findAllForManager(managerId: string) {
+    return this.prisma.zone.findMany({
+      where: {
+        OR: [
+          { managerId: managerId },
+          { equipe: { managerId: managerId } }
+        ]
+      },
+      include: { 
+        equipe: true, 
+        manager: true, 
+        commerciaux: {
+          where: { isActive: true },
+          include: { commercial: true }
+        }
+      },
+    });
+  }
+
   findOne(id: string) {
     return this.prisma.zone.findUnique({
       where: { id },

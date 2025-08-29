@@ -46,6 +46,39 @@ export class CommercialService {
     }));
   }
 
+  async findAllForManager(managerId: string) {
+    const list = await this.prisma.commercial.findMany({
+      where: {
+        OR: [
+          { managerId: managerId },
+          {
+            equipe: {
+              managerId: managerId
+            }
+          }
+        ]
+      },
+      include: {
+        equipe: {
+          include: {
+            manager: true,
+          },
+        },
+        historiques: true,
+        zones: {
+          where: { isActive: true },
+          include: { zone: true },
+          take: 1,
+          orderBy: { assignedAt: 'desc' }
+        }
+      },
+    });
+    return list.map((c: any) => ({
+      ...c,
+      isAssigned: Boolean(c.managerId && c.equipeId),
+    }));
+  }
+
   async findOne(id: string) {
     const c = await this.prisma.commercial.findUnique({
       where: { id },
