@@ -101,7 +101,7 @@ const ManagerCommercialTranscriptionPage = () => {
     setLoadingHistory(true);
     try {
       const token = localStorage.getItem('access_token');
-      const response = await fetch(`${BASE}/api/manager-space/transcriptions/commercial/${commercialId}`, {
+      const response = await fetch(`${BASE}/manager-space/transcriptions/commercial/${commercialId}`, {
         headers: {
           'Authorization': `Bearer ${token}`
         }

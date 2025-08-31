@@ -81,7 +81,7 @@ const ManagerTranscriptionsPage = () => {
   const loadManagerCommercials = useCallback(async () => {
     try {
       const token = localStorage.getItem('access_token');
-      const response = await fetch(`${BASE}/api/manager-space/transcriptions`, {
+      const response = await fetch(`${BASE}/manager-space/transcriptions`, {
         headers: {
           'Authorization': `Bearer ${token}`
         }

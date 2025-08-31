@@ -46,7 +46,14 @@ const ManagerSuiviPage = () => {
   useEffect(() => {
     if (!socket) return;
     socket.emit('joinRoom', 'audio-streaming');
-    socket.emit('request_streaming_status');
+    
+    // Demander les streams filtrés pour ce manager spécifique
+    if (user?.id) {
+      socket.emit('request_manager_streaming_status', { managerId: user.id });
+    } else {
+      // Fallback vers tous les streams si pas de managerId
+      socket.emit('request_streaming_status');
+    }
 
     const onStatus = (payload: { active_streams: ActiveStream[] }) => {
       setActiveStreams(payload.active_streams || []);
@@ -313,7 +320,13 @@ const ManagerSuiviPage = () => {
                   variant="outline"
                   size="sm"
                   className="border-gray-300 text-slate-800 bg-white hover:bg-gray-50"
-                  onClick={() => socket?.emit('request_streaming_status')}
+                  onClick={() => {
+                    if (user?.id) {
+                      socket?.emit('request_manager_streaming_status', { managerId: user.id });
+                    } else {
+                      socket?.emit('request_streaming_status');
+                    }
+                  }}
                 >
                   <RefreshCw className="h-4 w-4 mr-2" /> Rafraîchir
                 </Button>

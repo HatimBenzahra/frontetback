@@ -3,6 +3,7 @@ import { Server, Socket } from 'socket.io';
 import * as https from 'https';
 import { IncomingMessage, RequestOptions } from 'http';
 import { TranscriptionHistoryService } from '../transcription-history/transcription-history.service';
+import { ManagerSpaceService } from '../manager-space/manager-space.service';
 
 interface LocationUpdateData {
   commercialId: string;
@@ -59,7 +60,10 @@ export class EventsGateway implements OnGatewayConnection, OnGatewayDisconnect {
   @WebSocketServer()
   server: Server;
 
-  constructor(private transcriptionHistoryService: TranscriptionHistoryService) {
+  constructor(
+    private transcriptionHistoryService: TranscriptionHistoryService,
+    private managerSpaceService: ManagerSpaceService
+  ) {
     // Sauvegarde automatique périodique des sessions actives
     this.startPeriodicBackup();
   }
@@ -367,6 +371,35 @@ export class EventsGateway implements OnGatewayConnection, OnGatewayDisconnect {
     client.emit('streaming_status_response', {
       active_streams: activeStreamsArray
     });
+  }
+
+  // Gestion de la demande de synchronisation des streams filtrés par manager
+  @SubscribeMessage('request_manager_streaming_status')
+  async handleRequestManagerStreamingStatus(client: Socket, data: { managerId: string }) {
+    console.log(`🔄 Demande de synchronisation des streams pour manager ${data.managerId} de ${client.id}`);
+    
+    try {
+      // Récupérer les commerciaux du manager
+      const commerciaux = await this.managerSpaceService.getManagerCommerciaux(data.managerId);
+      const commercialIds = commerciaux.map(c => c.id);
+      
+      // Filtrer les streams actifs selon les commerciaux du manager
+      const activeStreamsArray = Array.from(this.activeStreams.values())
+        .filter(stream => commercialIds.includes(stream.commercial_id));
+      
+      console.log(`🔄 Streams actifs pour manager ${data.managerId}:`, activeStreamsArray.length);
+      
+      // Envoyer l'état filtré des streams au client qui demande
+      client.emit('streaming_status_response', {
+        active_streams: activeStreamsArray
+      });
+    } catch (error) {
+      console.error(`❌ Erreur filtrage streams manager ${data.managerId}:`, error);
+      // En cas d'erreur, renvoyer une liste vide
+      client.emit('streaming_status_response', {
+        active_streams: []
+      });
+    }
   }
 
   // --- WebRTC signaling relay for listen-only ---
