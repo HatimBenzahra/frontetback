@@ -89,6 +89,7 @@ export class ProspectionService {
       await this.prisma.immeuble.update({
         where: { id: request.immeubleId },
         data: {
+          prospectingMode: 'DUO', // Mettre à jour le mode en DUO
           prospectors: {
             connect: [{ id: request.requesterId }, { id: request.partnerId }],
           },

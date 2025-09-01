@@ -95,7 +95,7 @@ const ImmeubleCard: React.FC<ImmeubleCardProps & { index: number }> = ({
                             <p className="text-xs text-slate-500">Ascenseur</p>
                         </div>
                     </div>
-                    {status.key !== 'NON_CONFIGURE' && (
+                    {status.key !== 'NON_CONFIGURE' && immeuble.prospectingMode && (
                         <div className="flex items-center justify-between p-2.5 bg-slate-50 rounded-lg">
                             <span className="font-semibold text-slate-600 flex items-center gap-2">
                                 {immeuble.prospectingMode === 'SOLO' ? <User className="h-4 w-4" /> : <Users className="h-4 w-4" />}
