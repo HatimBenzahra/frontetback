@@ -3,6 +3,7 @@ import {
   Get,
   UseGuards,
   Request,
+  Param,
 } from '@nestjs/common';
 import { TranscriptionService } from './transcription.service';
 import { JwtAuthGuard } from '../../auth/jwt-auth.guard';
@@ -31,6 +32,15 @@ export class TranscriptionController {
   ) {
     const managerId = req.user.managerId;
     return this.transcriptionService.getManagerTranscriptions(managerId);
+  }
+
+  @Get('transcriptions/commercial/:commercialId')
+  async getCommercialTranscriptions(
+    @Request() req: AuthRequest,
+    @Param('commercialId') commercialId: string
+  ) {
+    const managerId = req.user.managerId;
+    return this.transcriptionService.getCommercialTranscriptions(managerId, commercialId);
   }
 
   @Get('suivi')

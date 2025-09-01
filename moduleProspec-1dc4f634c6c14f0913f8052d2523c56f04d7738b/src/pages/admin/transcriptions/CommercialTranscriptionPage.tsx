@@ -128,7 +128,7 @@ const CommercialTranscriptionPage = () => {
       if (dateFilter !== 'all') params.set('since', dateFilter);
       if (durationFilter !== 'all') params.set('duration', durationFilter);
 
-      const response = await fetch(`${BASE}/api/transcription-history?` + params.toString());
+      const response = await fetch(`${BASE}/api/transcription-history/commercials` + params.toString());
       if (response.ok) {
         const data = await response.json();
         const list: TranscriptionSession[] = (data.history || []).sort(

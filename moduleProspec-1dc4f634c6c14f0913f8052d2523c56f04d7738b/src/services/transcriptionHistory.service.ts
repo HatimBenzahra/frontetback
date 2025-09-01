@@ -54,7 +54,7 @@ class TranscriptionHistoryService {
       }
       params.append('limit', limit.toString());
 
-      const response = await fetch(`${this.baseUrl}/api/transcription-history?${params}`, {
+      const response = await fetch(`${this.baseUrl}/api/transcription-history/commercials/${params}`, {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json',

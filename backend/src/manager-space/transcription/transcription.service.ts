@@ -86,4 +86,46 @@ export class TranscriptionService {
 
     return historiques;
   }
+
+  async getCommercialTranscriptions(managerId: string, commercialId: string) {
+    // Verify the manager exists
+    const manager = await this.prisma.manager.findUnique({
+      where: { id: managerId }
+    });
+
+    if (!manager) {
+      throw new NotFoundException(`Manager with ID ${managerId} not found`);
+    }
+
+    // Verify the commercial exists and belongs to this manager
+    const commercial = await this.prisma.commercial.findFirst({
+      where: {
+        id: commercialId,
+        OR: [
+          { managerId: managerId },
+          {
+            equipe: {
+              managerId: managerId
+            }
+          }
+        ]
+      }
+    });
+
+    if (!commercial) {
+      throw new NotFoundException(`Commercial with ID ${commercialId} not found or not accessible by this manager`);
+    }
+
+    // Get transcriptions for this specific commercial
+    const transcriptions = await this.prisma.transcriptionSession.findMany({
+      where: {
+        commercial_id: commercialId
+      },
+      orderBy: {
+        start_time: 'desc'
+      }
+    });
+
+    return transcriptions;
+  }
 }
