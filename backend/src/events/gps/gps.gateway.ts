@@ -28,7 +28,7 @@ export class GpsGateway implements OnGatewayConnection, OnGatewayDisconnect {
   private commercialLastSeen = new Map<string, number>(); // commercialId -> timestamp
   private offlineTimers = new Map<string, NodeJS.Timeout>(); // commercialId -> timeout
 
-  handleConnection(client: Socket, ...args: any[]) {
+  handleConnection(client: Socket) {
     console.log(`🌍 GPS client connected: ${client.id}`);
   }
 
@@ -88,7 +88,7 @@ export class GpsGateway implements OnGatewayConnection, OnGatewayDisconnect {
   }
 
   @SubscribeMessage('locationError')
-  handleLocationError(client: Socket, data: LocationErrorData) {
+  handleLocationError(_client: Socket, data: LocationErrorData) {
     console.log(`❌ Erreur GPS pour ${data.commercialId}:`, data.error);
     
     // Diffuser l'erreur aux admins
@@ -96,7 +96,7 @@ export class GpsGateway implements OnGatewayConnection, OnGatewayDisconnect {
   }
 
   @SubscribeMessage('commercialOffline')
-  handleCommercialOffline(client: Socket, commercialId: string) {
+  handleCommercialOffline(_client: Socket, commercialId: string) {
     console.log(`📍 Commercial ${commercialId} se déconnecte`);
     
     this.commercialLocations.delete(commercialId);
@@ -111,7 +111,7 @@ export class GpsGateway implements OnGatewayConnection, OnGatewayDisconnect {
     console.log(`📍 Demande d'état GPS de ${client.id}`);
     
     // Envoyer toutes les positions actuelles
-    this.commercialLocations.forEach((location, commercialId) => {
+    this.commercialLocations.forEach((location, _commercialId) => {
       client.emit('locationUpdate', location);
     });
     

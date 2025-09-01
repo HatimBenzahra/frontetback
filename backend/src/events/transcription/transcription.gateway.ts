@@ -24,7 +24,7 @@ export class TranscriptionGateway implements OnGatewayConnection, OnGatewayDisco
   // Minimal per-session per-door aggregation
   private sessionDoorTexts = new Map<string, Map<string, string>>();
 
-  handleConnection(client: Socket, ...args: any[]) {
+  handleConnection(client: Socket) {
     console.log(`📝 Transcription client connected: ${client.id}`);
   }
 
@@ -33,7 +33,7 @@ export class TranscriptionGateway implements OnGatewayConnection, OnGatewayDisco
   }
 
   @SubscribeMessage('transcription_update')
-  handleTranscriptionUpdate(client: Socket, data: {
+  handleTranscriptionUpdate(_client: Socket, data: {
     commercial_id: string;
     transcript: string;
     is_final: boolean;

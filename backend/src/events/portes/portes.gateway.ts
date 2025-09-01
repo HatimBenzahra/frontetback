@@ -7,7 +7,7 @@ export class PortesGateway implements OnGatewayConnection, OnGatewayDisconnect {
   @WebSocketServer()
   server: Server;
 
-  handleConnection(client: Socket, ...args: any[]) {
+  handleConnection(client: Socket) {
     console.log(`🚪 Portes client connected: ${client.id}`);
   }
 

@@ -49,7 +49,7 @@ export class AudioGateway implements OnGatewayConnection, OnGatewayDisconnect {
   // Timer pour la sauvegarde automatique
   private backupTimer: NodeJS.Timeout | null = null;
 
-  handleConnection(client: Socket, ...args: any[]) {
+  handleConnection(client: Socket) {
     console.log(`🎵 Audio client connected: ${client.id}`);
   }
 
@@ -162,7 +162,7 @@ export class AudioGateway implements OnGatewayConnection, OnGatewayDisconnect {
           
           // Vérifier si c'est un manager et si c'est le bon manager
           const isManagerSocket = Array.from(this.connectedManagers.entries())
-            .find(([mId, sId]) => sId === socketId);
+            .find(([_, sId]) => sId === socketId);
           
           if (isManagerSocket) {
             const [managerIdForSocket] = isManagerSocket;
@@ -183,7 +183,7 @@ export class AudioGateway implements OnGatewayConnection, OnGatewayDisconnect {
   }
 
   @SubscribeMessage('stop_streaming')
-  async handleStopStreaming(client: Socket, data: { commercial_id: string }) {
+  async handleStopStreaming(_client: Socket, data: { commercial_id: string }) {
     console.log(`🎤 Commercial ${data.commercial_id} arrête le streaming`);
     
     // Supprimer l'état du stream actif
@@ -230,7 +230,7 @@ export class AudioGateway implements OnGatewayConnection, OnGatewayDisconnect {
           let shouldSend = false;
           
           const isManagerSocket = Array.from(this.connectedManagers.entries())
-            .find(([mId, sId]) => sId === socketId);
+            .find(([_, sId]) => sId === socketId);
           
           if (isManagerSocket) {
             const [managerIdForSocket] = isManagerSocket;
@@ -253,7 +253,7 @@ export class AudioGateway implements OnGatewayConnection, OnGatewayDisconnect {
   }
 
   @SubscribeMessage('emergency_save_session')
-  async handleEmergencySave(client: Socket, data: { commercial_id: string }) {
+  async handleEmergencySave(_client: Socket, data: { commercial_id: string }) {
     console.log(`🚨 Sauvegarde d'urgence demandée pour ${data.commercial_id}`);
     
     const session = this.activeTranscriptionSessions.get(data.commercial_id);

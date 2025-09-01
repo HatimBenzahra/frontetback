@@ -212,7 +212,7 @@ export class ImmeubleService {
 
     if (nbEtages !== undefined && nbPortesParEtage !== undefined) {
       const currentNbEtages = existingImmeuble.nbEtages || 0;
-      const currentNbPortesParEtage = existingImmeuble.nbPortesParEtage || 0;
+      const _currentNbPortesParEtage = existingImmeuble.nbPortesParEtage || 0;
 
       if (nbEtages > currentNbEtages) {
         // Add new floors and their doors
