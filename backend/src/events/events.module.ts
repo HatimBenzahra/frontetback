@@ -4,9 +4,10 @@ import { GpsModule } from './gps/gps.module';
 import { PortesModule } from './portes/portes.module';
 import { TranscriptionModule } from './transcription/transcription.module';
 import { UtilsModule } from './utils/utils.module';
+import { DuoModule } from './duo/duo.module';
 
 @Module({
-  imports: [AudioModule, GpsModule, PortesModule, TranscriptionModule, UtilsModule],
-  exports: [AudioModule, GpsModule, PortesModule, TranscriptionModule, UtilsModule],
+  imports: [AudioModule, GpsModule, PortesModule, TranscriptionModule, UtilsModule, DuoModule],
+  exports: [AudioModule, GpsModule, PortesModule, TranscriptionModule, UtilsModule, DuoModule],
 })
 export class EventsModule {}

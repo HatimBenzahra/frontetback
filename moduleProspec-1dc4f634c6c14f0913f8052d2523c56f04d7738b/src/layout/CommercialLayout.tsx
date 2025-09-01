@@ -9,6 +9,7 @@ import { Button } from '@/components/ui-admin/button';
 import { toast } from 'sonner';
 import { CommercialBottomBar } from './CommercialBottomBar';
 import CommercialHeader from './CommercialHeader';
+import { useSocket } from '@/hooks/useSocket';
 
 const CommercialLayout = () => {
   const { user } = useAuth();
@@ -16,6 +17,7 @@ const CommercialLayout = () => {
   const navigate = useNavigate();
   const { pathname } = useLocation();
   const mainContentRef = useRef<HTMLDivElement>(null);
+  const socket = useSocket();
 
   const [isHeaderVisible, setIsHeaderVisible] = useState(true);
   const [isBottomBarVisible, setIsBottomBarVisible] = useState(true);
@@ -49,11 +51,54 @@ const CommercialLayout = () => {
     }
   }, [user]);
 
+  // WebSocket pour écouter les invitations DUO en temps réel
   useEffect(() => {
+    if (!socket || !user) return;
+
+    // Se connecter au système DUO
+    socket.emit('duo_user_connected', {
+      userId: user.id,
+      userInfo: {
+        nom: user.nom || user.name,
+        prenom: user.name
+      }
+    });
+
+    // Écouter les nouvelles invitations en temps réel
+    const handleInvitationReceived = (invitation: {
+      requestId: string;
+      requesterName: string;
+      requesterPrenom: string;
+      immeubleAdresse: string;
+      immeubleVille: string;
+      immeubleId: string;
+      timestamp: string;
+    }) => {
+      console.log('Nouvelle invitation DUO reçue:', invitation);
+      setPendingRequest({
+        id: invitation.requestId,
+        immeubleId: invitation.immeubleId,
+        immeuble: {
+          adresse: invitation.immeubleAdresse,
+          ville: invitation.immeubleVille
+        },
+        requester: {
+          nom: invitation.requesterName,
+          prenom: invitation.requesterPrenom
+        }
+      });
+      toast.info(`Nouvelle invitation de ${invitation.requesterPrenom} ${invitation.requesterName}`);
+    };
+
+    socket.on('duo_invitation_received', handleInvitationReceived);
+
+    // Récupérer les demandes en attente au chargement (fallback)
     fetchPendingRequests();
-    const interval = setInterval(fetchPendingRequests, 5000);
-    return () => clearInterval(interval);
-  }, [fetchPendingRequests]);
+
+    return () => {
+      socket.off('duo_invitation_received', handleInvitationReceived);
+    };
+  }, [socket, user, fetchPendingRequests]);
 
   // Initialiser le suivi GPS quand le commercial se connecte
   useEffect(() => {
@@ -95,15 +140,26 @@ const CommercialLayout = () => {
   }, [user]);
 
   const handleRequestResponse = async (accept: boolean) => {
-    if (!pendingRequest) return;
+    if (!pendingRequest || !socket) return;
+    
     try {
+      // 1. Traitement API REST pour mettre à jour la base de données
       const response = await prospectionService.handleProspectionRequest({
         requestId: pendingRequest.id,
         accept,
       });
+
+      // 2. Notifier via WebSocket pour mise à jour temps réel
+      socket.emit('duo_invitation_response', {
+        requestId: pendingRequest.id,
+        accepted: accept,
+        responderName: user?.nom || user?.name,
+        responderPrenom: user?.name
+      });
+
       toast.success(accept ? "Demande acceptée !" : "Demande refusée.");
       setPendingRequest(null);
-      await fetchPendingRequests();
+      
       if (accept && response.immeubleId) {
         navigate(`/commercial/prospecting/doors/${response.immeubleId}`);
       }

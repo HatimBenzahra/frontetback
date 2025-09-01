@@ -14,6 +14,7 @@ import { Modal } from '@/components/ui-admin/Modal';
 import { motion } from 'framer-motion';
 import { Combobox } from '@/components/ui-admin/Combobox';
 import { Skeleton } from '@/components/ui-admin/skeleton';
+import { useSocket } from '@/hooks/useSocket';
 
 type ProspectingMode = 'SOLO' | 'DUO';
 
@@ -44,8 +45,8 @@ const ProspectingSetupPage = () => {
     const [selectedPartnerId, setSelectedPartnerId] = useState<string | null>(null);
     const [isLoading, setIsLoading] = useState(true);
     const [isSendingInvitation, setIsSendingInvitation] = useState(false);
-    const [sentRequestId, setSentRequestId] = useState<string | null>(null);
     const abortControllerRef = useRef<AbortController | null>(null);
+    const socket = useSocket();
 
     useEffect(() => {
         const fetchInitialData = async () => {
@@ -68,33 +69,57 @@ const ProspectingSetupPage = () => {
         fetchInitialData();
     }, [buildingId, user]);
 
+    // WebSocket pour les invitations DUO
     useEffect(() => {
-        let interval: number | undefined;
-        if (sentRequestId && isSendingInvitation) {
-            interval = setInterval(async () => {
-                try {
-                    const response = await prospectionService.getRequestStatus(sentRequestId);
-                    if (response?.status !== 'PENDING') {
-                        clearInterval(interval);
-                        setIsSendingInvitation(false);
-                        setSentRequestId(null);
-                        if (response.status === 'ACCEPTED') {
-                            toast.success("Invitation acceptée ! Redirection...");
-                            navigate(`/commercial/prospecting/doors/${buildingId}`);
-                        } else if (response.status === 'REFUSED') {
-                            toast.warning("Votre invitation a été refusée.");
-                        }
-                    }
-                } catch (error) {
-                    clearInterval(interval);
-                    setIsSendingInvitation(false);
-                    setSentRequestId(null);
-                    toast.error("Erreur de vérification du statut.");
-                }
-            }, 2000);
-        }
-        return () => clearInterval(interval);
-    }, [sentRequestId, isSendingInvitation, navigate, buildingId]);
+        if (!socket || !user) return;
+
+        // Se connecter au système DUO
+        socket.emit('duo_user_connected', {
+            userId: user.id,
+            userInfo: {
+                nom: user.nom || user.name,
+                prenom: user.name
+            }
+        });
+
+        // Écouter les réponses d'invitations
+        const handleInvitationAnswered = (data: {
+            requestId: string;
+            accepted: boolean;
+            responderName?: string;
+            responderPrenom?: string;
+        }) => {
+            console.log('Réponse invitation reçue:', data);
+            setIsSendingInvitation(false);
+            
+            if (data.accepted) {
+                toast.success(`Invitation acceptée par ${data.responderPrenom} ${data.responderName} ! Redirection...`);
+                navigate(`/commercial/prospecting/doors/${buildingId}`);
+            } else {
+                toast.warning(`Invitation refusée par ${data.responderPrenom} ${data.responderName}.`);
+            }
+        };
+
+        // Écouter la confirmation d'envoi
+        const handleInvitationDelivered = (data: {
+            requestId: string;
+            delivered: boolean;
+            message: string;
+        }) => {
+            console.log('Confirmation envoi:', data);
+            if (!data.delivered) {
+                toast.warning(data.message);
+            }
+        };
+
+        socket.on('duo_invitation_answered', handleInvitationAnswered);
+        socket.on('duo_invitation_delivered', handleInvitationDelivered);
+
+        return () => {
+            socket.off('duo_invitation_answered', handleInvitationAnswered);
+            socket.off('duo_invitation_delivered', handleInvitationDelivered);
+        };
+    }, [socket, user, navigate, buildingId]);
 
     const handleStartProspection = async () => {
         if (!user?.id || !buildingId || !mode) return;
@@ -105,19 +130,40 @@ const ProspectingSetupPage = () => {
         }
 
         if (mode === 'DUO') {
+            if (!socket) {
+                toast.error("Connexion WebSocket non disponible.");
+                return;
+            }
+
             setIsSendingInvitation(true);
             abortControllerRef.current = new AbortController();
             try {
+                // 1. Appel API REST pour créer la demande en base
                 const response = await prospectionService.startProspection({
                     commercialId: user.id,
                     immeubleId: buildingId,
                     mode: 'DUO',
                     partnerId: selectedPartnerId!,
                 }, abortControllerRef.current.signal);
-                setSentRequestId(response.requestId);
-                toast.success("Invitation envoyée !");
+
+                // 2. Envoyer notification WebSocket instantanée
+                const selectedCommercial = commercials.find(c => c.id === selectedPartnerId);
+                socket.emit('duo_invitation_sent', {
+                    requestId: response.requestId,
+                    partnerId: selectedPartnerId,
+                    requesterName: user.nom || user.name,
+                    requesterPrenom: user.name,
+                    immeubleAdresse: immeuble?.adresse || 'Adresse inconnue',
+                    immeubleVille: immeuble?.ville || 'Ville inconnue',
+                    immeubleId: buildingId
+                });
+
+                toast.success(`Invitation envoyée à ${selectedCommercial?.prenom} ${selectedCommercial?.nom} !`);
             } catch (error: any) {
-                if (error.name !== 'AbortError') toast.error(error.response?.data?.message || "Erreur d'envoi.");
+                if (error.name !== 'AbortError') {
+                    toast.error(error.response?.data?.message || "Erreur d'envoi.");
+                    setIsSendingInvitation(false);
+                }
             } finally {
                 abortControllerRef.current = null;
             }
@@ -135,7 +181,7 @@ const ProspectingSetupPage = () => {
     const handleCancelInvitation = () => {
         if (abortControllerRef.current) abortControllerRef.current.abort();
         setIsSendingInvitation(false);
-        toast.info("Envoi de l'invitation annulé.");
+        toast.info("Invitation annulée.");
     };
 
     if (isLoading) return <PageSkeleton />;
