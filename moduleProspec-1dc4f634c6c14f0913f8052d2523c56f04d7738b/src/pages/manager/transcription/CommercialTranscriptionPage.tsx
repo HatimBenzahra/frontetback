@@ -218,13 +218,13 @@ const ManagerCommercialTranscriptionPage = () => {
         } else {
           // Fallback
           chunk = chunk.replace(/\s+/g, ' ').trim();
-          if (data.is_final) {
-            setLiveCommitted(prev => {
+      if (data.is_final) {
+        setLiveCommitted(prev => {
               const merged = prev + (prev ? ' ' : '') + chunk;
               return merged.length > liveMaxChars ? merged.slice(merged.length - liveMaxChars) : merged;
-            });
-            setLivePartial('');
-          } else {
+        });
+        setLivePartial('');
+      } else {
             const run = () => setLivePartial(chunk);
             if (partialTimerRef.current) window.clearTimeout(partialTimerRef.current);
             partialTimerRef.current = window.setTimeout(run, 150);
@@ -443,15 +443,15 @@ const ManagerCommercialTranscriptionPage = () => {
             </div>
           </div>
           <div className="flex items-center gap-2">
-            <Button
-              onClick={refreshAllData}
-              disabled={isRefreshing}
-              variant="outline"
+          <Button
+            onClick={refreshAllData}
+            disabled={isRefreshing}
+            variant="outline"
               className="gap-2 bg-white/80 backdrop-blur-sm border-gray-200 hover:bg-white disabled:opacity-50"
-            >
-              <RefreshCw className={`h-4 w-4 ${isRefreshing ? 'animate-spin' : ''}`} />
-              {isRefreshing ? 'Actualisation...' : 'Actualiser'}
-            </Button>
+          >
+            <RefreshCw className={`h-4 w-4 ${isRefreshing ? 'animate-spin' : ''}`} />
+            {isRefreshing ? 'Actualisation...' : 'Actualiser'}
+          </Button>
           </div>
         </div>
 
@@ -529,12 +529,12 @@ const ManagerCommercialTranscriptionPage = () => {
         <Card className="shadow-xl border-0 bg-white/95 backdrop-blur-sm">
           <CardHeader className="pb-4 bg-gradient-to-r from-purple-50 to-pink-50 border-b border-gray-100/50 flex-shrink-0">
             <div className="flex items-center justify-between">
-              <CardTitle className="flex items-center gap-2 text-lg">
+            <CardTitle className="flex items-center gap-2 text-lg">
                 <div className="p-2 bg-purple-100 rounded-lg">
                   <Calendar className="h-4 w-4 text-purple-600" />
                 </div>
                 Historique des sessions
-              </CardTitle>
+            </CardTitle>
               <div className="flex items-center gap-2">
                 <div className="text-sm text-gray-600 bg-white/80 px-3 py-1 rounded-full">
                   {sessions.length} session{sessions.length !== 1 ? 's' : ''}
@@ -562,41 +562,41 @@ const ManagerCommercialTranscriptionPage = () => {
                 <span className="text-sm font-medium text-gray-700">Filtres:</span>
               </div>
 
-              <Select value={buildingFilter} onValueChange={setBuildingFilter}>
+                <Select value={buildingFilter} onValueChange={setBuildingFilter}>
                 <SelectTrigger className="w-40 bg-white/80 border-gray-200">
                   <SelectValue placeholder="Immeubles" />
-                </SelectTrigger>
-                <SelectContent>
+                  </SelectTrigger>
+                  <SelectContent>
                   <SelectItem value="all">Tous</SelectItem>
-                  {uniqueBuildings.map(building => (
+                    {uniqueBuildings.map(building => (
                     <SelectItem key={building.id} value={building.id}>{building.name}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+                    ))}
+                  </SelectContent>
+                </Select>
 
-              <Select value={dateFilter} onValueChange={setDateFilter}>
+                <Select value={dateFilter} onValueChange={setDateFilter}>
                 <SelectTrigger className="w-32 bg-white/80 border-gray-200">
                   <SelectValue placeholder="Dates" />
-                </SelectTrigger>
-                <SelectContent>
+                  </SelectTrigger>
+                  <SelectContent>
                   <SelectItem value="all">Toutes</SelectItem>
                   <SelectItem value="24h">24h</SelectItem>
                   <SelectItem value="7d">7j</SelectItem>
                   <SelectItem value="30d">30j</SelectItem>
-                </SelectContent>
-              </Select>
+                  </SelectContent>
+                </Select>
 
-              <Select value={durationFilter} onValueChange={setDurationFilter}>
+                <Select value={durationFilter} onValueChange={setDurationFilter}>
                 <SelectTrigger className="w-32 bg-white/80 border-gray-200">
                   <SelectValue placeholder="Durée" />
-                </SelectTrigger>
-                <SelectContent>
+                  </SelectTrigger>
+                  <SelectContent>
                   <SelectItem value="all">Toutes</SelectItem>
                   <SelectItem value="short">&lt;1min</SelectItem>
                   <SelectItem value="medium">1-5min</SelectItem>
                   <SelectItem value="long">&gt;5min</SelectItem>
-                </SelectContent>
-              </Select>
+                  </SelectContent>
+                </Select>
             </div>
           </CardHeader>
 
@@ -621,23 +621,23 @@ const ManagerCommercialTranscriptionPage = () => {
                       const displayTranscript = session.full_transcript || '';
 
                       return (
-                        <div
-                          key={session.id}
+                  <div
+                    key={session.id}
                           className="p-4 hover:bg-gradient-to-r hover:from-blue-50 hover:to-indigo-50 rounded-xl cursor-pointer transition-all duration-300 group border border-transparent hover:border-blue-200 hover:shadow-md"
-                          onClick={() => setOpenSession(session)}
-                        >
+                    onClick={() => setOpenSession(session)}
+                  >
                           <div className="flex items-start gap-3">
                             <div className="p-1.5 bg-blue-100 rounded-lg flex-shrink-0">
                               <Clock className="h-3 w-3 text-blue-600" />
-                            </div>
+                        </div>
                             <div className="flex-1 min-w-0">
                               <div className="flex items-center gap-2 mb-1">
                                 <div className="text-xs font-semibold text-gray-900">
                                   {formatDate(session.start_time)}
-                                </div>
+                      </div>
                                 <Badge variant="secondary" className="text-xs bg-purple-100 text-purple-800">
-                                  {formatDuration(session.duration_seconds)}
-                                </Badge>
+                            {formatDuration(session.duration_seconds)}
+                          </Badge>
                               </div>
                               <div className="text-xs text-gray-600 mb-2">
                                 <span className="font-medium">
@@ -645,19 +645,19 @@ const ManagerCommercialTranscriptionPage = () => {
                                 </span>
                                 {session.visited_doors && session.visited_doors.length > 0 && (
                                   <span className="ml-2">- Portes: {session.visited_doors.join(', ')}</span>
-                                )}
-                              </div>
+                          )}
+                        </div>
                               <p className="text-sm text-gray-700 line-clamp-3 group-hover:text-gray-900 transition-colors">
                                 {displayTranscript || 'Aucune transcription'}
-                              </p>
-                            </div>
-                          </div>
+                        </p>
+                      </div>
+                    </div>
                         </div>
                       );
                     })}
                   </div>
                 </div>
-                
+
                 {/* Contrôles de pagination */}
                 {totalPages > 1 && (
                   <div className="flex items-center justify-between px-4 py-3 border-t border-gray-100 bg-gray-50/50">
@@ -816,15 +816,15 @@ const ManagerCommercialTranscriptionPage = () => {
             <div className="flex-1 flex flex-col max-h-[70vh]">
               <Card className="flex-1 flex flex-col max-h-[70vh]">
                 <CardHeader className="flex-shrink-0 bg-gradient-to-r from-purple-50 to-pink-50 border-b">
-                  <div className="flex items-center justify-between">
+              <div className="flex items-center justify-between">
                     <CardTitle className="text-base flex items-center gap-2">
                       <FileText className="h-4 w-4 text-purple-600" />
                       Transcription complète
                     </CardTitle>
-                    <div className="flex items-center gap-2">
-                      <Button
-                        size="sm"
-                        variant="outline"
+                <div className="flex items-center gap-2">
+                  <Button
+                    size="sm"
+                    variant="outline"
                         onClick={() => copyText(openSession.full_transcript || '')}
                         className="gap-2 bg-blue-50 border-blue-200 text-blue-700 hover:bg-blue-100 transition-colors hidden sm:flex"
                       >
@@ -852,10 +852,10 @@ const ManagerCommercialTranscriptionPage = () => {
                       >
                         <Download className="h-3 w-3" />
                         <span className="hidden md:inline">Télécharger</span>
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="outline"
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="outline"
                         onClick={() =>
                           downloadText(
                             `transcription_${openSession.commercial_name || openSession.commercial_id}_${new Date(openSession.start_time).toISOString().split('T')[0]}.txt`,
@@ -865,9 +865,9 @@ const ManagerCommercialTranscriptionPage = () => {
                         className="gap-2 bg-green-50 border-green-200 text-green-700 hover:bg-green-100 transition-colors sm:hidden p-2"
                       >
                         <Download className="h-3 w-3" />
-                      </Button>
-                    </div>
-                  </div>
+                  </Button>
+                </div>
+              </div>
                 </CardHeader>
                 <CardContent className="flex-1 p-0 min-h-0 overflow-hidden">
                   <div className="h-full bg-gradient-to-br from-slate-50 to-white border-0 relative overflow-hidden">
@@ -883,18 +883,18 @@ const ManagerCommercialTranscriptionPage = () => {
                                 <div className="flex items-center gap-2">
                                   <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
                                   <span className="font-medium">Transcription active</span>
-                                </div>
+                </div>
                                 <span className="text-gray-400">•</span>
                                 <span>{openSession.full_transcript.length.toLocaleString()} caractères</span>
                                 <span className="text-gray-400">•</span>
                                 <span>{openSession.full_transcript.split(' ').length.toLocaleString()} mots</span>
-                              </div>
-                            </div>
-                            
+                </div>
+              </div>
+
                             <div className="bg-white/80 backdrop-blur-sm rounded-lg border border-gray-200/60 shadow-sm">
                               <div className="p-4 sm:p-6">
                                 <pre className="whitespace-pre-wrap text-xs sm:text-sm leading-6 sm:leading-7 text-gray-800 font-sans tracking-wide">
-                                  {openSession.full_transcript}
+                    {openSession.full_transcript}
                                 </pre>
                               </div>
                             </div>
@@ -924,9 +924,9 @@ const ManagerCommercialTranscriptionPage = () => {
                             </div>
                           </div>
                         )}
-                      </div>
-                    </ScrollArea>
                   </div>
+                </ScrollArea>
+              </div>
                 </CardContent>
               </Card>
             </div>

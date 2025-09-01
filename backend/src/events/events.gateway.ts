@@ -3,7 +3,7 @@ import { Server, Socket } from 'socket.io';
 import * as https from 'https';
 import { IncomingMessage, RequestOptions } from 'http';
 import { TranscriptionHistoryService } from '../transcription-history/transcription-history.service';
-import { ManagerSpaceService } from '../manager-space/manager-space.service';
+import { CommercialService } from '../manager-space/commercial/commercial.service';
 
 interface LocationUpdateData {
   commercialId: string;
@@ -62,7 +62,7 @@ export class EventsGateway implements OnGatewayConnection, OnGatewayDisconnect {
 
   constructor(
     private transcriptionHistoryService: TranscriptionHistoryService,
-    private managerSpaceService: ManagerSpaceService
+    private commercialService: CommercialService
   ) {
     // Sauvegarde automatique périodique des sessions actives
     this.startPeriodicBackup();
@@ -145,7 +145,7 @@ export class EventsGateway implements OnGatewayConnection, OnGatewayDisconnect {
       this.saveActiveSessions();
     }, 30000); // 30 secondes
     
-    console.log('🔄 Sauvegarde automatique périodique démarrée (toutes les 30s)');
+    console.log('Sauvegarde automatique périodique démarrée (toutes les 30s)');
   }
 
   // Sauvegarder toutes les sessions actives
@@ -380,18 +380,25 @@ export class EventsGateway implements OnGatewayConnection, OnGatewayDisconnect {
     
     try {
       // Récupérer les commerciaux du manager
-      const commerciaux = await this.managerSpaceService.getManagerCommerciaux(data.managerId);
-      const commercialIds = commerciaux.map(c => c.id);
+      const commerciaux = await this.commercialService.getManagerCommerciaux(data.managerId);
+      const commercialIds = commerciaux.map((c: any) => c.id);
+      
+      console.log(`👥 Manager ${data.managerId} a ${commerciaux.length} commerciaux:`, commercialIds);
       
       // Filtrer les streams actifs selon les commerciaux du manager
-      const activeStreamsArray = Array.from(this.activeStreams.values())
-        .filter(stream => commercialIds.includes(stream.commercial_id));
+      const allActiveStreams = Array.from(this.activeStreams.values());
+      const filteredStreams = allActiveStreams.filter(stream => commercialIds.includes(stream.commercial_id));
       
-      console.log(`🔄 Streams actifs pour manager ${data.managerId}:`, activeStreamsArray.length);
+      console.log(`🎤 Streams actifs total: ${allActiveStreams.length}`);
+      console.log(`🎤 Streams filtrés pour manager ${data.managerId}: ${filteredStreams.length}`);
+      
+      if (filteredStreams.length > 0) {
+        console.log(`✅ Streams filtrés:`, filteredStreams.map(s => s.commercial_id));
+      }
       
       // Envoyer l'état filtré des streams au client qui demande
       client.emit('streaming_status_response', {
-        active_streams: activeStreamsArray
+        active_streams: filteredStreams
       });
     } catch (error) {
       console.error(`❌ Erreur filtrage streams manager ${data.managerId}:`, error);

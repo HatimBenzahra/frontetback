@@ -47,15 +47,15 @@ import RendezVousPage from './pages/commercial/rendez-vous/RendezVousPage';
 
 // --- Pages des autres Rôles (pour l'exemple) ---
 import ManagerLayout from './layout/ManagerLayout';
-import DashboardManager from './pages/manager/DashboardManager';
-import ManagerCommerciauxPage from './pages/manager/CommerciauxPage';
-import ManagerEquipesPage from './pages/manager/EquipesPage';
-import ManagerCommercialDetailsPage from './pages/manager/CommercialDetailsPage';
-import ManagerEquipeDetailsPage from './pages/manager/EquipeDetailsPage';
+import DashboardManager from './pages/manager/dashboard/DashboardManager';
+import ManagerCommerciauxPage from './pages/manager/commericial/CommerciauxPage';
+import ManagerEquipesPage from './pages/manager/equipe/EquipesPage';
+import ManagerCommercialDetailsPage from './pages/manager/commericial/CommercialDetailsPage';
+import ManagerEquipeDetailsPage from './pages/manager/equipe/EquipeDetailsPage';
 import ManagerImmeublesPage from './pages/manager/immeubles/ImmeublesPage';
-import ManagerSuiviPage from './pages/manager/SuiviPage';
-import ManagerTranscriptionsPage from './pages/manager/TranscriptionsPage';
-import ManagerCommercialTranscriptionPage from './pages/manager/CommercialTranscriptionPage';
+import ManagerSuiviPage from './pages/manager/suivi/SuiviPage';
+import ManagerTranscriptionsPage from './pages/manager/transcription/TranscriptionsPage';
+import ManagerCommercialTranscriptionPage from './pages/manager/transcription/CommercialTranscriptionPage';
 import DashboardDirecteur from './pages/directeur/DashboardDirecteur';
 import DashboardBackoffice from './pages/backoffice/DashboardBackoffice';
 

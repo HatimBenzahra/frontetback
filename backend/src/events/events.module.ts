@@ -1,10 +1,10 @@
 import { Module } from '@nestjs/common';
 import { EventsGateway } from './events.gateway';
 import { TranscriptionHistoryModule } from '../transcription-history/transcription-history.module';
-import { ManagerSpaceModule } from '../manager-space/manager-space.module';
+import { CommercialModule } from '../manager-space/commercial/commercial.module';
 
 @Module({
-  imports: [TranscriptionHistoryModule, ManagerSpaceModule],
+  imports: [TranscriptionHistoryModule, CommercialModule],
   providers: [EventsGateway],
   exports: [EventsGateway],
 })

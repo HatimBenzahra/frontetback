@@ -48,19 +48,26 @@ const ManagerSuiviPage = () => {
     socket.emit('joinRoom', 'audio-streaming');
     
     // Demander les streams filtrés pour ce manager spécifique
-    if (user?.id) {
+    if (user?.id && user?.role === 'manager') {
+      console.log(`🎯 Manager ${user.id} demande ses streams filtrés`);
       socket.emit('request_manager_streaming_status', { managerId: user.id });
+    } else if (user?.role === 'admin' || user?.role === 'directeur') {
+      // Les admins et directeurs voient tous les streams
+      console.log(`👑 ${user?.role} demande tous les streams`);
+      socket.emit('request_streaming_status');
     } else {
-      // Fallback vers tous les streams si pas de managerId
+      console.log(`⚠️ Utilisateur sans rôle approprié: ${user?.role}`);
       socket.emit('request_streaming_status');
     }
 
     const onStatus = (payload: { active_streams: ActiveStream[] }) => {
+      console.log(`📡 Réception de ${payload.active_streams?.length || 0} streams actifs`);
       setActiveStreams(payload.active_streams || []);
       socketToCommercialRef.current.clear();
       (payload.active_streams || []).forEach(s => socketToCommercialRef.current.set(s.socket_id, s.commercial_id));
     };
     const onStart = (payload: ActiveStream) => {
+      console.log(`🎤 Nouveau stream démarré: ${payload.commercial_id}`);
       setActiveStreams(prev => {
         const exists = prev.some(s => s.commercial_id === payload.commercial_id);
         return exists ? prev : [...prev, payload];
@@ -68,6 +75,7 @@ const ManagerSuiviPage = () => {
       socketToCommercialRef.current.set(payload.socket_id, payload.commercial_id);
     };
     const onStop = (payload: { commercial_id: string }) => {
+      console.log(`🛑 Stream arrêté: ${payload.commercial_id}`);
       setActiveStreams(prev => prev.filter(s => s.commercial_id !== payload.commercial_id));
       // Cleanup any ongoing PC and audio element
       const pc = pcsRef.current.get(payload.commercial_id);
@@ -119,7 +127,7 @@ const ManagerSuiviPage = () => {
       socket.off('suivi:webrtc_ice_candidate', onIce);
       socket.emit('leaveRoom', 'audio-streaming');
     };
-  }, [socket]);
+  }, [socket, user?.id, user?.role]);
 
   const joinStream = async (stream: ActiveStream) => {
     if (!socket || !canListen) return;
@@ -301,7 +309,14 @@ const ManagerSuiviPage = () => {
       <div className="max-w-7xl mx-auto">
         <div className="mb-6">
           <h1 className="text-3xl font-bold text-gray-900">Suivi en direct</h1>
-          <p className="text-gray-600 mt-1">Écoutez vos commerciaux en temps réel</p>
+          <p className="text-gray-600 mt-1">
+            Écoutez vos commerciaux en temps réel
+            {user?.role === 'manager' && (
+              <span className="text-sm text-blue-600 ml-2">
+                (Filtré pour manager: {user.id})
+              </span>
+            )}
+          </p>
         </div>
         
         <Card className="shadow-xl border-0 bg-white/95 backdrop-blur-sm">
@@ -321,9 +336,14 @@ const ManagerSuiviPage = () => {
                   size="sm"
                   className="border-gray-300 text-slate-800 bg-white hover:bg-gray-50"
                   onClick={() => {
-                    if (user?.id) {
+                    if (user?.id && user?.role === 'manager') {
+                      console.log(`🔄 Rafraîchissement des streams pour manager ${user.id}`);
                       socket?.emit('request_manager_streaming_status', { managerId: user.id });
+                    } else if (user?.role === 'admin' || user?.role === 'directeur') {
+                      console.log(`🔄 Rafraîchissement de tous les streams pour ${user?.role}`);
+                      socket?.emit('request_streaming_status');
                     } else {
+                      console.log(`🔄 Rafraîchissement fallback`);
                       socket?.emit('request_streaming_status');
                     }
                   }}
@@ -350,7 +370,12 @@ const ManagerSuiviPage = () => {
                   <Mic className="h-16 w-16 text-gray-400" />
                 </div>
                 <div className="text-gray-500 font-medium text-lg mb-2">Aucun commercial actif</div>
-                <div className="text-sm text-gray-400">Aucun de vos commerciaux n'a activé son micro actuellement</div>
+                <div className="text-sm text-gray-400">
+                  {user?.role === 'manager' 
+                    ? 'Aucun de vos commerciaux n\'a activé son micro actuellement'
+                    : 'Aucun commercial n\'a activé son micro actuellement'
+                  }
+                </div>
               </div>
             ) : (
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
