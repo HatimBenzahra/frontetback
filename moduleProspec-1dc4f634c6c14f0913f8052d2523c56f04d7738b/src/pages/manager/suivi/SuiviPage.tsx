@@ -24,7 +24,7 @@ const ManagerSuiviPage = () => {
   const gotTrackRef = useRef<Map<string, boolean>>(new Map());
 
   const canListen = useMemo(() => {
-    return user?.role === 'admin' || user?.role === 'manager' || user?.role === 'directeur';
+    return user?.role === 'manager';
   }, [user]);
 
   // Maintain a fast lookup from commercial socket_id -> commercial_id
@@ -47,17 +47,13 @@ const ManagerSuiviPage = () => {
     if (!socket) return;
     socket.emit('joinRoom', 'audio-streaming');
     
-    // Demander les streams filtrés pour ce manager spécifique
+    // Cette page est spécifiquement pour les managers
     if (user?.id && user?.role === 'manager') {
       console.log(`🎯 Manager ${user.id} demande ses streams filtrés`);
       socket.emit('request_manager_streaming_status', { managerId: user.id });
-    } else if (user?.role === 'admin' || user?.role === 'directeur') {
-      // Les admins et directeurs voient tous les streams
-      console.log(`👑 ${user?.role} demande tous les streams`);
-      socket.emit('request_streaming_status');
     } else {
-      console.log(`⚠️ Utilisateur sans rôle approprié: ${user?.role}`);
-      socket.emit('request_streaming_status');
+      console.error(`⚠️ Cette page est réservée aux managers. Rôle actuel: ${user?.role}`);
+      // Ne pas faire de requête si ce n'est pas un manager
     }
 
     const onStatus = (payload: { active_streams: ActiveStream[] }) => {
@@ -93,6 +89,41 @@ const ManagerSuiviPage = () => {
       });
     };
 
+    const onManagerStreamsRemoved = (payload: { removed_commercial_ids: string[]; manager_id: string }) => {
+      console.log(`🧹 Suppression de ${payload.removed_commercial_ids.length} streams obsolètes pour manager ${payload.manager_id}`);
+      
+      payload.removed_commercial_ids.forEach(commercialId => {
+        console.log(`❌ Suppression stream obsolète: ${commercialId}`);
+        
+        // Supprimer des streams actifs
+        setActiveStreams(prev => prev.filter(s => s.commercial_id !== commercialId));
+        
+        // Nettoyer les connexions WebRTC
+        const pc = pcsRef.current.get(commercialId);
+        if (pc) {
+          try { pc.close(); } catch {}
+          pcsRef.current.delete(commercialId);
+        }
+        
+        // Nettoyer les éléments audio
+        const el = audioElsRef.current.get(commercialId);
+        if (el) {
+          try { el.remove(); } catch {}
+          audioElsRef.current.delete(commercialId);
+        }
+        
+        // Nettoyer les états
+        setConnectedIds(prev => { const n = new Set(prev); n.delete(commercialId); return n; });
+        setConnectingIds(prev => { const n = new Set(prev); n.delete(commercialId); return n; });
+        setFailedIds(prev => { const n = new Set(prev); n.delete(commercialId); return n; });
+        
+        // Nettoyer le mapping socket
+        for (const [sock, id] of Array.from(socketToCommercialRef.current.entries())) {
+          if (id === commercialId) socketToCommercialRef.current.delete(sock);
+        }
+      });
+    };
+
     const onAnswer = async (payload: { from_socket_id: string; sdp: string; type: string }) => {
       const commercialId = socketToCommercialRef.current.get(payload.from_socket_id);
       if (!commercialId) return;
@@ -116,6 +147,7 @@ const ManagerSuiviPage = () => {
     socket.on('streaming_status_response', onStatus);
     socket.on('start_streaming', onStart);
     socket.on('stop_streaming', onStop);
+    socket.on('manager_streams_removed', onManagerStreamsRemoved);
     socket.on('suivi:webrtc_answer', onAnswer);
     socket.on('suivi:webrtc_ice_candidate', onIce);
 
@@ -123,6 +155,7 @@ const ManagerSuiviPage = () => {
       socket.off('streaming_status_response', onStatus);
       socket.off('start_streaming', onStart);
       socket.off('stop_streaming', onStop);
+      socket.off('manager_streams_removed', onManagerStreamsRemoved);
       socket.off('suivi:webrtc_answer', onAnswer);
       socket.off('suivi:webrtc_ice_candidate', onIce);
       socket.emit('leaveRoom', 'audio-streaming');
@@ -339,12 +372,8 @@ const ManagerSuiviPage = () => {
                     if (user?.id && user?.role === 'manager') {
                       console.log(`🔄 Rafraîchissement des streams pour manager ${user.id}`);
                       socket?.emit('request_manager_streaming_status', { managerId: user.id });
-                    } else if (user?.role === 'admin' || user?.role === 'directeur') {
-                      console.log(`🔄 Rafraîchissement de tous les streams pour ${user?.role}`);
-                      socket?.emit('request_streaming_status');
                     } else {
-                      console.log(`🔄 Rafraîchissement fallback`);
-                      socket?.emit('request_streaming_status');
+                      console.error(`⚠️ Rafraîchissement non autorisé pour le rôle: ${user?.role}`);
                     }
                   }}
                 >
@@ -362,7 +391,7 @@ const ManagerSuiviPage = () => {
           </CardHeader>
           <CardContent>
             {!canListen && (
-              <div className="text-sm text-red-600">Votre rôle ne permet pas d'écouter les commerciaux.</div>
+              <div className="text-sm text-red-600">Cette page est réservée aux managers.</div>
             )}
             {filteredStreams.length === 0 ? (
               <div className="text-center py-20">

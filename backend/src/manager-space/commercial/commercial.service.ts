@@ -168,4 +168,24 @@ export class CommercialService {
 
     return transcriptions;
   }
+
+  async getCommercialManagerId(commercialId: string): Promise<string | null> {
+    const commercial = await this.prisma.commercial.findUnique({
+      where: { id: commercialId },
+      include: {
+        equipe: {
+          select: {
+            managerId: true
+          }
+        }
+      }
+    });
+
+    if (!commercial) {
+      return null;
+    }
+
+    // Retourner le managerId direct ou celui de l'équipe
+    return commercial.managerId || commercial.equipe?.managerId || null;
+  }
 }

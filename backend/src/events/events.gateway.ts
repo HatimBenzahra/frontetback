@@ -101,6 +101,14 @@ export class EventsGateway implements OnGatewayConnection, OnGatewayDisconnect {
   handleDisconnect(client: Socket) {
     console.log(`📡 Client disconnected: ${client.id}`);
     
+    // Nettoyer le manager connecté s'il se déconnecte
+    const disconnectedManager = Array.from(this.connectedManagers.entries())
+      .find(([_, socketId]) => socketId === client.id)?.[0];
+    if (disconnectedManager) {
+      this.connectedManagers.delete(disconnectedManager);
+      console.log(`🗑️ Manager ${disconnectedManager} retiré de la liste des connectés`);
+    }
+    
     // Trouver le commercial associé à cette socket
     const commercialId = Array.from(this.commercialSockets.entries())
       .find(([_, socketId]) => socketId === client.id)?.[0];
@@ -270,7 +278,7 @@ export class EventsGateway implements OnGatewayConnection, OnGatewayDisconnect {
 
   // Gestion des événements audio streaming
   @SubscribeMessage('start_streaming')
-  handleStartStreaming(client: Socket, data: { commercial_id: string; commercial_info?: any; building_id?: string; building_name?: string }) {
+  async handleStartStreaming(client: Socket, data: { commercial_id: string; commercial_info?: any; building_id?: string; building_name?: string }) {
     console.log(`🎤 Commercial ${data.commercial_id} démarre le streaming`);
     
     // Stocker l'état du stream actif
@@ -279,6 +287,19 @@ export class EventsGateway implements OnGatewayConnection, OnGatewayDisconnect {
       commercial_info: data.commercial_info || {},
       socket_id: client.id,
     });
+    
+    // Mettre à jour le cache d'historique - déterminer le manager actuel du commercial
+    try {
+      const managerId = await this.commercialService.getCommercialManagerId(data.commercial_id);
+      if (managerId) {
+        this.managerStreamHistory.set(data.commercial_id, managerId);
+        console.log(`📊 Commercial ${data.commercial_id} assigné au manager ${managerId} dans le cache`);
+      } else {
+        console.log(`⚠️ Commercial ${data.commercial_id} n'a pas de manager assigné`);
+      }
+    } catch (error) {
+      console.log(`❌ Erreur lors de la détermination du manager pour commercial ${data.commercial_id}:`, error);
+    }
     
     // Créer une nouvelle session de transcription
     const sessionId = `${data.commercial_id}_${Date.now()}`;
@@ -297,12 +318,45 @@ export class EventsGateway implements OnGatewayConnection, OnGatewayDisconnect {
     this.activeTranscriptionSessions.set(data.commercial_id, session);
     console.log(`📝 Session de transcription créée pour ${data.commercial_id}:`, sessionId);
     
-    // Diffuser aux admins dans la room audio-streaming avec socket_id
-    this.server.to('audio-streaming').emit('start_streaming', {
+    // Diffuser intelligemment les événements de stream
+    const streamPayload = {
       commercial_id: data.commercial_id,
       commercial_info: data.commercial_info || {},
       socket_id: client.id,
-    });
+    };
+
+    // Récupérer le manager responsable de ce commercial
+    const managerId = await this.commercialService.getCommercialManagerId(data.commercial_id);
+    
+    // Parcourir tous les clients connectés dans la room pour filtrer
+    const room = this.server.sockets.adapter.rooms.get('audio-streaming');
+    if (room) {
+      for (const socketId of room) {
+        const socket = this.server.sockets.sockets.get(socketId);
+        if (socket) {
+          // Déterminer si ce socket doit recevoir cet événement
+          let shouldSend = false;
+          
+          // Vérifier si c'est un manager et si c'est le bon manager
+          const isManagerSocket = Array.from(this.connectedManagers.entries())
+            .find(([mId, sId]) => sId === socketId);
+          
+          if (isManagerSocket) {
+            const [managerIdForSocket] = isManagerSocket;
+            shouldSend = managerIdForSocket === managerId;
+            console.log(`Manager ${managerIdForSocket}: ${shouldSend ? 'AUTORISÉ' : 'REFUSÉ'} pour commercial ${data.commercial_id}`);
+          } else {
+            // Si ce n'est pas un manager identifié, c'est probablement un admin → autoriser
+            shouldSend = true;
+            console.log(`Socket non-manager ${socketId}: AUTORISÉ (admin/directeur)`);
+          }
+          
+          if (shouldSend) {
+            socket.emit('start_streaming', streamPayload);
+          }
+        }
+      }
+    }
   }
 
   @SubscribeMessage('stop_streaming')
@@ -342,8 +396,37 @@ export class EventsGateway implements OnGatewayConnection, OnGatewayDisconnect {
       this.server.to('audio-streaming').emit('transcription_session_completed', session);
     }
     
-    // Diffuser aux admins dans la room audio-streaming
-    this.server.to('audio-streaming').emit('stop_streaming', data);
+    // Diffuser intelligemment l'arrêt du stream (même logique que start_streaming)
+    const managerId = this.managerStreamHistory.get(data.commercial_id);
+    
+    const room = this.server.sockets.adapter.rooms.get('audio-streaming');
+    if (room) {
+      for (const socketId of room) {
+        const socket = this.server.sockets.sockets.get(socketId);
+        if (socket) {
+          let shouldSend = false;
+          
+          const isManagerSocket = Array.from(this.connectedManagers.entries())
+            .find(([mId, sId]) => sId === socketId);
+          
+          if (isManagerSocket) {
+            const [managerIdForSocket] = isManagerSocket;
+            shouldSend = managerIdForSocket === managerId;
+            console.log(`Manager ${managerIdForSocket}: ${shouldSend ? 'AUTORISÉ' : 'REFUSÉ'} pour stop_streaming ${data.commercial_id}`);
+          } else {
+            // Admins/directeurs voient tout
+            shouldSend = true;
+          }
+          
+          if (shouldSend) {
+            socket.emit('stop_streaming', data);
+          }
+        }
+      }
+    }
+    
+    // Nettoyer le cache d'historique
+    this.managerStreamHistory.delete(data.commercial_id);
   }
 
   @SubscribeMessage('emergency_save_session')
@@ -378,15 +461,58 @@ export class EventsGateway implements OnGatewayConnection, OnGatewayDisconnect {
   async handleRequestManagerStreamingStatus(client: Socket, data: { managerId: string }) {
     console.log(`🔄 Demande de synchronisation des streams pour manager ${data.managerId} de ${client.id}`);
     
+    // Enregistrer ce manager comme connecté
+    this.connectedManagers.set(data.managerId, client.id);
+    console.log(`📝 Manager ${data.managerId} enregistré avec socket ${client.id}`);
+    
     try {
-      // Récupérer les commerciaux du manager
+      // Récupérer les commerciaux du manager (TOUJOURS depuis la DB pour avoir les données à jour)
       const commerciaux = await this.commercialService.getManagerCommerciaux(data.managerId);
       const commercialIds = commerciaux.map((c: any) => c.id);
       
       console.log(`👥 Manager ${data.managerId} a ${commerciaux.length} commerciaux:`, commercialIds);
       
-      // Filtrer les streams actifs selon les commerciaux du manager
+      // Mettre à jour le cache d'historique pour les commerciaux actuels
+      commercialIds.forEach(commercialId => {
+        this.managerStreamHistory.set(commercialId, data.managerId);
+      });
+      
+      // Identifier TOUS les streams qui ne doivent pas être visibles par ce manager
       const allActiveStreams = Array.from(this.activeStreams.values());
+      const streamsToRemove: string[] = [];
+      
+      for (const stream of allActiveStreams) {
+        // Si ce stream N'EST PAS dans la liste des commerciaux de ce manager
+        if (!commercialIds.includes(stream.commercial_id)) {
+          // Vérifier si ce manager pourrait légitimement voir ce stream
+          try {
+            await this.commercialService.getManagerCommercial(data.managerId, stream.commercial_id);
+            // Si pas d'exception, le commercial est bien sous ce manager → erreur de logique
+            console.log(`⚠️ INCOHÉRENCE: Commercial ${stream.commercial_id} devrait être dans la liste mais n'y est pas`);
+          } catch (error) {
+            // Si ForbiddenException → le commercial n'appartient pas à ce manager → OK
+            streamsToRemove.push(stream.commercial_id);
+            console.log(`🧹 Stream ${stream.commercial_id} ne doit pas être visible par manager ${data.managerId}`);
+          }
+        }
+      }
+      
+      if (streamsToRemove.length > 0) {
+        console.log(`🧹 Nettoyage ${streamsToRemove.length} streams obsolètes pour manager ${data.managerId}:`, streamsToRemove);
+        
+        // Nettoyer le cache d'historique pour ces commerciaux
+        streamsToRemove.forEach(commercialId => {
+          this.managerStreamHistory.delete(commercialId);
+        });
+        
+        // Notifier spécifiquement ce manager que ces streams ne lui appartiennent plus
+        client.emit('manager_streams_removed', {
+          removed_commercial_ids: streamsToRemove,
+          manager_id: data.managerId
+        });
+      }
+      
+      // Filtrer les streams actifs selon les commerciaux actuels du manager
       const filteredStreams = allActiveStreams.filter(stream => commercialIds.includes(stream.commercial_id));
       
       console.log(`🎤 Streams actifs total: ${allActiveStreams.length}`);
@@ -408,6 +534,12 @@ export class EventsGateway implements OnGatewayConnection, OnGatewayDisconnect {
       });
     }
   }
+
+  // Cache pour tracker l'historique des affectations manager ↔ commercial
+  private managerStreamHistory = new Map<string, string>(); // commercialId -> managerId
+  
+  // Tracker les managers connectés avec leur socket
+  private connectedManagers = new Map<string, string>(); // managerId -> socketId
 
   // --- WebRTC signaling relay for listen-only ---
   @SubscribeMessage('suivi:webrtc_offer')
