@@ -3,14 +3,14 @@ import { PrismaService } from '../prisma/prisma.service';
 import { CreatePorteDto } from './dto/create-porte.dto';
 import { UpdatePorteDto } from './dto/update-porte.dto';
 import { PorteStatut, ActivityActionType } from '@prisma/client';
-import { EventsGateway } from '../events/events.gateway';
+import { PortesGateway } from '../events/portes/portes.gateway';
 import { ActivityFeedService } from '../activity-feed/activity-feed.service';
 
 @Injectable()
 export class PorteService {
   constructor(
     private prisma: PrismaService, 
-    private eventsGateway: EventsGateway,
+    private portesGateway: PortesGateway,
     private activityFeedService: ActivityFeedService
   ) {}
 
@@ -26,7 +26,7 @@ export class PorteService {
     });
 
     // Émettre un événement WebSocket pour la synchronisation en temps réel
-    this.eventsGateway.sendToRoom(newPorte.immeubleId, 'porte:added', {
+    this.portesGateway.sendToRoom(newPorte.immeubleId, 'porte:added', {
       porte: newPorte,
       timestamp: new Date().toISOString()
     });
@@ -70,7 +70,7 @@ export class PorteService {
 
       // Émettre un événement WebSocket pour la synchronisation en temps réel
       if (existingPorte.immeubleId) {
-        this.eventsGateway.sendToRoom(existingPorte.immeubleId, 'porte:updated', {
+        this.portesGateway.sendToRoom(existingPorte.immeubleId, 'porte:updated', {
           porteId: id,
           updates: updatePorteDto,
           timestamp: new Date().toISOString()
@@ -78,7 +78,7 @@ export class PorteService {
 
         // Si le statut a changé, émettre un événement spécifique
         if (existingPorte.statut !== updatedPorte.statut) {
-          this.eventsGateway.sendToRoom(existingPorte.immeubleId, 'porte:statusChanged', {
+          this.portesGateway.sendToRoom(existingPorte.immeubleId, 'porte:statusChanged', {
             porteId: id,
             statut: updatedPorte.statut,
             assigneeId: updatedPorte.assigneeId,
@@ -88,7 +88,7 @@ export class PorteService {
 
         // Si l'assignation a changé (mode duo), émettre un événement spécifique
         if (existingPorte.assigneeId !== updatedPorte.assigneeId) {
-          this.eventsGateway.sendToRoom(existingPorte.immeubleId, 'porte:assigned', {
+          this.portesGateway.sendToRoom(existingPorte.immeubleId, 'porte:assigned', {
             porteId: id,
             assigneeId: updatedPorte.assigneeId,
             timestamp: new Date().toISOString()
@@ -204,7 +204,7 @@ export class PorteService {
       }
 
       // Emit WebSocket event for real-time update
-      this.eventsGateway.sendToRoom(
+      this.portesGateway.sendToRoom(
         existingPorte.immeubleId,
         'porteUpdated',
         updatedPorte,
@@ -236,7 +236,7 @@ export class PorteService {
     });
 
     // Émettre un événement WebSocket pour la synchronisation en temps réel
-    this.eventsGateway.sendToRoom(porte.immeubleId, 'porte:deleted', {
+    this.portesGateway.sendToRoom(porte.immeubleId, 'porte:deleted', {
       porteId: id,
       timestamp: new Date().toISOString()
     });

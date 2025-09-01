@@ -5,13 +5,13 @@ import { UpdateImmeubleDto } from './dto/update-immeuble.dto';
 import { CreateCommercialImmeubleDto } from './dto/create-commercial-immeuble.dto';
 import { UpdateCommercialImmeubleDto } from './dto/update-commercial-immeuble.dto';
 import { ImmeubleStatus, ProspectingMode, PorteStatut } from '@prisma/client';
-import { EventsGateway } from '../events/events.gateway';
+import { PortesGateway } from '../events/portes/portes.gateway';
 
 @Injectable()
 export class ImmeubleService {
   constructor(
     private prisma: PrismaService,
-    private eventsGateway: EventsGateway
+    private portesGateway: PortesGateway
   ) {}
 
   // Admin methods
@@ -87,7 +87,7 @@ export class ImmeubleService {
 
     // Si le nombre d'étages a changé, émettre un événement WebSocket
     if (oldImmeuble && oldImmeuble.nbEtages !== updatedImmeuble.nbEtages) {
-      this.eventsGateway.sendToRoom(id, 'floor:added', {
+      this.portesGateway.sendToRoom(id, 'floor:added', {
         newNbEtages: updatedImmeuble.nbEtages,
         timestamp: new Date().toISOString()
       });
