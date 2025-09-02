@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo } from 'react';
 import { AlertCircle, Users, Shield, MapPin, CheckCircle2, FilterX, ChevronLeft, ChevronRight, Trash2, StopCircle, Map, History, BarChart3, Clock, Target, TrendingUp } from 'lucide-react';
 import { toast } from 'sonner';
 import { useAuth } from '@/contexts/AuthContext';
+import type { ColumnDef } from '@tanstack/react-table';
 
 import { assignmentGoalsService } from '@/services/assignment-goals.service';
 
@@ -12,8 +13,8 @@ import { Button } from '@/components/ui-admin/button';
 import { Switch } from '@/components/ui-admin/switch';
 import { Label } from '@/components/ui-admin/label';
 import { Progress } from '@/components/ui-admin/progress';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui-admin/table';
 import { Separator } from '@/components/ui-admin/separator';
+import { DataTable } from '@/components/data-table/DataTable';
 
 import { ZoneAssignmentCard } from '@/components/page-components/ZoneAssignmentCard';
 import { ZoneMapViewer } from '@/components/page-components/ZoneMapViewer';
@@ -52,30 +53,9 @@ export default function ZoneAssignmentPage({
   const [selectedZone, setSelectedZone] = useState<ZoneFromApi | null>(null);
   const [isHistoryMode, setIsHistoryMode] = useState(false);
   
-  const [historyPage, setHistoryPage] = useState(1);
-  const historyItemsPerPage = 10;
-  
-  const [assignmentsPage, setAssignmentsPage] = useState(1);
-  const assignmentsItemsPerPage = 10;
   
   const { user } = useAuth();
 
-  const paginatedHistory = useMemo(() => {
-    const startIndex = (historyPage - 1) * historyItemsPerPage;
-    const endIndex = startIndex + historyItemsPerPage;
-    return filteredHistory.slice(startIndex, endIndex);
-  }, [filteredHistory, historyPage]);
-
-  const historyTotalPages = Math.max(1, Math.ceil(filteredHistory.length / historyItemsPerPage));
-
-  const paginatedAssignments = useMemo(() => {
-    const assignments = assignmentsStatus?.assignments || [];
-    const startIndex = (assignmentsPage - 1) * assignmentsItemsPerPage;
-    const endIndex = startIndex + assignmentsItemsPerPage;
-    return assignments.slice(startIndex, endIndex);
-  }, [assignmentsStatus?.assignments, assignmentsPage]);
-
-  const assignmentsTotalPages = Math.max(1, Math.ceil((assignmentsStatus?.assignments?.length || 0) / assignmentsItemsPerPage));
 
   useEffect(() => {
     const fetchAssignmentData = async () => {
@@ -114,7 +94,6 @@ export default function ZoneAssignmentPage({
     }
 
     setFilteredHistory(filtered);
-    setHistoryPage(1);
   }, [assignmentHistory, filters]);
 
   const toggleFilter = (type: 'assignedBy' | 'assigneeType' | 'zone', value: string) => {
@@ -203,6 +182,252 @@ export default function ZoneAssignmentPage({
       default: return 'text-gray-600 bg-gray-50 border-gray-200';
     }
   };
+
+  // Colonnes pour le tableau des assignations
+  const assignmentColumns: ColumnDef<any>[] = useMemo(() => [
+    {
+      accessorKey: 'zoneName',
+      header: 'Zone',
+      cell: ({ getValue }) => (
+        <span className="font-medium">{getValue() as string}</span>
+      ),
+    },
+    {
+      accessorKey: 'assigneeName',
+      header: 'Assigné à',
+      cell: ({ row }) => (
+        <div>
+          <p className="font-medium text-gray-900">{row.original.assigneeName}</p>
+          <Badge variant="outline" className="text-xs mt-1">
+            {row.original.assignedToType}
+          </Badge>
+        </div>
+      ),
+    },
+    {
+      accessorKey: 'status',
+      header: 'Statut',
+      cell: ({ getValue }) => {
+        const status = getValue() as string;
+        return (
+          <Badge className={getStatusColor(status)}>
+            {status === 'active' ? 'En cours' : 
+             status === 'future' ? 'À venir' : 'Expirée'}
+          </Badge>
+        );
+      },
+    },
+    {
+      accessorKey: 'progressPercentage',
+      header: 'Progression',
+      cell: ({ row }) => {
+        const { status, progressPercentage } = row.original;
+        if (status === 'active') {
+          return (
+            <div className="space-y-2">
+              <div className="flex justify-between text-sm">
+                <span>{progressPercentage}%</span>
+              </div>
+              <Progress 
+                value={progressPercentage} 
+                className="h-2"
+                indicatorClassName="bg-green-500"
+              />
+            </div>
+          );
+        }
+        return <span className="text-gray-400 text-sm">-</span>;
+      },
+    },
+    {
+      accessorKey: 'timeInfo',
+      header: 'Temps restant',
+      cell: ({ row }) => {
+        const { status, remainingDays, timeInfo } = row.original;
+        if (status === 'active') {
+          return (
+            <Badge variant="outline" className="text-green-600 border-green-200 bg-green-50">
+              {remainingDays}j
+            </Badge>
+          );
+        } else if (status === 'future') {
+          return (
+            <Badge variant="outline" className="text-orange-600 border-orange-200 bg-orange-50">
+              {timeInfo}
+            </Badge>
+          );
+        }
+        return (
+          <Badge variant="outline" className="text-gray-600 border-gray-200 bg-gray-50">
+            {timeInfo}
+          </Badge>
+        );
+      },
+    },
+    {
+      accessorKey: 'affectedCommercialsCount',
+      header: 'Commerciaux',
+      cell: ({ row }) => {
+        const { affectedCommercialsCount, affectedCommercials } = row.original;
+        return (
+          <div>
+            <p className="font-medium text-gray-900">
+              {affectedCommercialsCount} commercial{affectedCommercialsCount !== 1 ? 'aux' : ''}
+            </p>
+            {affectedCommercials && affectedCommercials.length > 0 && (
+              <p className="text-xs text-gray-500 mt-1">
+                {affectedCommercials.slice(0, 2).map((c: { prenom: string; nom: string }) => `${c.prenom} ${c.nom}`).join(', ')}
+                {affectedCommercials.length > 2 && ` +${affectedCommercials.length - 2}`}
+              </p>
+            )}
+          </div>
+        );
+      },
+    },
+    {
+      accessorKey: 'dates',
+      header: 'Dates',
+      cell: ({ row }) => {
+        const { startDate, endDate } = row.original;
+        return (
+          <div className="text-sm">
+            <p>Début: {new Date(startDate).toLocaleDateString('fr-FR')}</p>
+            <p className="text-gray-500">Fin: {new Date(endDate).toLocaleDateString('fr-FR')}</p>
+          </div>
+        );
+      },
+    },
+    {
+      id: 'actions',
+      header: 'Actions',
+      cell: ({ row }) => {
+        const { status, id } = row.original;
+        if (status === 'active') {
+          return (
+            <Button
+              variant="destructive"
+              size="sm"
+              onClick={() => handleStopAssignment(id)}
+              leftIcon={<StopCircle className="h-4 w-4" />}
+            >
+              Arrêter
+            </Button>
+          );
+        } else if (status === 'future') {
+          return (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => handleStopAssignment(id)}
+              leftIcon={<Trash2 className="h-4 w-4" />}
+            >
+              Annuler
+            </Button>
+          );
+        }
+        return <span className="text-gray-400">-</span>;
+      },
+    },
+  ], []);
+
+  // Colonnes pour le tableau d'historique
+  const historyColumns: ColumnDef<any>[] = useMemo(() => [
+    {
+      accessorKey: 'zoneName',
+      header: 'Zone',
+      cell: ({ row }) => (
+        <span className="font-medium">{row.original.zoneName || row.original.zoneId}</span>
+      ),
+    },
+    {
+      accessorKey: 'assigneeName',
+      header: 'Assigné à',
+      cell: ({ row }) => (
+        <div>
+          <p className="font-medium text-gray-900">{row.original.assigneeName}</p>
+          <Badge variant="outline" className="text-xs mt-1">
+            {row.original.assignedToType}
+          </Badge>
+        </div>
+      ),
+    },
+    {
+      accessorKey: 'affectedCommercialsCount',
+      header: 'Commerciaux',
+      cell: ({ row }) => {
+        const { affectedCommercialsCount, affectedCommercials } = row.original;
+        return (
+          <div>
+            <p className="font-medium text-gray-900">
+              {affectedCommercialsCount || 0} commercial{affectedCommercialsCount !== 1 ? 'aux' : ''}
+            </p>
+            {affectedCommercials && affectedCommercials.length > 0 && (
+              <p className="text-xs text-gray-500 mt-1">
+                {affectedCommercials.slice(0, 2).map((c: { prenom: string; nom: string }) => `${c.prenom} ${c.nom}`).join(', ')}
+                {affectedCommercials.length > 2 && ` +${affectedCommercials.length - 2} autres`}
+              </p>
+            )}
+          </div>
+        );
+      },
+    },
+    {
+      accessorKey: 'assignedByUserName',
+      header: 'Assigné par',
+      cell: ({ row }) => {
+        const normalizedName = normalizeDisplayName(row.original.assignedByUserName);
+        const nameMatch = normalizedName.match(/^(.+?)\s*\((.+?)\)$/);
+        
+        if (nameMatch) {
+          const [, name, role] = nameMatch;
+          return (
+            <div>
+              <p className="font-medium text-gray-900">{name.trim()}</p>
+              <Badge variant="outline" className="text-xs mt-1">
+                {role.trim()}
+              </Badge>
+            </div>
+          );
+        } else {
+          return <p className="font-medium text-gray-900">{normalizedName}</p>;
+        }
+      },
+    },
+    {
+      accessorKey: 'startDate',
+      header: 'Début',
+      cell: ({ getValue }) => {
+        const date = new Date(getValue() as string);
+        return <span className="text-gray-700">{date.toLocaleDateString('fr-FR')}</span>;
+      },
+    },
+    {
+      accessorKey: 'endDate',
+      header: 'Fin',
+      cell: ({ getValue }) => {
+        const endDate = getValue();
+        if (!endDate) return <span className="text-gray-700">-</span>;
+        const date = new Date(endDate as string);
+        return <span className="text-gray-700">{date.toLocaleDateString('fr-FR')}</span>;
+      },
+    },
+    {
+      id: 'duration',
+      header: 'Durée',
+      cell: ({ row }) => {
+        const { startDate, endDate } = row.original;
+        const start = new Date(startDate);
+        const end = endDate ? new Date(endDate) : null;
+        const durationDays = end ? Math.max(1, Math.ceil((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24))) : '-';
+        
+        return (
+          <Badge variant="outline" className="text-blue-600 border-blue-200 bg-blue-50">
+            {durationDays === '-' ? '-' : `${durationDays}j`}
+          </Badge>
+        );
+      },
+    },
+  ], []);
 
   return (
     <div className="space-y-6">
@@ -371,162 +596,12 @@ export default function ZoneAssignmentPage({
 
               {/* Assignments Table */}
               {assignmentsStatus?.assignments && assignmentsStatus.assignments.length > 0 ? (
-                <div className="space-y-4">
-                  <div className="rounded-lg border overflow-hidden">
-                    <Table>
-                      <TableHeader>
-                        <TableRow className="bg-gray-50">
-                          <TableHead className="font-semibold">Zone</TableHead>
-                          <TableHead className="font-semibold">Assigné à</TableHead>
-                          <TableHead className="font-semibold">Statut</TableHead>
-                          <TableHead className="font-semibold">Progression</TableHead>
-                          <TableHead className="font-semibold">Temps restant</TableHead>
-                          <TableHead className="font-semibold">Commerciaux</TableHead>
-                          <TableHead className="font-semibold">Dates</TableHead>
-                          <TableHead className="font-semibold">Actions</TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {paginatedAssignments.map((assignment: any) => (
-                          <TableRow key={assignment.id} className="hover:bg-gray-50">
-                            <TableCell className="font-medium">{assignment.zoneName}</TableCell>
-                            <TableCell>
-                              <div>
-                                <p className="font-medium text-gray-900">{assignment.assigneeName}</p>
-                                <Badge variant="outline" className="text-xs mt-1">
-                                  {assignment.assignedToType}
-                                </Badge>
-                              </div>
-                            </TableCell>
-                            <TableCell>
-                              <Badge className={getStatusColor(assignment.status)}>
-                                {assignment.status === 'active' ? 'En cours' : 
-                                 assignment.status === 'future' ? 'À venir' : 'Expirée'}
-                              </Badge>
-                            </TableCell>
-                            <TableCell>
-                              {assignment.status === 'active' ? (
-                                <div className="space-y-2">
-                                  <div className="flex justify-between text-sm">
-                                    <span>{assignment.progressPercentage}%</span>
-                                  </div>
-                                  <Progress 
-                                    value={assignment.progressPercentage} 
-                                    className="h-2"
-                                    indicatorClassName="bg-green-500"
-                                  />
-                                </div>
-                              ) : (
-                                <span className="text-gray-400 text-sm">-</span>
-                              )}
-                            </TableCell>
-                            <TableCell>
-                              {assignment.status === 'active' ? (
-                                <Badge variant="outline" className="text-green-600 border-green-200 bg-green-50">
-                                  {assignment.remainingDays}j
-                                </Badge>
-                              ) : assignment.status === 'future' ? (
-                                <Badge variant="outline" className="text-orange-600 border-orange-200 bg-orange-50">
-                                  {assignment.timeInfo}
-                                </Badge>
-                              ) : (
-                                <Badge variant="outline" className="text-gray-600 border-gray-200 bg-gray-50">
-                                  {assignment.timeInfo}
-                                </Badge>
-                              )}
-                            </TableCell>
-                            <TableCell>
-                              <div>
-                                <p className="font-medium text-gray-900">
-                                  {assignment.affectedCommercialsCount} commercial{assignment.affectedCommercialsCount !== 1 ? 'aux' : ''}
-                                </p>
-                                {assignment.affectedCommercials && assignment.affectedCommercials.length > 0 && (
-                                  <p className="text-xs text-gray-500 mt-1">
-                                    {assignment.affectedCommercials.slice(0, 2).map((c: { prenom: string; nom: string }) => `${c.prenom} ${c.nom}`).join(', ')}
-                                    {assignment.affectedCommercials.length > 2 && ` +${assignment.affectedCommercials.length - 2}`}
-                                  </p>
-                                )}
-                              </div>
-                            </TableCell>
-                            <TableCell>
-                              <div className="text-sm">
-                                <p>Début: {new Date(assignment.startDate).toLocaleDateString('fr-FR')}</p>
-                                <p className="text-gray-500">Fin: {new Date(assignment.endDate).toLocaleDateString('fr-FR')}</p>
-                              </div>
-                            </TableCell>
-                            <TableCell>
-                              {assignment.status === 'active' ? (
-                                <Button
-                                  variant="destructive"
-                                  size="sm"
-                                  onClick={() => handleStopAssignment(assignment.id)}
-                                  leftIcon={<StopCircle className="h-4 w-4" />}
-                                >
-                                  Arrêter
-                                </Button>
-                              ) : assignment.status === 'future' ? (
-                                <Button
-                                  variant="outline"
-                                  size="sm"
-                                  onClick={() => handleStopAssignment(assignment.id)}
-                                  leftIcon={<Trash2 className="h-4 w-4" />}
-                                >
-                                  Annuler
-                                </Button>
-                              ) : (
-                                <span className="text-gray-400">-</span>
-                              )}
-                            </TableCell>
-                          </TableRow>
-                        ))}
-                      </TableBody>
-                    </Table>
-                  </div>
-
-                  {/* Pagination */}
-                  {assignmentsTotalPages > 1 && (
-                    <div className="flex items-center justify-between">
-                      <p className="text-sm text-gray-600">
-                        Affichage de {((assignmentsPage - 1) * assignmentsItemsPerPage) + 1} à {Math.min(assignmentsPage * assignmentsItemsPerPage, assignmentsStatus.assignments.length)} sur {assignmentsStatus.assignments.length} assignations
-                      </p>
-                      <div className="flex items-center space-x-2">
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => setAssignmentsPage(Math.max(1, assignmentsPage - 1))}
-                          disabled={assignmentsPage === 1}
-                          leftIcon={<ChevronLeft className="h-4 w-4" />}
-                        >
-                          Précédent
-                        </Button>
-                        <div className="flex items-center space-x-1">
-                          {Array.from({ length: assignmentsTotalPages }, (_, i) => i + 1).slice(
-                            Math.max(0, assignmentsPage - 3),
-                            Math.max(0, assignmentsPage - 3) + 5
-                          ).map((page) => (
-                            <Button
-                              key={page}
-                              variant={assignmentsPage === page ? "default" : "outline"}
-                              size="sm"
-                              onClick={() => setAssignmentsPage(page)}
-                            >
-                              {page}
-                            </Button>
-                          ))}
-                        </div>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => setAssignmentsPage(Math.min(assignmentsTotalPages, assignmentsPage + 1))}
-                          disabled={assignmentsPage === assignmentsTotalPages}
-                          rightIcon={<ChevronRight className="h-4 w-4" />}
-                        >
-                          Suivant
-                        </Button>
-                      </div>
-                    </div>
-                  )}
-                </div>
+                <DataTable
+                  columns={assignmentColumns}
+                  data={assignmentsStatus.assignments.map(assignment => ({ ...assignment, id: assignment.id }))}
+                  title=""
+                  noCardWrapper={true}
+                />
               ) : (
                 <div className="text-center py-12">
                   <div className="flex flex-col items-center space-y-3">
@@ -615,131 +690,13 @@ export default function ZoneAssignmentPage({
               <Separator />
 
               {/* History Table */}
-              {paginatedHistory.length > 0 ? (
-                <div className="space-y-4">
-                  <div className="rounded-lg border overflow-hidden">
-                    <Table>
-                      <TableHeader>
-                        <TableRow className="bg-gray-50">
-                          <TableHead className="font-semibold">Zone</TableHead>
-                          <TableHead className="font-semibold">Assigné à</TableHead>
-                          <TableHead className="font-semibold">Commerciaux</TableHead>
-                          <TableHead className="font-semibold">Assigné par</TableHead>
-                          <TableHead className="font-semibold">Début</TableHead>
-                          <TableHead className="font-semibold">Fin</TableHead>
-                          <TableHead className="font-semibold">Durée</TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {paginatedHistory.map((h) => {
-                          const start = new Date(h.startDate);
-                          const end = h.endDate ? new Date(h.endDate) : null;
-                          const durationDays = end ? Math.max(1, Math.ceil((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24))) : '-';
-                          
-                          return (
-                            <TableRow key={h.id} className="hover:bg-gray-50">
-                              <TableCell className="font-medium">{h.zoneName || h.zoneId}</TableCell>
-                              <TableCell>
-                                <div>
-                                  <p className="font-medium text-gray-900">{h.assigneeName}</p>
-                                  <Badge variant="outline" className="text-xs mt-1">
-                                    {h.assignedToType}
-                                  </Badge>
-                                </div>
-                              </TableCell>
-                              <TableCell>
-                                <div>
-                                  <p className="font-medium text-gray-900">
-                                    {h.affectedCommercialsCount || 0} commercial{h.affectedCommercialsCount !== 1 ? 'aux' : ''}
-                                  </p>
-                                  {h.affectedCommercials && h.affectedCommercials.length > 0 && (
-                                    <p className="text-xs text-gray-500 mt-1">
-                                      {h.affectedCommercials.slice(0, 2).map((c: { prenom: string; nom: string }) => `${c.prenom} ${c.nom}`).join(', ')}
-                                      {h.affectedCommercials.length > 2 && ` +${h.affectedCommercials.length - 2} autres`}
-                                    </p>
-                                  )}
-                                </div>
-                              </TableCell>
-                              <TableCell>
-                                <div>
-                                  {(() => {
-                                    const normalizedName = normalizeDisplayName(h.assignedByUserName);
-                                    const nameMatch = normalizedName.match(/^(.+?)\s*\((.+?)\)$/);
-                                    
-                                    if (nameMatch) {
-                                      const [, name, role] = nameMatch;
-                                      return (
-                                        <div>
-                                          <p className="font-medium text-gray-900">{name.trim()}</p>
-                                          <Badge variant="outline" className="text-xs mt-1">
-                                            {role.trim()}
-                                          </Badge>
-                                        </div>
-                                      );
-                                    } else {
-                                      return <p className="font-medium text-gray-900">{normalizedName}</p>;
-                                    }
-                                  })()}
-                                </div>
-                              </TableCell>
-                              <TableCell className="text-gray-700">{start.toLocaleDateString('fr-FR')}</TableCell>
-                              <TableCell className="text-gray-700">{end ? end.toLocaleDateString('fr-FR') : '-'}</TableCell>
-                              <TableCell>
-                                <Badge variant="outline" className="text-blue-600 border-blue-200 bg-blue-50">
-                                  {durationDays === '-' ? '-' : `${durationDays}j`}
-                                </Badge>
-                              </TableCell>
-                            </TableRow>
-                          );
-                        })}
-                      </TableBody>
-                    </Table>
-                  </div>
-
-                  {/* History Pagination */}
-                  {historyTotalPages > 1 && (
-                    <div className="flex items-center justify-between">
-                      <p className="text-sm text-gray-600">
-                        Affichage de {((historyPage - 1) * historyItemsPerPage) + 1} à {Math.min(historyPage * historyItemsPerPage, filteredHistory.length)} sur {filteredHistory.length} entrées
-                      </p>
-                      <div className="flex items-center space-x-2">
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => setHistoryPage(Math.max(1, historyPage - 1))}
-                          disabled={historyPage === 1}
-                          leftIcon={<ChevronLeft className="h-4 w-4" />}
-                        >
-                          Précédent
-                        </Button>
-                        <div className="flex items-center space-x-1">
-                          {Array.from({ length: historyTotalPages }, (_, i) => i + 1).slice(
-                            Math.max(0, historyPage - 3),
-                            Math.max(0, historyPage - 3) + 5
-                          ).map((page) => (
-                            <Button
-                              key={page}
-                              variant={historyPage === page ? "default" : "outline"}
-                              size="sm"
-                              onClick={() => setHistoryPage(page)}
-                            >
-                              {page}
-                            </Button>
-                          ))}
-                        </div>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => setHistoryPage(Math.min(historyTotalPages, historyPage + 1))}
-                          disabled={historyPage === historyTotalPages}
-                          rightIcon={<ChevronRight className="h-4 w-4" />}
-                        >
-                          Suivant
-                        </Button>
-                      </div>
-                    </div>
-                  )}
-                </div>
+              {filteredHistory.length > 0 ? (
+                <DataTable
+                  columns={historyColumns}
+                  data={filteredHistory.map(h => ({ ...h, id: h.id }))}
+                  title=""
+                  noCardWrapper={true}
+                />
               ) : (
                 <div className="text-center py-12">
                   <div className="flex flex-col items-center space-y-3">
