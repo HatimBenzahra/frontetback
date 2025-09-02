@@ -661,6 +661,11 @@ const ProspectingDoorsPage = () => {
                 });
             }
             
+            // Déclencher la mise à jour des statistiques après ajout d'étage avec portes
+            if (buildingId && user.id) {
+                await statisticsService.triggerHistoryUpdate(user.id, buildingId);
+            }
+            
             toast.success("Étage ajouté.");
         } catch (error) {
             console.error("Error adding floor:", error);
