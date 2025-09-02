@@ -106,7 +106,13 @@ const CommercialTranscriptionPage = () => {
   const loadCommercialInfo = useCallback(async () => {
     if (!commercialId) return;
     try {
-      const response = await fetch(`${BASE}/api/transcription-history/commercials`);
+      const token = localStorage.getItem('access_token');
+      const response = await fetch(`${BASE}/api/transcription-history/commercials`, {
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token && { 'Authorization': `Bearer ${token}` })
+        }
+      });
       if (response.ok) {
         const data = await response.json();
         const commercial = data.commercials?.find((c: any) => c.id === commercialId);
@@ -128,10 +134,16 @@ const CommercialTranscriptionPage = () => {
       if (dateFilter !== 'all') params.set('since', dateFilter);
       if (durationFilter !== 'all') params.set('duration', durationFilter);
 
-      const response = await fetch(`${BASE}/api/transcription-history/commercials` + params.toString());
+      const token = localStorage.getItem('access_token');
+      const response = await fetch(`${BASE}/api/transcription-history?${params.toString()}`, {
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token && { 'Authorization': `Bearer ${token}` })
+        }
+      });
       if (response.ok) {
         const data = await response.json();
-        const list: TranscriptionSession[] = (data.history || []).sort(
+        const list: TranscriptionSession[] = (Array.isArray(data) ? data : data.history || data.sessions || []).sort(
           (a: TranscriptionSession, b: TranscriptionSession) => new Date(b.start_time).getTime() - new Date(a.start_time).getTime()
         );
         setSessions(list);
@@ -241,9 +253,13 @@ const CommercialTranscriptionPage = () => {
 
       // Traitement centralisé via API backend
       try {
+        const token = localStorage.getItem('access_token');
         const response = await fetch(`${BASE}/api/transcription-history/process-chunk`, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: {
+            'Content-Type': 'application/json',
+            ...(token && { 'Authorization': `Bearer ${token}` })
+          },
           body: JSON.stringify({
             chunk,
             committed: liveCommitted,

@@ -80,7 +80,13 @@ const TranscriptionsPage = () => {
   // DB: commerciaux
   const loadAllCommercials = useCallback(async () => {
     try {
-      const response = await fetch(`${BASE}/api/transcription-history/commercials`);
+      const token = localStorage.getItem('access_token');
+      const response = await fetch(`${BASE}/api/transcription-history/commercials`, {
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token && { 'Authorization': `Bearer ${token}` })
+        }
+      });
       if (response.ok) {
         const data = await response.json();
         const commercials = data.commercials || [];
