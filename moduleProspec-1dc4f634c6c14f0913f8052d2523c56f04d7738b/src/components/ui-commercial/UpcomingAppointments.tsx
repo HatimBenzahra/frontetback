@@ -224,7 +224,7 @@ const UpcomingAppointments: React.FC<UpcomingAppointmentsProps> = ({ className }
                        "p-4 rounded-xl border-2 transition-all duration-200 hover:shadow-md cursor-pointer",
                        getUrgencyColor(appointment.dateRendezVous || '')
                      )}
-                     onClick={() => navigate(`/commercial/prospecting/${appointment.immeubleId}`)}
+                     onClick={() => navigate(`/commercial/prospecting/doors/${appointment.immeubleId}`)}
                    >
                     <div className="flex items-start justify-between">
                       <div className="flex-1 min-w-0">
