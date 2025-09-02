@@ -746,7 +746,7 @@ const ProspectingDoorsPage = () => {
     }
 
     return (
-        <div className="bg-slate-50 text-slate-800 min-h-screen relative ">
+        <div className="bg-slate-50 text-slate-800 min-h-screen relative pt-6 pb-6">
             {/* Floating Back Button */}
             <button
                 onClick={() => navigate('/commercial/prospecting')}
