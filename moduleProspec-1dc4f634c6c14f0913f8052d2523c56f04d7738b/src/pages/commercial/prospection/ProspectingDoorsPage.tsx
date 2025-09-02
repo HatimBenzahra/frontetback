@@ -721,11 +721,14 @@ const ProspectingDoorsPage = () => {
     return (
         <div className="bg-slate-50 text-slate-800 min-h-screen relative">
             <div className="max-w-screen-2xl mx-auto p-4 sm:p-6 lg:p-8 space-y-8">
-                <motion.div initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }}>
-                    <Button variant="outline" onClick={() => navigate('/commercial/prospecting')} className="mb-6 bg-white">
-                        <ArrowLeft className="mr-2 h-4 w-4" /> Retour à la sélection
-                    </Button>
-                </motion.div>
+                {/* Floating Back Button */}
+                <button
+                    onClick={() => navigate('/commercial/prospecting')}
+                    className="fixed top-6 left-6 z-50 h-12 w-12 bg-white border border-slate-200 rounded-full shadow-lg flex items-center justify-center hover:bg-slate-50 transition-colors"
+                    aria-label="Retour à la sélection"
+                >
+                    <ArrowLeft className="h-5 w-5 text-slate-600" />
+                </button>
                 <Card className="rounded-2xl bg-white border border-slate-200 shadow-sm">
                     <CardHeader className="p-6">
                         
