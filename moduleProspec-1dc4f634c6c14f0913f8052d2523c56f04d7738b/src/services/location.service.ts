@@ -16,6 +16,20 @@ class LocationService {
   private isTracking = false;
   private heartbeatInterval: number | null = null;
   private lastPosition: LocationData | null = null;
+  
+  // Throttling GPS adaptatif
+  private lastPositionSent: number = 0;
+  private isMoving: boolean = false;
+  private lastMovementCheck: number = 0;
+  private positionHistory: LocationData[] = [];
+  
+  // Seuils adaptatifs selon mouvement
+  private readonly MOVING_TIME_INTERVAL = 10000;     // 10s si mouvement
+  private readonly STATIONARY_TIME_INTERVAL = 60000; // 60s si immobile
+  private readonly MIN_DISTANCE_MOVING = 10;         // 10m si mouvement
+  private readonly MIN_DISTANCE_STATIONARY = 20;     // 20m si immobile
+  private readonly SPEED_THRESHOLD = 0.5;           // 0.5 m/s = seuil mouvement
+  private readonly MAX_ACCURACY = 100;              // Précision max acceptable
 
   constructor() {
     this.initializeSocket();
@@ -127,7 +141,7 @@ class LocationService {
         timestamp: position.timestamp,
         speed: position.coords.speed || undefined,
         heading: position.coords.heading || undefined,
-      });
+      }, false);
 
       // Démarrer le suivi en temps réel
       this.watchId = navigator.geolocation.watchPosition(
@@ -141,16 +155,17 @@ class LocationService {
             heading: position.coords.heading || undefined,
           };
 
-          this.sendLocationUpdate(locationData);
+          this.sendLocationUpdate(locationData, false);
         },
         (error) => {
           console.error('Erreur de géolocalisation:', error.message);
           this.handleLocationError(error);
         },
         {
-          enableHighAccuracy: true, // Haute précision pour éviter POSITION_UNAVAILABLE
-          timeout: 90000, // 90 secondes pour watchPosition
-          maximumAge: 60000, // Cache de 60 secondes
+          // Options optimisées et précision limitée
+          enableHighAccuracy: false,
+          timeout: 30000,
+          maximumAge: 120000,
         }
       );
 
@@ -184,6 +199,10 @@ class LocationService {
     this.isTracking = false;
     this.commercialId = null;
     this.lastPosition = null;
+    this.positionHistory = [];
+    this.isMoving = false;
+    this.lastMovementCheck = 0;
+    this.lastPositionSent = 0;
     console.log('📍 Suivi GPS arrêté');
   }
 
@@ -242,11 +261,46 @@ class LocationService {
     throw new Error('Toutes les tentatives ont échoué');
   }
 
-  private sendLocationUpdate(locationData: LocationData) {
+  private sendLocationUpdate(locationData: LocationData, isHeartbeat = false) {
     if (!this.socket || !this.commercialId) return;
+
+    const now = Date.now();
+    
+    // Rejeter si précision trop faible
+    if (locationData.accuracy > this.MAX_ACCURACY) {
+      console.log(`📍 Position ignorée (précision: ${locationData.accuracy}m > ${this.MAX_ACCURACY}m)`);
+      return;
+    }
+
+    // Détecter le mouvement
+    this.updateMovementStatus(locationData);
+    
+    // Throttling adaptatif selon mouvement (sauf heartbeat)
+    if (!isHeartbeat && this.lastPosition) {
+      const timeThreshold = this.isMoving ? this.MOVING_TIME_INTERVAL : this.STATIONARY_TIME_INTERVAL;
+      const distanceThreshold = this.isMoving ? this.MIN_DISTANCE_MOVING : this.MIN_DISTANCE_STATIONARY;
+      
+      // Vérifier le délai adaptatif
+      if (now - this.lastPositionSent < timeThreshold) {
+        console.log(`📍 Position ignorée (throttling: ${this.isMoving ? 'mouvement' : 'immobile'})`);
+        return;
+      }
+      
+      // Vérifier la distance adaptative
+      const distance = this.calculateDistance(
+        this.lastPosition.latitude, this.lastPosition.longitude,
+        locationData.latitude, locationData.longitude
+      );
+      
+      if (distance < distanceThreshold) {
+        console.log(`📍 Position ignorée (distance: ${distance.toFixed(1)}m < ${distanceThreshold}m, ${this.isMoving ? 'mouvement' : 'immobile'})`);
+        return;
+      }
+    }
 
     // Sauvegarder la dernière position pour le heartbeat
     this.lastPosition = locationData;
+    this.lastPositionSent = now;
 
     const updateData = {
       commercialId: this.commercialId,
@@ -258,23 +312,92 @@ class LocationService {
     };
 
     this.socket.emit('locationUpdate', updateData);
-    console.log('📍 Position envoyée:', updateData);
+    console.log(`📍 Position envoyée${isHeartbeat ? ' (heartbeat)' : ''}:`, updateData);
+  }
+  
+  // Calcul de distance entre deux points GPS (formule haversine)
+  private calculateDistance(lat1: number, lon1: number, lat2: number, lon2: number): number {
+    const R = 6371e3; // Rayon de la Terre en mètres
+    const φ1 = lat1 * Math.PI/180;
+    const φ2 = lat2 * Math.PI/180;
+    const Δφ = (lat2-lat1) * Math.PI/180;
+    const Δλ = (lon2-lon1) * Math.PI/180;
+
+    const a = Math.sin(Δφ/2) * Math.sin(Δφ/2) +
+              Math.cos(φ1) * Math.cos(φ2) *
+              Math.sin(Δλ/2) * Math.sin(Δλ/2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+
+    return R * c; // Distance en mètres
+  }
+  
+  // Détection du mouvement basée sur vitesse et historique
+  private updateMovementStatus(locationData: LocationData) {
+    const now = Date.now();
+    
+    // Ajouter à l'historique (garder 3 dernières positions)
+    this.positionHistory.push(locationData);
+    if (this.positionHistory.length > 3) {
+      this.positionHistory.shift();
+    }
+    
+    // Vérifier seulement toutes les 30 secondes
+    if (now - this.lastMovementCheck < 30000) {
+      return;
+    }
+    this.lastMovementCheck = now;
+    
+    let isCurrentlyMoving = false;
+    
+    // Méthode 1: Vitesse GPS si disponible
+    if (locationData.speed && locationData.speed > this.SPEED_THRESHOLD) {
+      isCurrentlyMoving = true;
+    }
+    
+    // Méthode 2: Calculer vitesse depuis historique si pas de vitesse GPS
+    if (!isCurrentlyMoving && this.positionHistory.length >= 2) {
+      const recent = this.positionHistory[this.positionHistory.length - 1];
+      const previous = this.positionHistory[this.positionHistory.length - 2];
+      
+      const distance = this.calculateDistance(
+        previous.latitude, previous.longitude,
+        recent.latitude, recent.longitude
+      );
+      
+      const timeDiff = (recent.timestamp - previous.timestamp) / 1000; // secondes
+      const calculatedSpeed = timeDiff > 0 ? distance / timeDiff : 0;
+      
+      if (calculatedSpeed > this.SPEED_THRESHOLD) {
+        isCurrentlyMoving = true;
+      }
+    }
+    
+    // Mettre à jour le statut avec hystérésis
+    if (isCurrentlyMoving !== this.isMoving) {
+      this.isMoving = isCurrentlyMoving;
+      console.log(`🚶 Statut mouvement: ${this.isMoving ? 'EN MOUVEMENT' : 'IMMOBILE'}`);
+    }
   }
 
   private startHeartbeat() {
     // Arrêter le heartbeat existant s'il y en a un
     this.stopHeartbeat();
 
-    // Envoyer un heartbeat toutes les 30 secondes pour maintenir la connexion
+    // Heartbeat adaptatif selon mouvement
     this.heartbeatInterval = setInterval(() => {
       if (this.socket?.connected && this.commercialId && this.lastPosition) {
-        // Renvoyer la dernière position connue comme heartbeat
-        this.sendLocationUpdate(this.lastPosition);
-        console.log('💓 Heartbeat GPS envoyé');
+        const now = Date.now();
+        // Heartbeat plus fréquent si immobile (rassurer l'admin)
+        const heartbeatThreshold = this.isMoving ? 120000 : 60000; // 2min si mouvement, 1min si immobile
+        
+        if (now - this.lastPositionSent > heartbeatThreshold) {
+          this.sendLocationUpdate(this.lastPosition, true);
+          console.log(`💓 Heartbeat GPS envoyé (${this.isMoving ? 'mouvement' : 'immobile'})`);
+        }
       }
-    }, 30000); // 30 secondes
+    }, 60000); // Vérification toutes les minutes
 
-    console.log('💓 Heartbeat GPS démarré');
+    console.log('💓 Heartbeat GPS démarré (adaptatif)');
   }
 
   private stopHeartbeat() {
@@ -326,7 +449,7 @@ class LocationService {
                 timestamp: position.timestamp,
                 speed: position.coords.speed || undefined,
                 heading: position.coords.heading || undefined,
-              });
+              }, false);
             })
             .catch(retryError => {
               console.error('Impossible de récupérer le GPS:', retryError);
