@@ -178,7 +178,7 @@ export const ZoneFocusMap = ({ zone, immeubles, assignmentHistory = [], classNam
               initialViewState={{
                   longitude: lng,
                   latitude: lat,
-                  zoom: 12
+                  zoom: 14
               }}
               style={{ width: '100%', height: '100%' }}
               mapStyle="mapbox://styles/mapbox/streets-v12"
