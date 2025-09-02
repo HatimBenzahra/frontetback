@@ -92,6 +92,18 @@ const stopAssignment = async (assignmentId: string): Promise<any> => {
   return response.data;
 };
 
+// Nouvelle fonction pour transférer automatiquement les assignations expirées vers l'historique
+const transferExpiredAssignmentsToHistory = async (): Promise<any> => {
+  const response = await axios.post(`${API_URL}/transfer-expired-to-history`);
+  return response.data;
+};
+
+// Fonction pour nettoyer automatiquement les assignations expirées (appelée périodiquement)
+const cleanupExpiredAssignments = async (): Promise<any> => {
+  const response = await axios.post(`${API_URL}/cleanup-expired`);
+  return response.data;
+};
+
 export const assignmentGoalsService = {
   getAssignedZonesForCommercial,
   assignZone,
@@ -106,4 +118,6 @@ export const assignmentGoalsService = {
   getActiveZoneForCommercial,
   getAllAssignmentsWithStatus,
   stopAssignment,
+  transferExpiredAssignmentsToHistory,
+  cleanupExpiredAssignments,
 };

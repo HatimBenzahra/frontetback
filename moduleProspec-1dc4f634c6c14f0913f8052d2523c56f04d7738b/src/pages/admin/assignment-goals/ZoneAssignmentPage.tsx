@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo } from 'react';
 import { AlertCircle, Users, Shield, MapPin, CheckCircle2, FilterX, ChevronLeft, ChevronRight, Trash2, StopCircle, Map, History, BarChart3, Clock, Target, TrendingUp } from 'lucide-react';
 import { toast } from 'sonner';
 import { useAuth } from '@/contexts/AuthContext';
+import { useAssignmentCleanup } from '@/hooks/useAssignmentCleanup';
 import type { ColumnDef } from '@tanstack/react-table';
 
 import { assignmentGoalsService } from '@/services/assignment-goals.service';
@@ -56,6 +57,60 @@ export default function ZoneAssignmentPage({
   
   const { user } = useAuth();
 
+  // Activer le nettoyage automatique des assignations expirées
+  useAssignmentCleanup(true);
+
+  // Fonction utilitaire pour traiter les assignations et l'historique
+  const processAssignmentsData = (historyData: any[], statusData: any) => {
+    const allHistory = historyData || [];
+    setAssignmentHistory(allHistory);
+    setFilteredHistory(allHistory);
+    
+    if (statusData?.assignments) {
+      const activeAndFutureAssignments = statusData.assignments.filter(
+        (assignment: any) => assignment.status === 'active' || assignment.status === 'future'
+      );
+      
+      const expiredAssignments = statusData.assignments.filter(
+        (assignment: any) => assignment.status === 'expired'
+      );
+
+      // Mettre à jour le statut avec seulement les assignations actives et futures
+      setAssignmentsStatus({
+        ...statusData,
+        assignments: activeAndFutureAssignments,
+        summary: {
+          ...statusData.summary,
+          active: activeAndFutureAssignments.filter((a: any) => a.status === 'active').length,
+          future: activeAndFutureAssignments.filter((a: any) => a.status === 'future').length,
+          expired: 0, // Les expirées sont maintenant dans l'historique
+          total: activeAndFutureAssignments.length,
+        }
+      });
+
+      // Ajouter les assignations expirées à l'historique (si elles n'y sont pas déjà)
+      const existingHistoryIds = new Set(allHistory.map(h => h.assignmentId || h.id));
+      const newExpiredForHistory = expiredAssignments.filter(
+        (expired: any) => !existingHistoryIds.has(expired.id)
+      );
+
+      if (newExpiredForHistory.length > 0) {
+        // Transformer les assignations expirées en format historique
+        const expiredAsHistory = newExpiredForHistory.map((expired: any) => ({
+          ...expired,
+          assignmentId: expired.id,
+          endDate: expired.endDate || new Date().toISOString(),
+          // Conserver les autres champs nécessaires pour l'historique
+        }));
+
+        const updatedHistory = [...allHistory, ...expiredAsHistory];
+        setAssignmentHistory(updatedHistory);
+        setFilteredHistory(updatedHistory);
+      }
+    } else {
+      setAssignmentsStatus(statusData);
+    }
+  };
 
   useEffect(() => {
     const fetchAssignmentData = async () => {
@@ -65,10 +120,7 @@ export default function ZoneAssignmentPage({
           assignmentGoalsService.getAllAssignmentsWithStatus(),
         ]);
 
-        const allHistory = historyData || [];
-        setAssignmentHistory(allHistory);
-        setFilteredHistory(allHistory);
-        setAssignmentsStatus(statusData);
+        processAssignmentsData(historyData, statusData);
       } catch (err) {
         console.error('Error fetching assignment data:', err);
         toast.error('Erreur lors du chargement des données d\'assignation');
@@ -144,10 +196,8 @@ export default function ZoneAssignmentPage({
         assignmentGoalsService.getAssignmentHistory(),
         assignmentGoalsService.getAllAssignmentsWithStatus()
       ]);
-      const allHistory = refreshed || [];
-      setAssignmentHistory(allHistory);
-      setFilteredHistory(allHistory);
-      setAssignmentsStatus(refreshedStatus);
+      
+      processAssignmentsData(refreshed, refreshedStatus);
       onDataRefresh();
     } catch (err) {
       console.error('Erreur lors de l\'assignation de la zone:', err);
@@ -159,8 +209,15 @@ export default function ZoneAssignmentPage({
     try {
       await assignmentGoalsService.stopAssignment(assignmentId);
       toast.success('Assignation arrêtée avec succès!');
-      const refreshedStatus = await assignmentGoalsService.getAllAssignmentsWithStatus();
-      setAssignmentsStatus(refreshedStatus);
+      
+      // Recharger les données avec la même logique de filtrage
+      const [historyData, refreshedStatus] = await Promise.all([
+        assignmentGoalsService.getAssignmentHistory(),
+        assignmentGoalsService.getAllAssignmentsWithStatus()
+      ]);
+
+      processAssignmentsData(historyData, refreshedStatus);
+      
       onDataRefresh();
     } catch (err) {
       console.error('Erreur lors de l\'arrêt de l\'assignation:', err);
@@ -559,17 +616,17 @@ export default function ZoneAssignmentPage({
                   </CardContent>
                 </Card>
 
-                <Card className="border-gray-200 bg-gray-50">
+                <Card className="border-green-200 bg-green-50">
                   <CardContent className="p-4">
                     <div className="flex items-center justify-between">
                       <div>
-                        <p className="text-2xl font-bold text-gray-700">
-                          {assignmentsStatus?.summary?.expired || 0}
+                        <p className="text-2xl font-bold text-green-700">
+                          {filteredHistory.filter(h => h.status === 'expired' || !h.endDate || new Date(h.endDate) < new Date()).length}
                         </p>
-                        <p className="text-sm text-gray-600 font-medium">Expirées</p>
+                        <p className="text-sm text-green-600 font-medium">Dans l'historique</p>
                       </div>
-                      <div className="p-2 bg-gray-100 rounded-lg">
-                        <AlertCircle className="h-4 w-4 text-gray-600" />
+                      <div className="p-2 bg-green-100 rounded-lg">
+                        <History className="h-4 w-4 text-green-600" />
                       </div>
                     </div>
                   </CardContent>
