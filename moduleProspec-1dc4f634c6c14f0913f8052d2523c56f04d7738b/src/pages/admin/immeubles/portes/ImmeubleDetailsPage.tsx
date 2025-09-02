@@ -1,7 +1,7 @@
 // frontend-shadcn/src/pages/admin/immeubles/portes/ImmeubleDetailsPage.tsx
 
 import React, { useEffect, useState, useMemo } from 'react';
-import { useParams, useNavigate, Link } from 'react-router-dom';
+import { useParams, useNavigate, Link, useSearchParams } from 'react-router-dom';
 import { 
     ArrowLeft, Building, Users, Check, MoveUpRight, KeyRound, 
     RefreshCw, Search, Filter, User, Smile, Frown, 
@@ -985,6 +985,7 @@ const DeletePorteModal = ({
 const ImmeubleDetailsPage = () => {
     const { immeubleId } = useParams<{ immeubleId: string }>();
     const navigate = useNavigate();
+    const [searchParams] = useSearchParams();
     const socket = useSocket(immeubleId);
     
     const [immeuble, setImmeuble] = useState<ImmeubleDetails | null>(null);
@@ -1217,10 +1218,19 @@ const ImmeubleDetailsPage = () => {
     }, [immeubleId]);
 
     useEffect(() => {
+        const etageParam = searchParams.get('etage');
+        if (etageParam && immeuble && !activeFloor) {
+            const etageNumber = parseInt(etageParam);
+            if (Object.keys(portesGroupedByFloor).includes(etageNumber.toString())) {
+                setActiveFloor(etageNumber);
+                return;
+            }
+        }
+        
         if (immeuble && Object.keys(portesGroupedByFloor).length > 0 && activeFloor === null) {
             setActiveFloor(parseInt(Object.keys(portesGroupedByFloor)[0]));
         }
-    }, [immeuble, portesGroupedByFloor, activeFloor]);
+    }, [immeuble, portesGroupedByFloor, activeFloor, searchParams]);
 
     const fetchData = async (id: string) => {
         setLoading(true);

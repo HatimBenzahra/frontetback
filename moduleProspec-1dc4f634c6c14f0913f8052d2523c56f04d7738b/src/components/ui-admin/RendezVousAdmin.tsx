@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
+import { useNavigate } from 'react-router-dom';
 import {
   Calendar,
   Clock,
@@ -15,6 +16,7 @@ import {
 import { porteService, type PorteFromAPI } from '../../services/porte.service';
 
 const RendezVousAdmin: React.FC = () => {
+  const navigate = useNavigate();
   const [rendezVous, setRendezVous] = useState<PorteFromAPI[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -128,6 +130,12 @@ const RendezVousAdmin: React.FC = () => {
   useEffect(() => {
     setCurrentPage(1);
   }, [rendezVous]);
+
+  const handleRdvClick = (rdv: PorteFromAPI) => {
+    if (rdv.immeuble?.id && rdv.etage) {
+      navigate(`/admin/immeubles/${rdv.immeuble.id}?etage=${rdv.etage}`);
+    }
+  };
 
   if (loading) {
     return (
@@ -248,6 +256,7 @@ const RendezVousAdmin: React.FC = () => {
                   initial={{ opacity: 0, y: 20 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: index * 0.1 }}
+                  onClick={() => handleRdvClick(rdv)}
                   className={`border border-gray-100 rounded-lg p-3 hover:shadow-sm transition-all cursor-pointer ${urgency.bgColor}`}
                 >
                   <div className="flex items-start justify-between">
