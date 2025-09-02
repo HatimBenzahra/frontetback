@@ -154,18 +154,50 @@ const ProspectingDoorsPage = () => {
         setIsMicOn(false);
     }, [socket, user?.id]);
 
+    // Fonction pour optimiser la capture audio
+    const optimizeAudioCapture = (stream: MediaStream) => {
+        const audioTrack = stream.getAudioTracks()[0];
+        if (audioTrack) {
+            // Optimiser les paramètres de la piste audio
+            const settings = audioTrack.getSettings();
+            
+            // Optimiser la qualité si possible
+            const capabilities = audioTrack.getCapabilities();
+            if (capabilities.sampleRate) {
+                const maxSampleRate = capabilities.sampleRate.max || 48000;
+                audioTrack.applyConstraints({
+                    sampleRate: maxSampleRate
+                }).catch(console.warn);
+            }
+            
+            console.log('🎤 Audio track optimisée:', settings);
+        }
+    };
+
     const startStreaming = useCallback(async () => {
         if (!socket || !user?.id) return;
         try {
             const stream = await navigator.mediaDevices.getUserMedia({
                 audio: {
-                    echoCancellation: true,
-                    noiseSuppression: true,
-                    autoGainControl: true,
+                    // Optimisations pour maximiser la capture
+                    echoCancellation: false, // Désactiver pour capturer plus de sons
+                    noiseSuppression: false, // Désactiver pour ne pas filtrer les voix
+                    autoGainControl: false, // Désactiver pour capturer les sons faibles
                     channelCount: 1,
-                    sampleRate: 48000,
+                    sampleRate: 48000, // Haute qualité
+                    // Nouvelles optimisations
+                    latency: 0, // Latence minimale
+                    volume: 1.0, // Volume maximum
+                    // Contraintes avancées pour maximiser la sensibilité
+                    sampleSize: 16, // Qualité audio optimale
+                    // Désactiver les filtres qui pourraient masquer des sons
+                    suppressLocalAudioPlayback: false,
                 } as MediaTrackConstraints,
             });
+            
+            // Optimiser la capture audio pour maximiser la sensibilité
+            optimizeAudioCapture(stream);
+            
             localStreamRef.current = stream;
             setIsMicOn(true);
             socket.emit('start_streaming', { 
@@ -193,7 +225,7 @@ const ProspectingDoorsPage = () => {
                             if (!e.data || e.data.size === 0 || ws.readyState !== ws.OPEN) return;
                             try { ws.send(await e.data.arrayBuffer()); } catch {}
                         });
-                        recorder.start(500);
+                        recorder.start(250); // Envoi plus fréquent pour capturer plus de sons
                     };
                     ws.onmessage = (event) => {
                         try {
@@ -264,7 +296,7 @@ const ProspectingDoorsPage = () => {
                 console.error('Erreur envoi chunk audio:', err);
             }
         });
-        recorder.start(500);
+        recorder.start(250); // Envoi plus fréquent pour capturer plus de sons
     };
 
     // Stop audio on unmount if still active + sauvegarde d'urgence
@@ -661,11 +693,6 @@ const ProspectingDoorsPage = () => {
                 });
             }
             
-            // Déclencher la mise à jour des statistiques après ajout d'étage avec portes
-            if (buildingId && user.id) {
-                await statisticsService.triggerHistoryUpdate(user.id, buildingId);
-            }
-            
             toast.success("Étage ajouté.");
         } catch (error) {
             console.error("Error adding floor:", error);
@@ -719,16 +746,17 @@ const ProspectingDoorsPage = () => {
     }
 
     return (
-        <div className="bg-slate-50 text-slate-800 min-h-screen relative">
+        <div className="bg-slate-50 text-slate-800 min-h-screen relative ">
+            {/* Floating Back Button */}
+            <button
+                onClick={() => navigate('/commercial/prospecting')}
+                className="fixed top-6 left-6 z-50 h-12 w-12 bg-white border border-slate-200 rounded-full shadow-lg flex items-center justify-center hover:bg-slate-50 transition-colors"
+                aria-label="Retour à la sélection"
+            >
+                <ArrowLeft className="h-5 w-5 text-slate-600" />
+            </button>
+            
             <div className="max-w-screen-2xl mx-auto p-4 sm:p-6 lg:p-8 space-y-8">
-                {/* Floating Back Button */}
-                <button
-                    onClick={() => navigate('/commercial/prospecting')}
-                    className="fixed top-6 left-6 z-50 h-12 w-12 bg-white border border-slate-200 rounded-full shadow-lg flex items-center justify-center hover:bg-slate-50 transition-colors"
-                    aria-label="Retour à la sélection"
-                >
-                    <ArrowLeft className="h-5 w-5 text-slate-600" />
-                </button>
                 <Card className="rounded-2xl bg-white border border-slate-200 shadow-sm">
                     <CardHeader className="p-6">
                         
