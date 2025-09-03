@@ -110,9 +110,21 @@ export default function GlobalGoalsPage({
             
             <div className="p-6">
               <div className="space-y-4">
-                {paginatedCommercials.map((commercial) => {
+              {paginatedCommercials.map((commercial) => {
                   const contractsSigned = getRealContractsSigned(commercial);
-                  const target = currentGlobalGoal?.goal || 200;
+                  
+                  if (!currentGlobalGoal?.goal) {
+                    return (
+                      <div key={commercial.id} className="bg-gradient-to-br from-gray-50 to-white rounded-lg p-4 border border-gray-200">
+                        <div className="text-center py-8">
+                          <div className="text-gray-500 text-lg">Aucun but global n'est assigné</div>
+                          <div className="text-sm text-gray-400 mt-2">Veuillez définir un objectif global pour commencer le suivi</div>
+                        </div>
+                      </div>
+                    );
+                  }
+                  
+                  const target = currentGlobalGoal.goal;
                   const progress = Math.min((contractsSigned / target) * 100, 100);
                   const isOnTrack = contractsSigned >= target;
                   const isBehind = contractsSigned < target * 0.8;
