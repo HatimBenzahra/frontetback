@@ -13,9 +13,9 @@ NEW_IP=$1
 echo "🔄 Changement de l'IP vers: $NEW_IP"
 
 # Backup des fichiers .env
-echo "📦 Création des sauvegardes..."
-cp backend/.env backend/.env.backup.$(date +%Y%m%d_%H%M%S)
-cp moduleProspec-1dc4f634c6c14f0913f8052d2523c56f04d7738b/.env moduleProspec-1dc4f634c6c14f0913f8052d2523c56f04d7738b/.env.backup.$(date +%Y%m%d_%H%M%S)
+#echo "📦 Création des sauvegardes..."
+#cp backend/.env backend/.env.backup.$(date +%Y%m%d_%H%M%S)
+#cp moduleProspec-1dc4f634c6c14f0913f8052d2523c56f04d7738b/.env moduleProspec-1dc4f634c6c14f0913f8052d2523c56f04d7738b/.env.backup.$(date +%Y%m%d_%H%M%S)
 
 # Mise à jour du backend .env
 echo "🔧 Mise à jour backend/.env..."
