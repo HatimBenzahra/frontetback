@@ -58,6 +58,8 @@ import ManagerTranscriptionsPage from './pages/manager/transcription/Transcripti
 import ManagerCommercialTranscriptionPage from './pages/manager/transcription/CommercialTranscriptionPage';
 import DashboardDirecteur from './pages/directeur/DashboardDirecteur';
 import DashboardBackoffice from './pages/backoffice/DashboardBackoffice';
+import ManagerGPSPage from './pages/manager/gps/gps_suivi';
+
 
 import { Toaster } from "sonner";
 import SelectBuildingPage from './pages/commercial/prospection/SelectBuildingPage';
@@ -132,6 +134,7 @@ function App() {
             <Route path="suivi" element={<ManagerSuiviPage />} />
             <Route path="transcriptions" element={<ManagerTranscriptionsPage />} />
             <Route path="transcriptions/:commercialId" element={<ManagerCommercialTranscriptionPage />} />
+            <Route path="gps-tracking" element={<ManagerGPSPage />} />
             {/* <Route path="zones" element={<ManagerZonesPage />} />
             <Route path="assignations-objectifs" element={<ManagerAssignmentGoalsPage />} />
             <Route path="statistiques" element={<ManagerStatistiquesPage />} />

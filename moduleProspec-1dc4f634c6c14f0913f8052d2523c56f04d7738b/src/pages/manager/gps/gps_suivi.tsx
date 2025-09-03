@@ -7,7 +7,7 @@ import { Badge } from '../../../components/ui-admin/badge';
 import { Button } from '../../../components/ui-admin/button';
 import { Avatar, AvatarFallback } from '../../../components/ui-admin/avatar';
 import { MapPin, User, WifiOff, Signal, Search, X } from 'lucide-react';
-import { commercialService } from '../../../services/commercial.service';
+import { managerService } from '../../../services/manager.service';
 import { useSocket } from '../../../hooks/useSocket';
 import { useNavigate } from 'react-router-dom';
 import 'mapbox-gl/dist/mapbox-gl.css';
@@ -196,15 +196,15 @@ const GPSTrackingPage: React.FC = () => {
 
   const mapboxToken = (import.meta as any).env.VITE_MAPBOX_ACCESS_TOKEN;
 
-  // Charger la liste des commerciaux depuis l'API
+  // Charger la liste des commerciaux depuis l'API Manager (filtrée par manager connecté)
   useEffect(() => {
     const loadCommerciaux = async () => {
       try {
         setLoading(true);
-        const data = await commercialService.getCommerciaux();
+        const data = await managerService.getManagerCommerciaux();
         
-        // Initialiser les commerciaux avec les données de base
-        const initialCommerciaux: Commercial[] = data.map(c => ({
+        // Initialiser les commerciaux avec les données de base (filtrées par manager)
+        const initialCommerciaux: Commercial[] = data.map((c: any) => ({
           id: c.id,
           nom: c.nom,
           prenom: c.prenom,
@@ -874,7 +874,7 @@ const GPSTrackingPage: React.FC = () => {
                   size="sm" 
                   variant="outline" 
                   className="flex-1 bg-green-50 border-green-200 text-green-700 hover:bg-green-100 transition-colors"
-                  onClick={() => navigate(`/admin/commerciaux/${selectedCommercial.id}`)}
+                  onClick={() => navigate(`/manager/commerciaux/${selectedCommercial.id}`)}
                 >
                   <User className="h-4 w-4 mr-2" />
                   Voir Profil
