@@ -22,36 +22,12 @@ export class RolesGuard implements CanActivate {
       throw new ForbiddenException('User not found in request');
     }
 
-    // Extract roles from Keycloak token
-    const userRoles = this.extractRolesFromToken(user);
-    
-    const hasRole = requiredRoles.some((role) => userRoles.includes(role));
+    const hasRole = requiredRoles.some((role) => user.roles?.includes(role));
     
     if (!hasRole) {
       throw new ForbiddenException(`Required roles: ${requiredRoles.join(', ')}`);
     }
 
     return true;
-  }
-
-  private extractRolesFromToken(tokenPayload: any): string[] {
-    // First check if roles are already extracted by JwtAuthGuard
-    if (tokenPayload.roles && Array.isArray(tokenPayload.roles)) {
-      return tokenPayload.roles;
-    }
-
-    // Fallback: Keycloak token structure for realm roles
-    if (tokenPayload.realm_access?.roles) {
-      return tokenPayload.realm_access.roles;
-    }
-
-    // Alternative: check resource_access for client-specific roles
-    if (tokenPayload.resource_access) {
-      const clientRoles = Object.values(tokenPayload.resource_access)
-        .flatMap((client: any) => client.roles || []);
-      return clientRoles;
-    }
-
-    return [];
   }
 }
