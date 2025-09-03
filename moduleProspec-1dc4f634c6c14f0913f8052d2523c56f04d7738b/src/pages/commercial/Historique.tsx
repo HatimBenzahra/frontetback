@@ -108,11 +108,11 @@ const HistoriquePage = () => {
 
   useEffect(() => {
     const now = new Date();
-    if (selectedPeriod === 'WEEK') {
+    if (selectedPeriod === 'WEEKLY') {
       setDateRange({ from: startOfWeek(now, { weekStartsOn: 1 }), to: endOfWeek(now, { weekStartsOn: 1 }) });
-    } else if (selectedPeriod === 'MONTH') {
+    } else if (selectedPeriod === 'MONTHLY') {
       setDateRange({ from: startOfMonth(now), to: endOfMonth(now) });
-    } else if (selectedPeriod === 'YEAR') {
+    } else if (selectedPeriod === 'YEARLY') {
       setDateRange({ from: startOfYear(now), to: endOfYear(now) });
     } else {
       setDateRange(undefined);
@@ -171,7 +171,7 @@ const HistoriquePage = () => {
                             />
                         </div>
                         <div className="flex items-center gap-2 p-1 bg-slate-100 rounded-lg">
-                            {(['WEEK', 'MONTH', 'YEAR'] as const).map(period => (
+                            {(['WEEKLY', 'MONTHLY', 'YEARLY'] as const).map(period => (
                                 <Button
                                     key={period}
                                     variant='ghost'
@@ -183,7 +183,7 @@ const HistoriquePage = () => {
                                             : 'text-slate-600 hover:bg-slate-200/60'
                                     )}
                                 >{
-                                    {WEEK: 'Semaine', MONTH: 'Mois', YEAR: 'Année'}[period]
+                                    {WEEKLY: 'Semaine', MONTHLY: 'Mois', YEARLY: 'Année'}[period]
                                 }</Button>
                             ))}
                         </div>
