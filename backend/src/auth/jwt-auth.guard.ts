@@ -130,7 +130,7 @@ export class JwtAuthGuard implements CanActivate {
       }
       
       // Récupérer les données utilisateur (avec cache)
-      const userData = await this.getUserDataWithCache(payload.email);
+      const userData = await this.getUserDataWithCache(payload.email, payload);
       const { managerId, dbRoles } = userData;
       
       // Combine Keycloak roles with database roles
@@ -197,7 +197,7 @@ export class JwtAuthGuard implements CanActivate {
     }
   }
 
-  private async getUserDataWithCache(email: string): Promise<{ managerId: string | null; dbRoles: string[] }> {
+  private async getUserDataWithCache(email: string, payload: any): Promise<{ managerId: string | null; dbRoles: string[] }> {
     if (!email) {
       return { managerId: null, dbRoles: [] };
     }
@@ -276,6 +276,7 @@ export class JwtAuthGuard implements CanActivate {
       this.logger.error('Database query failed for user data', error);
       // En cas d'erreur, retourner des données vides mais ne pas crasher
       return { managerId: null, dbRoles: [] };
+      
     }
   }
 
