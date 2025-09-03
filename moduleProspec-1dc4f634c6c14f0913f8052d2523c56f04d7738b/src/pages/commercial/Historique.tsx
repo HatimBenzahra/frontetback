@@ -77,7 +77,7 @@ const HistoriquePage = () => {
   const [error, setError] = useState<string | null>(null);
   const [dateRange, setDateRange] = useState<DateRange | undefined>();
   const [selectedZone, setSelectedZone] = useState<string>('');
-  const [selectedPeriod, setSelectedPeriod] = useState<'WEEK' | 'MONTH' | 'YEAR' | null>('MONTH');
+  const [selectedPeriod, setSelectedPeriod] = useState<'WEEKLY' | 'MONTHLY' | 'YEARLY' | null>('MONTHLY');
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 6;
 
