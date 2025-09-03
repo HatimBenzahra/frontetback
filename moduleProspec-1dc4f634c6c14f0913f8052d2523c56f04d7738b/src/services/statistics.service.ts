@@ -12,6 +12,7 @@ export interface StatisticsQuery {
   period: PeriodType;
   entityType?: StatEntityType;
   entityId?: string;
+  zoneId?: string;
 }
 
 // Le service pour récupérer les statistiques

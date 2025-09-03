@@ -14,6 +14,7 @@ import { Badge } from '@/components/ui-admin/badge';
 import { cn } from '@/lib/utils';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui-admin/card';
 import { AdminPageSkeleton } from '@/components/ui-admin/AdminPageSkeleton';
+import { ZonesStatsCharts } from '@/components/zones/ZonesStatsCharts';
 
 // --- Imports des Icônes ---
 import { 
@@ -22,6 +23,7 @@ import {
 import { managerService } from '@/services/manager.service';
 import { equipeService } from '@/services/equipe.service';
 import { commercialService } from '@/services/commercial.service';
+import { zoneService } from '@/services/zone.service';
 import { useDashboardSettings } from '@/hooks/useDashboardSettings';
 
 const StatistiquesPage = () => {
@@ -30,12 +32,35 @@ const StatistiquesPage = () => {
     const [entityType, setEntityType] = useState<StatEntityType | 'ALL'>('ALL');
     const [entityId, setEntityId] = useState<string | undefined>(undefined);
     
+    // Nouveaux états pour les filtres par zone
+    const [zoneFilter, setZoneFilter] = useState<string | undefined>(undefined);
+    const [zones, setZones] = useState<{ id: string, nom: string }[]>([]);
+    const [loadingZones, setLoadingZones] = useState(false);
+    
     const [statsData, setStatsData] = useState<any>(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
 
     const [entities, setEntities] = useState<{ id: string, nom: string }[]>([]);
     const [loadingEntities, setLoadingEntities] = useState(false);
+
+    // Charger les zones disponibles
+    useEffect(() => {
+        const fetchZones = async () => {
+            setLoadingZones(true);
+            try {
+                const zonesData = await zoneService.getZones();
+                setZones(zonesData.map((zone: any) => ({ id: zone.id, nom: zone.nom })));
+            } catch (err) {
+                console.error("Failed to fetch zones:", err);
+                setZones([]);
+            } finally {
+                setLoadingZones(false);
+            }
+        };
+
+        fetchZones();
+    }, []);
 
     useEffect(() => {
         const fetchEntities = async () => {
@@ -81,6 +106,7 @@ const StatistiquesPage = () => {
                     period: timeFilter,
                     ...(entityType !== 'ALL' && { entityType }),
                     ...(entityType !== 'ALL' && entityId && { entityId }),
+                    ...(zoneFilter && { zoneId: zoneFilter }),
                 };
                 const data = await statisticsService.getStatistics(query);
                 setStatsData(data);
@@ -93,7 +119,7 @@ const StatistiquesPage = () => {
         };
 
         fetchStatistics();
-    }, [timeFilter, entityType, entityId]);
+    }, [timeFilter, entityType, entityId, zoneFilter]);
 
     const currentData = useMemo(() => {
         if (!statsData) return null;
@@ -168,6 +194,7 @@ const StatistiquesPage = () => {
                                             period: timeFilter,
                                             ...(entityType !== 'ALL' && { entityType }),
                                             ...(entityType !== 'ALL' && entityId && { entityId }),
+                                            ...(zoneFilter && { zoneId: zoneFilter }),
                                         };
                                         const data = await statisticsService.getStatistics(query);
                                         setStatsData(data);
@@ -203,6 +230,7 @@ const StatistiquesPage = () => {
                             setTimeFilter('MONTHLY');
                             setEntityType('ALL');
                             setEntityId(undefined);
+                            setZoneFilter(undefined);
                         }}
                         className="text-blue-600 hover:bg-blue-50 rounded-full"
                     >
@@ -277,6 +305,47 @@ const StatistiquesPage = () => {
                     </div>
                 )}
 
+                {/* Filtre par Zone */}
+                <div className="mb-4">
+                    <div className="flex items-center gap-2 mb-3">
+                        <span className="text-sm font-medium text-gray-700">🗺️ Filtrer par Zone :</span>
+                    </div>
+                    <div className="flex flex-wrap gap-2">
+                        <Button
+                            variant="ghost"
+                            onClick={() => setZoneFilter(undefined)}
+                            disabled={loadingZones}
+                            className={cn(
+                                'rounded-full px-3 py-1.5 border text-sm transition-all duration-200',
+                                !zoneFilter ? 'bg-gray-900 text-white border-gray-900 shadow-md' : 'text-gray-700 border-gray-200 hover:bg-gray-50'
+                            )}
+                        >
+                            Toutes les zones
+                        </Button>
+                        {zones.map((zone) => (
+                            <Button
+                                key={zone.id}
+                                variant="ghost"
+                                onClick={() => setZoneFilter(zoneFilter === zone.id ? undefined : zone.id)}
+                                disabled={loadingZones}
+                                className={cn(
+                                    'rounded-full px-3 py-1.5 border text-sm transition-all duration-200',
+                                    zoneFilter === zone.id
+                                        ? 'bg-blue-600 text-white border-blue-600 shadow-md'
+                                        : 'text-gray-700 border-gray-200 hover:bg-blue-50 hover:border-blue-200'
+                                )}
+                            >
+                                {zone.nom}
+                            </Button>
+                        ))}
+                        {loadingZones && (
+                            <div className="text-sm text-gray-500 px-3 py-1.5">
+                                Chargement des zones...
+                            </div>
+                        )}
+                    </div>
+                </div>
+
                 {/* Période */}
                 <div className="flex flex-wrap items-center gap-2 p-1 bg-gray-50 rounded-xl border border-gray-200">
                     {[
@@ -302,7 +371,7 @@ const StatistiquesPage = () => {
             </div>
 
             {/* Filtres actifs avec design moderne */}
-            {(entityType !== 'ALL' || entityId) && (
+            {(entityType !== 'ALL' || entityId || zoneFilter) && (
                 <div className="flex flex-wrap items-center justify-between gap-4 backdrop-blur bg-blue-50/80 border border-blue-200 rounded-xl px-4 py-3">
                     <div className="flex flex-wrap items-center gap-2">
                         <span className="text-sm font-medium text-blue-800">Filtres actifs:</span>
@@ -333,6 +402,19 @@ const StatistiquesPage = () => {
                                     size="sm"
                                     onClick={() => setEntityId(undefined)}
                                     className="ml-1 h-5 px-1 text-xs rounded hover:bg-blue-100"
+                                >
+                                    ×
+                                </Button>
+                            </Badge>
+                        )}
+                        {zoneFilter && (
+                            <Badge variant="outline" className="border-green-300 text-green-700">
+                                🗺️ {zones.find(z => z.id === zoneFilter)?.nom || 'Zone'}
+                                <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={() => setZoneFilter(undefined)}
+                                    className="ml-1 h-5 px-1 text-xs rounded hover:bg-green-100"
                                 >
                                     ×
                                 </Button>
@@ -442,6 +524,15 @@ const StatistiquesPage = () => {
                 </motion.div>
             </div>
 
+            {/* Statistiques des Zones */}
+            <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.7 }}
+            >
+                <ZonesStatsCharts />
+            </motion.div>
+
             {/* Classements avec design moderne */}
             <section className="space-y-6">
                 <div className="flex items-center gap-3">
@@ -452,21 +543,21 @@ const StatistiquesPage = () => {
                     <motion.div
                         initial={{ opacity: 0, y: 20 }}
                         animate={{ opacity: 1, y: 0 }}
-                        transition={{ delay: 0.7 }}
+                        transition={{ delay: 0.8 }}
                     >
                         <LeaderboardTable title="Top Managers" description="Basé sur le nombre de contrats signés par leurs équipes." data={currentData.leaderboards.managers} unit="Contrats" />
                     </motion.div>
                     <motion.div
                         initial={{ opacity: 0, y: 20 }}
                         animate={{ opacity: 1, y: 0 }}
-                        transition={{ delay: 0.8 }}
+                        transition={{ delay: 0.9 }}
                     >
                         <LeaderboardTable title="Top Équipes" description="Basé sur le nombre total de contrats signés." data={currentData.leaderboards.equipes} unit="Contrats" />
                     </motion.div>
                     <motion.div
                         initial={{ opacity: 0, y: 20 }}
                         animate={{ opacity: 1, y: 0 }}
-                        transition={{ delay: 0.9 }}
+                        transition={{ delay: 1.0 }}
                     >
                         <LeaderboardTable title="Top Commerciaux" description="Basé sur leurs contrats signés individuels." data={currentData.leaderboards.commerciaux} unit="Contrats" />
                     </motion.div>

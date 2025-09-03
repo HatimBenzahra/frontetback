@@ -347,6 +347,65 @@ export class ZoneService {
     return true;
   }
 
+  async getZonesStatistics() {
+    const zones = await this.prisma.zone.findMany({
+      include: {
+        immeubles: {
+          include: {
+            historiques: true,
+          },
+        },
+      },
+    });
+
+    const zonesStats = zones.map(zone => {
+      const stats = zone.immeubles.reduce(
+        (acc: any, immeuble: any) => {
+          acc.nbImmeubles++;
+          const immeubleStats = immeuble.historiques.reduce(
+            (iAcc: any, h: any) => {
+              iAcc.contratsSignes += h.nbContratsSignes;
+              iAcc.rdvPris += h.nbRdvPris;
+              iAcc.refus += h.nbRefus || 0;
+              iAcc.portesVisitees += h.nbPortesVisitees || 0;
+              return iAcc;
+            },
+            { contratsSignes: 0, rdvPris: 0, refus: 0, portesVisitees: 0 },
+          );
+          acc.totalContratsSignes += immeubleStats.contratsSignes;
+          acc.totalRdvPris += immeubleStats.rdvPris;
+          acc.totalRefus += immeubleStats.refus;
+          acc.totalPortesVisitees += immeubleStats.portesVisitees;
+          return acc;
+        },
+        { nbImmeubles: 0, totalContratsSignes: 0, totalRdvPris: 0, totalRefus: 0, totalPortesVisitees: 0 },
+      );
+
+      return {
+        id: zone.id,
+        nom: zone.nom,
+        couleur: zone.couleur,
+        stats,
+        tauxReussite: stats.totalPortesVisitees > 0 ? (stats.totalContratsSignes / stats.totalPortesVisitees * 100) : 0,
+        tauxRefus: stats.totalPortesVisitees > 0 ? (stats.totalRefus / stats.totalPortesVisitees * 100) : 0,
+      };
+    });
+
+    return {
+      zones: zonesStats,
+      totaux: zonesStats.reduce(
+        (acc, zone) => {
+          acc.totalContratsSignes += zone.stats.totalContratsSignes;
+          acc.totalRdvPris += zone.stats.totalRdvPris;
+          acc.totalRefus += zone.stats.totalRefus;
+          acc.totalPortesVisitees += zone.stats.totalPortesVisitees;
+          return acc;
+        },
+        { totalContratsSignes: 0, totalRdvPris: 0, totalRefus: 0, totalPortesVisitees: 0 },
+      ),
+    };
+  }
+
   remove(id: string) {
     return this.prisma.zone.delete({ where: { id } });
   }

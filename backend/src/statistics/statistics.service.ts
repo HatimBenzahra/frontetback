@@ -365,15 +365,18 @@ export class StatisticsService {
     period: PeriodType,
     entityType?: StatEntityType,
     entityId?: string,
+    zoneId?: string,
   ) {
     const getStartDate = (period: PeriodType) => {
       const now = new Date();
       let startDate: Date;
 
       if (period === PeriodType.WEEKLY) {
+        // Calculer le lundi de cette semaine (jour 1 = lundi)
         const currentDay = now.getDay();
-        const diff = now.getDate() - currentDay + (currentDay === 0 ? -6 : 1);
-        startDate = new Date(new Date().setDate(diff));
+        const daysToSubtract = currentDay === 0 ? 6 : currentDay - 1; // 0 = dimanche, donc reculer de 6 jours
+        startDate = new Date(now);
+        startDate.setDate(now.getDate() - daysToSubtract);
       } else if (period === PeriodType.MONTHLY) {
         startDate = new Date(now.getFullYear(), now.getMonth(), 1);
       } else if (period === PeriodType.YEARLY) {
@@ -399,6 +402,11 @@ export class StatisticsService {
       if (entityType === 'EQUIPE') where.commercial = { equipeId: entityId };
       if (entityType === 'MANAGER')
         where.commercial = { equipe: { managerId: entityId } };
+    }
+
+    // Filtre par zone
+    if (zoneId) {
+      where.immeuble = { zoneId: zoneId };
     }
     console.log('[STATS] Using where clause:', JSON.stringify(where, null, 2));
 

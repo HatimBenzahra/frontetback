@@ -173,4 +173,16 @@ export class ZoneController {
     
     return this.zoneService.unassignCommercialFromZone(zoneId, commercialId);
   }
+
+  @Get('statistics/all')
+  async getZonesStatistics(@Request() req: AuthRequest) {
+    const { roles } = req.user;
+    
+    // Seuls les admins et managers peuvent voir les statistiques détaillées des zones
+    if (!roles.includes('admin') && !roles.includes('manager')) {
+      throw new ForbiddenException('Access denied to zones statistics');
+    }
+    
+    return this.zoneService.getZonesStatistics();
+  }
 }

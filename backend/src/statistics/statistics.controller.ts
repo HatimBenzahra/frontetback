@@ -61,7 +61,8 @@ export class StatisticsController {
     @Query('period') period: PeriodType,
     @Query('entityType') entityType?: StatEntityType,
     @Query('entityId') entityId?: string,
+    @Query('zoneId') zoneId?: string,
   ) {
-    return this.statisticsService.getStatistics(period, entityType, entityId);
+    return this.statisticsService.getStatistics(period, entityType, entityId, zoneId);
   }
 }

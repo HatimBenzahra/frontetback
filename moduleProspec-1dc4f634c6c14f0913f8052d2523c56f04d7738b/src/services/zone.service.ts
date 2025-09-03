@@ -27,6 +27,31 @@ export interface ZoneDetailsFromApi extends ZoneFromApi {
   commercialId?: string;
 }
 
+export interface ZoneStatistics {
+  id: string;
+  nom: string;
+  couleur: string;
+  stats: {
+    nbImmeubles: number;
+    totalContratsSignes: number;
+    totalRdvPris: number;
+    totalRefus: number;
+    totalPortesVisitees: number;
+  };
+  tauxReussite: number;
+  tauxRefus: number;
+}
+
+export interface ZonesStatisticsResponse {
+  zones: ZoneStatistics[];
+  totaux: {
+    totalContratsSignes: number;
+    totalRdvPris: number;
+    totalRefus: number;
+    totalPortesVisitees: number;
+  };
+}
+
 const getZones = async (): Promise<ZoneFromApi[]> => {
   const response = await axios.get(API_URL);
   return response.data;
@@ -52,10 +77,16 @@ const deleteZone = async (id: string) => {
   return response.data;
 };
 
+const getZonesStatistics = async (): Promise<ZonesStatisticsResponse> => {
+  const response = await axios.get(`${API_URL}/statistics/all`);
+  return response.data;
+};
+
 export const zoneService = {
   getZones,
   getZoneDetails,
   createZone,
   updateZone,
   deleteZone,
+  getZonesStatistics,
 };
