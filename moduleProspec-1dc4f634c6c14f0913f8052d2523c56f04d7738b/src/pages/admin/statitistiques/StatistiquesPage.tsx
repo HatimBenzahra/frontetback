@@ -263,7 +263,7 @@ const StatistiquesPage = () => {
                             className={cn(
                                 'rounded-full px-4 py-2 border transition-all duration-200',
                                 entityType === (opt.value as any)
-                                    ? 'bg-blue-600 text-white border-blue-600 shadow-md'
+                                    ? 'bg-blue-600 text-white border-blue-600 shadow-md hover:bg-blue-700 hover:border-blue-700'
                                     : 'text-gray-700 border-gray-200 hover:bg-blue-50 hover:border-blue-200'
                             )}
                         >
@@ -282,7 +282,7 @@ const StatistiquesPage = () => {
                             disabled={loadingEntities}
                             className={cn(
                                 'rounded-full px-3 py-1.5 border text-sm transition-all duration-200',
-                                !entityId ? 'bg-gray-900 text-white border-gray-900 shadow-md' : 'text-gray-700 border-gray-200 hover:bg-gray-50'
+                                !entityId ? 'bg-gray-900 text-white border-gray-900 shadow-md hover:bg-gray-800 hover:border-gray-800' : 'text-gray-700 border-gray-200 hover:bg-gray-50'
                             )}
                         >
                             Tous
@@ -295,7 +295,7 @@ const StatistiquesPage = () => {
                                 className={cn(
                                     'rounded-full px-3 py-1.5 border text-sm transition-all duration-200',
                                     entityId === e.id
-                                        ? 'bg-blue-600 text-white border-blue-600 shadow-md'
+                                        ? 'bg-blue-600 text-white border-blue-600 shadow-md hover:bg-blue-700 hover:border-blue-700'
                                         : 'text-gray-700 border-gray-200 hover:bg-blue-50 hover:border-blue-200'
                                 )}
                             >
@@ -308,7 +308,7 @@ const StatistiquesPage = () => {
                 {/* Filtre par Zone */}
                 <div className="mb-4">
                     <div className="flex items-center gap-2 mb-3">
-                        <span className="text-sm font-medium text-gray-700">🗺️ Filtrer par Zone :</span>
+                        <span className="text-sm font-medium text-gray-700">Filtrer par Zone :</span>
                     </div>
                     <div className="flex flex-wrap gap-2">
                         <Button
@@ -317,7 +317,7 @@ const StatistiquesPage = () => {
                             disabled={loadingZones}
                             className={cn(
                                 'rounded-full px-3 py-1.5 border text-sm transition-all duration-200',
-                                !zoneFilter ? 'bg-gray-900 text-white border-gray-900 shadow-md' : 'text-gray-700 border-gray-200 hover:bg-gray-50'
+                                !zoneFilter ? 'bg-gray-900 text-white border-gray-900 shadow-md hover:bg-gray-800 hover:border-gray-800' : 'text-gray-700 border-gray-200 hover:bg-gray-50'
                             )}
                         >
                             Toutes les zones
@@ -331,7 +331,7 @@ const StatistiquesPage = () => {
                                 className={cn(
                                     'rounded-full px-3 py-1.5 border text-sm transition-all duration-200',
                                     zoneFilter === zone.id
-                                        ? 'bg-blue-600 text-white border-blue-600 shadow-md'
+                                        ? 'bg-blue-600 text-white border-blue-600 shadow-md hover:bg-blue-700 hover:border-blue-700'
                                         : 'text-gray-700 border-gray-200 hover:bg-blue-50 hover:border-blue-200'
                                 )}
                             >
