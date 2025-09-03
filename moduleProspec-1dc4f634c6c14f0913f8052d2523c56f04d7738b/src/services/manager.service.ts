@@ -40,8 +40,7 @@ const getManagerDetails = async (id: string): Promise<any> => {
   return response.data;
 };
 
-// Nouvelles fonctions utilisant les routes manager-space sécurisées
-// Note: managerId n'est plus nécessaire car il est extrait du token JWT
+// on utilise carrement que la route manager-space/commerciaux
 const getManagerCommerciaux = async (): Promise<any> => {
   const response = await axios.get(`${API_BASE_URL}/manager-space/commerciaux`);
   return response.data;

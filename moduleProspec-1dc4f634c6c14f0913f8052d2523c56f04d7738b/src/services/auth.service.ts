@@ -1,5 +1,6 @@
 import axios from 'axios';
 import { API_BASE_URL } from '../config';
+import { cookieUtils } from '../utils/cookies';
 
 export const authApi = axios.create({
   baseURL: API_BASE_URL,
@@ -76,7 +77,7 @@ export const authService = {
    * Refresh access token using refresh token
    */
   async refreshToken(): Promise<{ access_token: string; refresh_token: string; expires_in: number }> {
-    const refreshToken = localStorage.getItem('refresh_token');
+    const refreshToken = cookieUtils.getCookie('refresh_token');
     if (!refreshToken) {
       throw new Error('No refresh token available');
     }
@@ -93,10 +94,10 @@ export const authService = {
   },
 
   /**
-   * Store refresh token in localStorage
+   * Store refresh token in cookies
    */
   storeRefreshToken(token: string): void {
-    localStorage.setItem('refresh_token', token);
+    cookieUtils.setCookie('refresh_token', token, 30);
   },
 
   /**
@@ -107,19 +108,19 @@ export const authService = {
   },
 
   /**
-   * Get refresh token from localStorage
+   * Get refresh token from cookies
    */
   getRefreshToken(): string | null {
-    return localStorage.getItem('refresh_token');
+    return cookieUtils.getCookie('refresh_token');
   },
 
   /**
-   * Remove token from localStorage
+   * Remove tokens from localStorage and cookies
    */
   removeToken(): void {
     localStorage.removeItem('access_token');
-    localStorage.removeItem('refresh_token');
     localStorage.removeItem('user');
+    cookieUtils.deleteCookie('refresh_token');
   },
 
   /**
@@ -167,50 +168,10 @@ authApi.interceptors.request.use(
   }
 );
 
-// Handle token expiration with refresh logic
+// Simple response interceptor for authApi (global interceptor handles refresh)
 authApi.interceptors.response.use(
   (response) => response,
-  async (error) => {
-    const status = error.response?.status;
-    const url: string = error.config?.url || '';
-    const originalRequest = error.config;
-
-    // Do not redirect on auth endpoints so the UI can show errors
-    if (status === 401) {
-      if (url.includes('/auth/login') || url.includes('/auth/setup-password') || url.includes('/auth/refresh-token')) {
-        return Promise.reject(error);
-      }
-
-      // Avoid infinite loops
-      if (originalRequest._retry) {
-        authService.logout();
-        return Promise.reject(error);
-      }
-
-      // Try to refresh the token
-      try {
-        originalRequest._retry = true;
-        const refreshToken = authService.getRefreshToken();
-        
-        if (!refreshToken) {
-          authService.logout();
-          return Promise.reject(error);
-        }
-
-        const refreshResponse = await authService.refreshToken();
-        authService.storeToken(refreshResponse.access_token);
-        authService.storeRefreshToken(refreshResponse.refresh_token);
-
-        // Retry original request with new token
-        originalRequest.headers.Authorization = `Bearer ${refreshResponse.access_token}`;
-        return authApi(originalRequest);
-      } catch (refreshError) {
-        // Refresh failed, logout user
-        authService.logout();
-        return Promise.reject(refreshError);
-      }
-    }
-
+  (error) => {
     return Promise.reject(error);
   }
 );
