@@ -65,6 +65,8 @@ import ManagerZoneDetailsPage from './pages/manager/zones/ZoneDetailsPage';
 
 import { Toaster } from "sonner";
 import SelectBuildingPage from './pages/commercial/prospection/SelectBuildingPage';
+import ManagerAssignmentGoalsPage from './pages/manager/assignment-goals/AssignmentGoalsPage';
+
 
 function App() {
   return (
@@ -139,10 +141,8 @@ function App() {
             <Route path="gps-tracking" element={<ManagerGPSPage />} />
             <Route path="zones" element={<ManagerZonesPage />} />
             <Route path="zones/:zoneId" element={<ManagerZoneDetailsPage />} />
-            {/* <Route path="assignations-objectifs" element={<ManagerAssignmentGoalsPage />} />
-            <Route path="statistiques" element={<ManagerStatistiquesPage />} />
-            <Route path="rapports" element={<ManagerReportsPage />} />  
-            <Route path="parametres" element={<ManagerParametresPage />} /> */}
+            <Route path="assignations-objectifs" element={<ManagerAssignmentGoalsPage />} />
+
           </Route>
             
           {/* Routes pour les autres rôles */}
