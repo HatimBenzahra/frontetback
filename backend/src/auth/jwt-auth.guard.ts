@@ -238,7 +238,7 @@ export class JwtAuthGuard implements CanActivate {
       }
 
       // Check admin by email
-      if (email === 'benzahrahatim90@gmail.com') {
+      if (email === this.configService.get('ADMIN_EMAIL')) {
         dbRoles.push('admin');
       }
 
