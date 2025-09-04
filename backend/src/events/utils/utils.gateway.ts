@@ -1,8 +1,13 @@
 import { WebSocketGateway, SubscribeMessage, OnGatewayConnection, OnGatewayDisconnect, WebSocketServer } from '@nestjs/websockets';
 import { Server, Socket } from 'socket.io';
+import { UseGuards } from '@nestjs/common';
 import { websocketConfig } from '../websocket.config';
+import { WsAuthGuard } from '../../auth/ws-auth.guard';
+import { WsRolesGuard } from '../../auth/ws-roles.guard';
+import { Roles } from '../../auth/roles.decorator';
 
 @WebSocketGateway(websocketConfig)
+@UseGuards(WsAuthGuard)
 export class UtilsGateway implements OnGatewayConnection, OnGatewayDisconnect {
   @WebSocketServer()
   server: Server;
@@ -34,6 +39,8 @@ export class UtilsGateway implements OnGatewayConnection, OnGatewayDisconnect {
   }
 
   @SubscribeMessage('request_commercials_status')
+  @UseGuards(WsRolesGuard)
+  @Roles('admin', 'manager')
   handleRequestCommercialsStatus(client: Socket) {
     console.log(`👥 Demande de statut des commerciaux de ${client.id}`);
     

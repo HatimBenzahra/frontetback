@@ -3,6 +3,10 @@ import { Server, Socket } from 'socket.io';
 import { TranscriptionHistoryService } from '../../transcription-history/transcription-history.service';
 import { CommercialService } from '../../manager-space/commercial/commercial.service';
 import { websocketConfig } from '../websocket.config';
+import { WsAuthGuard } from '../../auth/ws-auth.guard';
+import { WsRolesGuard } from '../../auth/ws-roles.guard';
+import { Roles } from '../../auth/roles.decorator';
+import { UseGuards } from '@nestjs/common';
 
 interface ActiveStream {
   commercial_id: string;
@@ -24,6 +28,7 @@ interface TranscriptionSession {
 }
 
 @WebSocketGateway(websocketConfig)
+@UseGuards(WsAuthGuard)
 export class AudioGateway implements OnGatewayConnection, OnGatewayDisconnect {
   @WebSocketServer()
   server: Server;
@@ -50,11 +55,11 @@ export class AudioGateway implements OnGatewayConnection, OnGatewayDisconnect {
   private backupTimer: NodeJS.Timeout | null = null;
 
   handleConnection(client: Socket) {
-    console.log(`🎵 Audio client connected: ${client.id}`);
+    console.log(`Audio client connected: ${client.id}`);
   }
 
   handleDisconnect(client: Socket) {
-    console.log(`🎵 Audio client disconnected: ${client.id}`);
+    console.log(`Audio client disconnected: ${client.id}`);
     
     // Nettoyer le manager connecté s'il se déconnecte
     const disconnectedManager = Array.from(this.connectedManagers.entries())
@@ -103,6 +108,8 @@ export class AudioGateway implements OnGatewayConnection, OnGatewayDisconnect {
   }
 
   @SubscribeMessage('start_streaming')
+  @UseGuards(WsRolesGuard)
+  @Roles('commercial')
   async handleStartStreaming(client: Socket, data: { commercial_id: string; commercial_info?: any; building_id?: string; building_name?: string }) {
     console.log(`🎤 Commercial ${data.commercial_id} démarre le streaming`);
     
@@ -183,6 +190,8 @@ export class AudioGateway implements OnGatewayConnection, OnGatewayDisconnect {
   }
 
   @SubscribeMessage('stop_streaming')
+  @UseGuards(WsRolesGuard)
+  @Roles('commercial')
   async handleStopStreaming(_client: Socket, data: { commercial_id: string }) {
     console.log(`🎤 Commercial ${data.commercial_id} arrête le streaming`);
     
@@ -252,7 +261,9 @@ export class AudioGateway implements OnGatewayConnection, OnGatewayDisconnect {
     this.managerStreamHistory.delete(data.commercial_id);
   }
 
-  @SubscribeMessage('emergency_save_session')
+  @SubscribeMessage('emergency_save_session') 
+  @UseGuards(WsRolesGuard)
+  @Roles('commercial')
   async handleEmergencySave(_client: Socket, data: { commercial_id: string }) {
     console.log(`🚨 Sauvegarde d'urgence demandée pour ${data.commercial_id}`);
     
@@ -263,7 +274,9 @@ export class AudioGateway implements OnGatewayConnection, OnGatewayDisconnect {
     }
   }
 
-  @SubscribeMessage('request_streaming_status')
+  @SubscribeMessage('request_streaming_status') 
+  @UseGuards(WsRolesGuard)
+  @Roles('admin', 'manager')
   handleRequestStreamingStatus(client: Socket) {
     console.log(`🔄 Demande de statut streaming de ${client.id}`);
     
@@ -276,12 +289,14 @@ export class AudioGateway implements OnGatewayConnection, OnGatewayDisconnect {
   }
 
   @SubscribeMessage('request_manager_streaming_status')
+  @UseGuards(WsRolesGuard)
+  @Roles('manager')
   async handleRequestManagerStreamingStatus(client: Socket, data: { managerId: string }) {
-    console.log(`🔄 Demande streams pour manager ${data.managerId} de ${client.id}`);
+    console.log(`Demande streams pour manager ${data.managerId} de ${client.id}`);
     
     // Enregistrer ce manager comme connecté
     this.connectedManagers.set(data.managerId, client.id);
-    console.log(`📝 Manager ${data.managerId} enregistré avec socket ${client.id}`);
+    console.log(`Manager ${data.managerId} enregistré avec socket ${client.id}`);
     
     try {
       // Récupérer les commerciaux du manager
@@ -305,11 +320,11 @@ export class AudioGateway implements OnGatewayConnection, OnGatewayDisconnect {
           // Vérifier si ce manager pourrait légitimement voir ce stream
           try {
             await this.commercialService.getManagerCommercial(data.managerId, stream.commercial_id);
-            console.log(`⚠️ INCOHÉRENCE: Commercial ${stream.commercial_id} devrait être dans la liste`);
+            console.log(`INCOHÉRENCE: Commercial ${stream.commercial_id} devrait être dans la liste`);
           } catch (error) {
             // Si ForbiddenException → le commercial n'appartient pas à ce manager → OK
             streamsToRemove.push(stream.commercial_id);
-            console.log(`🧹 Stream ${stream.commercial_id} ne doit pas être visible par manager ${data.managerId}`);
+            console.log(`Stream ${stream.commercial_id} ne doit pas être visible par manager ${data.managerId}`);
           }
         }
       }
@@ -332,15 +347,15 @@ export class AudioGateway implements OnGatewayConnection, OnGatewayDisconnect {
       // Filtrer les streams actifs selon les commerciaux actuels du manager
       const filteredStreams = allActiveStreams.filter(stream => commercialIds.includes(stream.commercial_id));
       
-      console.log(`🎤 Streams actifs total: ${allActiveStreams.length}`);
-      console.log(`🎤 Streams filtrés pour manager ${data.managerId}: ${filteredStreams.length}`);
+      console.log(`Streams actifs total: ${allActiveStreams.length}`);
+      console.log(`Streams filtrés pour manager ${data.managerId}: ${filteredStreams.length}`);
       
       // Envoyer l'état filtré des streams au client qui demande
       client.emit('streaming_status_response', {
         active_streams: filteredStreams
       });
     } catch (error) {
-      console.error(`❌ Erreur filtrage streams manager ${data.managerId}:`, error);
+      console.error(`Erreur filtrage streams manager ${data.managerId}:`, error);
       client.emit('streaming_status_response', {
         active_streams: []
       });
@@ -349,6 +364,8 @@ export class AudioGateway implements OnGatewayConnection, OnGatewayDisconnect {
 
   // WebRTC signaling relay pour l'écoute
   @SubscribeMessage('suivi:webrtc_offer')
+  @UseGuards(WsRolesGuard)
+  @Roles('admin', 'manager')
   handleSuiviOffer(client: Socket, data: { to_socket_id: string; sdp: string; type: string }) {
     console.log(`📨 Offer from ${client.id} to ${data.to_socket_id}`);
     this.server.to(data.to_socket_id).emit('suivi:webrtc_offer', {
@@ -359,6 +376,8 @@ export class AudioGateway implements OnGatewayConnection, OnGatewayDisconnect {
   }
 
   @SubscribeMessage('suivi:webrtc_answer')
+  @UseGuards(WsRolesGuard)
+  @Roles('commercial')
   handleSuiviAnswer(client: Socket, data: { to_socket_id: string; sdp: string; type: string }) {
     console.log(`📨 Answer from ${client.id} to ${data.to_socket_id}`);
     this.server.to(data.to_socket_id).emit('suivi:webrtc_answer', {
@@ -369,6 +388,8 @@ export class AudioGateway implements OnGatewayConnection, OnGatewayDisconnect {
   }
 
   @SubscribeMessage('suivi:webrtc_ice_candidate')
+  @UseGuards(WsRolesGuard)
+  @Roles('admin', 'manager', 'commercial')
   handleSuiviIce(client: Socket, data: { to_socket_id: string; candidate: any }) {
     this.server.to(data.to_socket_id).emit('suivi:webrtc_ice_candidate', {
       from_socket_id: client.id,
@@ -377,6 +398,8 @@ export class AudioGateway implements OnGatewayConnection, OnGatewayDisconnect {
   }
 
   @SubscribeMessage('suivi:leave')
+  @UseGuards(WsRolesGuard)
+  @Roles('admin', 'manager', 'commercial')
   handleSuiviLeave(client: Socket, data: { to_socket_id: string }) {
     this.server.to(data.to_socket_id).emit('suivi:leave', {
       from_socket_id: client.id,
@@ -393,9 +416,9 @@ export class AudioGateway implements OnGatewayConnection, OnGatewayDisconnect {
       };
 
       await this.transcriptionHistoryService.saveSession(sessionBackup, true);
-      console.log(`💾 Session active ${commercialId} sauvegardée immédiatement`);
+      console.log(`Session active ${commercialId} sauvegardée immédiatement`);
     } catch (error) {
-      console.error(`❌ Erreur sauvegarde immédiate ${commercialId}:`, error);
+      console.error(`Erreur sauvegarde immédiate ${commercialId}:`, error);
     }
   }
 

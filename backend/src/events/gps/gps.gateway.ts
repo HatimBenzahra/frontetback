@@ -1,6 +1,10 @@
 import { WebSocketGateway, SubscribeMessage, OnGatewayConnection, OnGatewayDisconnect, WebSocketServer } from '@nestjs/websockets';
 import { Server, Socket } from 'socket.io';
+import { UseGuards } from '@nestjs/common';
 import { websocketConfig } from '../websocket.config';
+import { WsAuthGuard } from '../../auth/ws-auth.guard';
+import { WsRolesGuard } from '../../auth/ws-roles.guard';
+import { Roles } from '../../auth/roles.decorator';
 
 interface LocationUpdateData {
   commercialId: string;
@@ -18,6 +22,7 @@ interface LocationErrorData {
 }
 
 @WebSocketGateway(websocketConfig)
+@UseGuards(WsAuthGuard)
 export class GpsGateway implements OnGatewayConnection, OnGatewayDisconnect {
   @WebSocketServer()
   server: Server;
@@ -64,6 +69,8 @@ export class GpsGateway implements OnGatewayConnection, OnGatewayDisconnect {
   }
 
   @SubscribeMessage('locationUpdate')
+  @UseGuards(WsRolesGuard)
+  @Roles('commercial')
   handleLocationUpdate(client: Socket, data: LocationUpdateData) {
     console.log(`📍 Position reçue de ${data.commercialId}:`, {
       lat: data.position[0],
@@ -107,6 +114,8 @@ export class GpsGateway implements OnGatewayConnection, OnGatewayDisconnect {
   }
 
   @SubscribeMessage('request_gps_state')
+  @UseGuards(WsRolesGuard)
+  @Roles('admin', 'manager')
   handleRequestGPSState(client: Socket) {
     console.log(`📍 Demande d'état GPS de ${client.id}`);
     

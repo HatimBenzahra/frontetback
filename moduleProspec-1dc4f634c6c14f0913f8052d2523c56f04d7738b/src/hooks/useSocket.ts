@@ -15,6 +15,9 @@ export const useSocket = (buildingId?: string) => {
       ? `${httpProtocol}//${SERVER_HOST}:${import.meta.env.VITE_API_PORT || '3000'}`
       : `${httpProtocol}//${SERVER_HOST}`;
     
+    // Get auth token from localStorage
+    const token = localStorage.getItem('access_token');
+    
     // Disconnect any previous instance before creating a new one
     if (socketRef.current) {
       try { socketRef.current.disconnect(); } catch {}
@@ -25,6 +28,12 @@ export const useSocket = (buildingId?: string) => {
       transports: ['websocket', 'polling'],
       forceNew: true,
       upgrade: true,
+      auth: {
+        token: token
+      },
+      query: {
+        token: token
+      }
     });
     setInstance(socketRef.current);
 

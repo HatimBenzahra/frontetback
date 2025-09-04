@@ -1,11 +1,16 @@
 import { WebSocketGateway, SubscribeMessage, OnGatewayConnection, OnGatewayDisconnect, WebSocketServer } from '@nestjs/websockets';
 import { Server, Socket } from 'socket.io';
+import { UseGuards } from '@nestjs/common';
 import * as https from 'https';
 import { IncomingMessage, RequestOptions } from 'http';
 import { TranscriptionHistoryService } from '../../transcription-history/transcription-history.service';
 import { websocketConfig } from '../websocket.config';
+import { WsAuthGuard } from '../../auth/ws-auth.guard';
+import { WsRolesGuard } from '../../auth/ws-roles.guard';
+import { Roles } from '../../auth/roles.decorator';
 
 @WebSocketGateway(websocketConfig)
+@UseGuards(WsAuthGuard)
 export class TranscriptionGateway implements OnGatewayConnection, OnGatewayDisconnect {
   @WebSocketServer()
   server: Server;
@@ -33,6 +38,8 @@ export class TranscriptionGateway implements OnGatewayConnection, OnGatewayDisco
   }
 
   @SubscribeMessage('transcription_update')
+  @UseGuards(WsRolesGuard)
+  @Roles('commercial')
   handleTranscriptionUpdate(_client: Socket, data: {
     commercial_id: string;
     transcript: string;
@@ -49,6 +56,8 @@ export class TranscriptionGateway implements OnGatewayConnection, OnGatewayDisco
   }
 
   @SubscribeMessage('transcription_start')
+  @UseGuards(WsRolesGuard)
+  @Roles('commercial')
   async handleTranscriptionStart(client: Socket, data: {
     commercial_id: string;
     building_id?: string;
@@ -137,6 +146,8 @@ export class TranscriptionGateway implements OnGatewayConnection, OnGatewayDisco
   }
 
   @SubscribeMessage('transcription_audio_chunk')
+  @UseGuards(WsRolesGuard)
+  @Roles('commercial')
   handleTranscriptionAudioChunk(client: Socket, data: {
     commercial_id: string;
     door_id?: string;
@@ -156,6 +167,8 @@ export class TranscriptionGateway implements OnGatewayConnection, OnGatewayDisco
   }
 
   @SubscribeMessage('transcription_stop')
+  @UseGuards(WsRolesGuard)
+  @Roles('commercial')
   handleTranscriptionStop(client: Socket, data: { commercial_id: string }) {
     const state = this.dgStreams.get(data.commercial_id);
     if (!state) return;
@@ -167,6 +180,8 @@ export class TranscriptionGateway implements OnGatewayConnection, OnGatewayDisco
   }
 
   @SubscribeMessage('request_transcription_history')
+  @UseGuards(WsRolesGuard)
+  @Roles('admin', 'manager')
   async handleRequestTranscriptionHistory(client: Socket, data?: { commercial_id?: string }) {
     console.log(`📚 Demande d'historique des transcriptions de ${client.id}`);
     

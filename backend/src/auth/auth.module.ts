@@ -7,6 +7,8 @@ import { AuthController } from './auth.controller';
 import { AuthInitService } from './auth-init.service';
 import { JwtAuthGuard } from './jwt-auth.guard';
 import { RolesGuard } from './roles.guard';
+import { WsAuthGuard } from './ws-auth.guard';
+import { WsRolesGuard } from './ws-roles.guard';
 import { CommercialModule } from '../commercial/commercial.module';
 import { ManagerModule } from '../manager/manager.module';
 import { PrismaModule } from '../prisma/prisma.module';
@@ -19,7 +21,7 @@ import { PrismaModule } from '../prisma/prisma.module';
     ManagerModule,
   ],
   controllers: [AuthController],
-  providers: [KeycloakService, JwtUtil, MailerService, AuthInitService, JwtAuthGuard, RolesGuard],
-  exports: [KeycloakService, JwtUtil, MailerService, JwtAuthGuard, RolesGuard],
+  providers: [KeycloakService, JwtUtil, MailerService, AuthInitService, JwtAuthGuard, RolesGuard, WsAuthGuard, WsRolesGuard],
+  exports: [KeycloakService, JwtUtil, MailerService, JwtAuthGuard, RolesGuard, WsAuthGuard, WsRolesGuard],
 })
 export class AuthModule {}

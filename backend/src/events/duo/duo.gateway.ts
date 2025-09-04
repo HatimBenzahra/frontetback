@@ -1,6 +1,11 @@
 import { WebSocketGateway, SubscribeMessage, OnGatewayConnection, OnGatewayDisconnect, WebSocketServer } from '@nestjs/websockets';
 import { Server, Socket } from 'socket.io';
 import { websocketConfig } from '../websocket.config';
+import { WsAuthGuard } from '../../auth/ws-auth.guard';
+import { WsRolesGuard } from '../../auth/ws-roles.guard';
+import { Roles } from '../../auth/roles.decorator';
+import { UseGuards } from '@nestjs/common';
+
 
 interface DuoInvitation {
   requestId: string;
@@ -14,6 +19,7 @@ interface DuoInvitation {
 
 
 @WebSocketGateway(websocketConfig)
+@UseGuards(WsAuthGuard)
 export class DuoGateway implements OnGatewayConnection, OnGatewayDisconnect {
   @WebSocketServer()
   server: Server;
@@ -25,11 +31,11 @@ export class DuoGateway implements OnGatewayConnection, OnGatewayDisconnect {
   private pendingInvitations = new Map<string, string>();
 
   handleConnection(client: Socket) {
-    console.log(`👥 Duo client connected: ${client.id}`);
+    console.log(`Duo client connected: ${client.id}`);
   }
 
   handleDisconnect(client: Socket) {
-    console.log(`👥 Duo client disconnected: ${client.id}`);
+    console.log(`Duo client disconnected: ${client.id}`);
     
     // Nettoyer les utilisateurs connectés
     const disconnectedUser = Array.from(this.connectedUsers.entries())
@@ -41,6 +47,8 @@ export class DuoGateway implements OnGatewayConnection, OnGatewayDisconnect {
   }
 
   @SubscribeMessage('duo_user_connected')
+  @UseGuards(WsRolesGuard)
+  @Roles('commercial')
   handleUserConnected(client: Socket, data: { userId: string; userInfo: { nom: string; prenom: string } }) {
     console.log(`👥 User ${data.userId} (${data.userInfo.prenom} ${data.userInfo.nom}) connecté au système DUO`);
     
@@ -53,6 +61,8 @@ export class DuoGateway implements OnGatewayConnection, OnGatewayDisconnect {
   }
 
   @SubscribeMessage('duo_invitation_sent')
+  @UseGuards(WsRolesGuard)
+  @Roles('commercial')
   handleDuoInvitationSent(client: Socket, data: {
     requestId: string;
     partnerId: string;
@@ -62,7 +72,7 @@ export class DuoGateway implements OnGatewayConnection, OnGatewayDisconnect {
     immeubleVille: string;
     immeubleId: string;
   }) {
-    console.log(`📩 Invitation DUO envoyée: ${data.requesterPrenom} ${data.requesterName} invite partenaire ${data.partnerId}`);
+    console.log(`Invitation DUO envoyée: ${data.requesterPrenom} ${data.requesterName} invite partenaire ${data.partnerId}`);
     
     // Enregistrer l'invitation en attente
     this.pendingInvitations.set(data.requestId, client.id);
@@ -71,7 +81,7 @@ export class DuoGateway implements OnGatewayConnection, OnGatewayDisconnect {
     const partnerSocketId = this.connectedUsers.get(data.partnerId);
     
     if (partnerSocketId) {
-      console.log(`📤 Envoi notification à ${data.partnerId} via socket ${partnerSocketId}`);
+      console.log(`Envoi notification à ${data.partnerId} via socket ${partnerSocketId}`);
       
       const invitation: DuoInvitation = {
         requestId: data.requestId,
@@ -105,6 +115,8 @@ export class DuoGateway implements OnGatewayConnection, OnGatewayDisconnect {
   }
 
   @SubscribeMessage('duo_invitation_response')
+  @UseGuards(WsRolesGuard)
+  @Roles('commercial')
   handleDuoInvitationResponse(client: Socket, data: {
     requestId: string;
     accepted: boolean;
@@ -149,6 +161,8 @@ export class DuoGateway implements OnGatewayConnection, OnGatewayDisconnect {
   }
 
   @SubscribeMessage('duo_request_status')
+  @UseGuards(WsRolesGuard)
+  @Roles('commercial', 'admin', 'manager')
   handleDuoRequestStatus(client: Socket) {
     console.log(`🔍 Demande de statut DUO de ${client.id}`);
     

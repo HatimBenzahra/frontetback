@@ -1,6 +1,10 @@
 import { WebSocketGateway, SubscribeMessage, OnGatewayConnection, OnGatewayDisconnect, WebSocketServer } from '@nestjs/websockets';
 import { Server, Socket } from 'socket.io';
 import { websocketConfig } from '../websocket.config';
+import { WsAuthGuard } from '../../auth/ws-auth.guard';
+import { WsRolesGuard } from '../../auth/ws-roles.guard';
+import { Roles } from '../../auth/roles.decorator';
+import { UseGuards } from '@nestjs/common';
 
 @WebSocketGateway(websocketConfig)
 export class PortesGateway implements OnGatewayConnection, OnGatewayDisconnect {
@@ -8,16 +12,17 @@ export class PortesGateway implements OnGatewayConnection, OnGatewayDisconnect {
   server: Server;
 
   handleConnection(client: Socket) {
-    console.log(`🚪 Portes client connected: ${client.id}`);
+    console.log(`Portes client connected: ${client.id}`);
   }
 
   handleDisconnect(client: Socket) {
-    console.log(`🚪 Portes client disconnected: ${client.id}`);
+    console.log(`Portes client disconnected: ${client.id}`);
   }
-
   @SubscribeMessage('porte:update')
+  @UseGuards(WsRolesGuard)
+  @Roles('commercial')
   handlePorteUpdate(client: Socket, data: { porteId: string; updates: any }) {
-    console.log(`🚪 Mise à jour de porte: ${data.porteId}`, data.updates);
+    console.log(`Mise à jour de porte: ${data.porteId}`, data.updates);
     
     // Diffuser la mise à jour à tous les clients dans la même room (même immeuble)
     const rooms = Array.from(client.rooms);
@@ -34,8 +39,10 @@ export class PortesGateway implements OnGatewayConnection, OnGatewayDisconnect {
   }
 
   @SubscribeMessage('porte:statusChanged')
+  @UseGuards(WsRolesGuard)
+  @Roles('commercial')
   handlePorteStatusChange(client: Socket, data: { porteId: string; statut: string; assigneeId?: string }) {
-    console.log(`🚪 Changement de statut de porte: ${data.porteId} -> ${data.statut}`);
+    console.log(`Changement de statut de porte: ${data.porteId} -> ${data.statut}`);
     
     // Diffuser le changement de statut à tous les clients dans la même room
     const rooms = Array.from(client.rooms);
@@ -53,8 +60,10 @@ export class PortesGateway implements OnGatewayConnection, OnGatewayDisconnect {
   }
 
   @SubscribeMessage('porte:assign')
+  @UseGuards(WsRolesGuard)
+  @Roles('commercial', 'manager')
   handlePorteAssign(client: Socket, data: { porteId: string; assigneeId: string }) {
-    console.log(`🚪 Assignation de porte: ${data.porteId} -> ${data.assigneeId}`);
+    console.log(`Assignation de porte: ${data.porteId} -> ${data.assigneeId}`);
     
     const rooms = Array.from(client.rooms);
     const buildingRoom = rooms.find(room => room !== client.id);
@@ -70,8 +79,10 @@ export class PortesGateway implements OnGatewayConnection, OnGatewayDisconnect {
   }
 
   @SubscribeMessage('porte:added')
+  @UseGuards(WsRolesGuard)
+  @Roles('admin')
   handlePorteAdded(client: Socket, data: { porte: any }) {
-    console.log(`🚪 Ajout de porte: ${data.porte.id}`);
+    console.log(`Ajout de porte: ${data.porte.id}`);
     
     const rooms = Array.from(client.rooms);
     const buildingRoom = rooms.find(room => room !== client.id);
@@ -85,7 +96,9 @@ export class PortesGateway implements OnGatewayConnection, OnGatewayDisconnect {
     }
   }
 
-  @SubscribeMessage('porte:deleted')
+  @SubscribeMessage('porte:deleted')  
+  @UseGuards(WsRolesGuard)
+  @Roles('admin')
   handlePorteDeleted(client: Socket, data: { porteId: string }) {
     console.log(`🚪 Suppression de porte: ${data.porteId}`);
     
@@ -102,8 +115,10 @@ export class PortesGateway implements OnGatewayConnection, OnGatewayDisconnect {
   }
 
   @SubscribeMessage('floor:added')
+  @UseGuards(WsRolesGuard)
+  @Roles('admin')
   handleFloorAdded(client: Socket, data: { newNbEtages: number }) {
-    console.log(`🏢 Ajout d'étage: ${data.newNbEtages} étages total`);
+    console.log(`Ajout d'étage: ${data.newNbEtages} étages total`);
     
     const rooms = Array.from(client.rooms);
     const buildingRoom = rooms.find(room => room !== client.id);

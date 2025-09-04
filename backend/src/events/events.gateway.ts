@@ -1,9 +1,13 @@
 import { WebSocketGateway, WebSocketServer, SubscribeMessage, OnGatewayConnection, OnGatewayDisconnect } from '@nestjs/websockets';
 import { Server, Socket } from 'socket.io';
+import { UseGuards } from '@nestjs/common';
 import * as https from 'https';
 import { IncomingMessage, RequestOptions } from 'http';
 import { TranscriptionHistoryService } from '../transcription-history/transcription-history.service';
 import { CommercialService } from '../manager-space/commercial/commercial.service';
+import { WsAuthGuard } from '../auth/ws-auth.guard';
+import { WsRolesGuard } from '../auth/ws-roles.guard';
+import { Roles } from '../auth/roles.decorator';
 
 interface LocationUpdateData {
   commercialId: string;
@@ -56,6 +60,7 @@ interface TranscriptionSession {
   },
   transports: ['websocket', 'polling'],
 })
+@UseGuards(WsAuthGuard)
 export class EventsGateway implements OnGatewayConnection, OnGatewayDisconnect {
   @WebSocketServer()
   server: Server;
@@ -226,6 +231,8 @@ export class EventsGateway implements OnGatewayConnection, OnGatewayDisconnect {
   }
 
   @SubscribeMessage('locationUpdate')
+  @UseGuards(WsRolesGuard)
+  @Roles('commercial')
   handleLocationUpdate(client: Socket, data: LocationUpdateData) {
     console.log(`📍 Position reçue de ${data.commercialId}:`, {
       lat: data.position[0],
@@ -250,6 +257,8 @@ export class EventsGateway implements OnGatewayConnection, OnGatewayDisconnect {
   }
 
   @SubscribeMessage('locationError')
+  @UseGuards(WsRolesGuard)
+  @Roles('commercial')
   handleLocationError(client: Socket, data: LocationErrorData) {
     console.log(`❌ Erreur GPS pour ${data.commercialId}:`, data.error);
     
@@ -258,6 +267,8 @@ export class EventsGateway implements OnGatewayConnection, OnGatewayDisconnect {
   }
 
   @SubscribeMessage('commercialOffline')
+  @UseGuards(WsRolesGuard)
+  @Roles('commercial')
   handleCommercialOffline(client: Socket, commercialId: string) {
     console.log(`📍 Commercial ${commercialId} se déconnecte`);
     
@@ -270,6 +281,8 @@ export class EventsGateway implements OnGatewayConnection, OnGatewayDisconnect {
 
   // Gestion des événements audio streaming
   @SubscribeMessage('start_streaming')
+  @UseGuards(WsRolesGuard)
+  @Roles('commercial')
   handleStartStreaming(client: Socket, data: { commercial_id: string; commercial_info?: any; building_id?: string; building_name?: string }) {
     console.log(`🎤 Commercial ${data.commercial_id} démarre le streaming`);
     
@@ -306,6 +319,8 @@ export class EventsGateway implements OnGatewayConnection, OnGatewayDisconnect {
   }
 
   @SubscribeMessage('stop_streaming')
+  @UseGuards(WsRolesGuard)
+  @Roles('commercial')
   async handleStopStreaming(client: Socket, data: { commercial_id: string }) {
     console.log(`🎤 Commercial ${data.commercial_id} arrête le streaming`);
     
@@ -347,6 +362,8 @@ export class EventsGateway implements OnGatewayConnection, OnGatewayDisconnect {
   }
 
   @SubscribeMessage('emergency_save_session')
+  @UseGuards(WsRolesGuard)
+  @Roles('admin', 'manager', 'commercial')
   async handleEmergencySave(client: Socket, data: { commercial_id: string }) {
     console.log(`🚨 Sauvegarde d'urgence demandée pour ${data.commercial_id}`);
     
@@ -361,6 +378,8 @@ export class EventsGateway implements OnGatewayConnection, OnGatewayDisconnect {
 
   // Gestion de la demande de synchronisation des streams
   @SubscribeMessage('request_streaming_status')
+  @UseGuards(WsRolesGuard)
+  @Roles('admin', 'manager')
   handleRequestStreamingStatus(client: Socket) {
     console.log(`🔄 Demande de synchronisation des streams actifs de ${client.id}`);
     
@@ -375,6 +394,8 @@ export class EventsGateway implements OnGatewayConnection, OnGatewayDisconnect {
 
   // Gestion de la demande de synchronisation des streams filtrés par manager
   @SubscribeMessage('request_manager_streaming_status')
+  @UseGuards(WsRolesGuard)
+  @Roles('admin', 'manager')
   async handleRequestManagerStreamingStatus(client: Socket, data: { managerId: string }) {
     console.log(`🔄 Demande de synchronisation des streams pour manager ${data.managerId} de ${client.id}`);
     
@@ -411,6 +432,8 @@ export class EventsGateway implements OnGatewayConnection, OnGatewayDisconnect {
 
   // --- WebRTC signaling relay for listen-only ---
   @SubscribeMessage('suivi:webrtc_offer')
+  @UseGuards(WsRolesGuard)
+  @Roles('admin', 'manager')
   handleSuiviOffer(client: Socket, data: { to_socket_id: string; sdp: string; type: string }) {
     console.log(`📨 Offer from ${client.id} to ${data.to_socket_id}`);
     this.server.to(data.to_socket_id).emit('suivi:webrtc_offer', {
@@ -421,6 +444,8 @@ export class EventsGateway implements OnGatewayConnection, OnGatewayDisconnect {
   }
 
   @SubscribeMessage('suivi:webrtc_answer')
+  @UseGuards(WsRolesGuard)
+  @Roles('commercial')
   handleSuiviAnswer(client: Socket, data: { to_socket_id: string; sdp: string; type: string }) {
     console.log(`📨 Answer from ${client.id} to ${data.to_socket_id}`);
     this.server.to(data.to_socket_id).emit('suivi:webrtc_answer', {
@@ -431,6 +456,8 @@ export class EventsGateway implements OnGatewayConnection, OnGatewayDisconnect {
   }
 
   @SubscribeMessage('suivi:webrtc_ice_candidate')
+  @UseGuards(WsRolesGuard)
+  @Roles('admin', 'manager', 'commercial')
   handleSuiviIce(client: Socket, data: { to_socket_id: string; candidate: any }) {
     // Note: candidate can be null (end of candidates)
     this.server.to(data.to_socket_id).emit('suivi:webrtc_ice_candidate', {
@@ -440,6 +467,8 @@ export class EventsGateway implements OnGatewayConnection, OnGatewayDisconnect {
   }
 
   @SubscribeMessage('suivi:leave')
+  @UseGuards(WsRolesGuard)
+  @Roles('admin', 'manager', 'commercial')
   handleSuiviLeave(client: Socket, data: { to_socket_id: string }) {
     // Notify the commercial that a listener left so it can close the peer connection
     this.server.to(data.to_socket_id).emit('suivi:leave', {
@@ -449,6 +478,8 @@ export class EventsGateway implements OnGatewayConnection, OnGatewayDisconnect {
 
   // Gestion de la demande d'historique des transcriptions
   @SubscribeMessage('request_transcription_history')
+  @UseGuards(WsRolesGuard)
+  @Roles('admin', 'manager')
   async handleRequestTranscriptionHistory(client: Socket, data?: { commercial_id?: string }) {
     console.log(`📚 Demande d'historique des transcriptions de ${client.id}`);
     
@@ -490,6 +521,8 @@ export class EventsGateway implements OnGatewayConnection, OnGatewayDisconnect {
   }
 
   @SubscribeMessage('transcription_update')
+  @UseGuards(WsRolesGuard)
+  @Roles('commercial')
   handleTranscriptionUpdate(client: Socket, data: {
     commercial_id: string;
     transcript: string;
@@ -545,6 +578,8 @@ export class EventsGateway implements OnGatewayConnection, OnGatewayDisconnect {
   // ---- Server-side Deepgram streaming (receive audio chunks from client) ----
 
   @SubscribeMessage('transcription_start')
+  @UseGuards(WsRolesGuard)
+  @Roles('commercial')
   async handleTranscriptionStart(client: Socket, data: {
     commercial_id: string;
     building_id?: string;
@@ -662,6 +697,8 @@ export class EventsGateway implements OnGatewayConnection, OnGatewayDisconnect {
   }
 
   @SubscribeMessage('transcription_audio_chunk')
+  @UseGuards(WsRolesGuard)
+  @Roles('commercial')
   handleTranscriptionAudioChunk(client: Socket, data: {
     commercial_id: string;
     door_id?: string;
@@ -681,6 +718,8 @@ export class EventsGateway implements OnGatewayConnection, OnGatewayDisconnect {
   }
 
   @SubscribeMessage('transcription_stop')
+  @UseGuards(WsRolesGuard)
+  @Roles('commercial')
   handleTranscriptionStop(client: Socket, data: { commercial_id: string }) {
     const state = this.dgStreams.get(data.commercial_id);
     if (!state) return;
@@ -717,6 +756,8 @@ export class EventsGateway implements OnGatewayConnection, OnGatewayDisconnect {
 
   // Demande de l'état actuel des commerciaux GPS
   @SubscribeMessage('request_gps_state')
+  @UseGuards(WsRolesGuard)
+  @Roles('admin', 'manager')
   handleRequestGPSState(client: Socket) {
     console.log(`📍 Demande d'état GPS de ${client.id}`);
     
@@ -730,6 +771,8 @@ export class EventsGateway implements OnGatewayConnection, OnGatewayDisconnect {
 
   // Demande de l'état des commerciaux avec leurs statuts
   @SubscribeMessage('request_commercials_status')
+  @UseGuards(WsRolesGuard)
+  @Roles('admin', 'manager')
   handleRequestCommercialsStatus(client: Socket) {
     console.log(`👥 Demande de statut des commerciaux de ${client.id}`);
     
@@ -778,6 +821,8 @@ export class EventsGateway implements OnGatewayConnection, OnGatewayDisconnect {
 
   // Gestion des mises à jour de portes pour la synchronisation en temps réel
   @SubscribeMessage('porte:update')
+  @UseGuards(WsRolesGuard)
+  @Roles('commercial')
   handlePorteUpdate(client: Socket, data: { porteId: string; updates: any }) {
     console.log(`🚪 Mise à jour de porte: ${data.porteId}`, data.updates);
     
@@ -797,6 +842,8 @@ export class EventsGateway implements OnGatewayConnection, OnGatewayDisconnect {
 
   // Gestion des changements de statut de portes
   @SubscribeMessage('porte:statusChanged')
+  @UseGuards(WsRolesGuard)
+  @Roles('commercial')
   handlePorteStatusChange(client: Socket, data: { porteId: string; statut: string; assigneeId?: string }) {
     console.log(`🚪 Changement de statut de porte: ${data.porteId} -> ${data.statut}`);
     
@@ -817,6 +864,8 @@ export class EventsGateway implements OnGatewayConnection, OnGatewayDisconnect {
 
   // Gestion des assignations de portes (mode duo)
   @SubscribeMessage('porte:assign')
+  @UseGuards(WsRolesGuard)
+  @Roles('commercial', 'manager')
   handlePorteAssign(client: Socket, data: { porteId: string; assigneeId: string }) {
     console.log(`🚪 Assignation de porte: ${data.porteId} -> ${data.assigneeId}`);
     
@@ -835,6 +884,8 @@ export class EventsGateway implements OnGatewayConnection, OnGatewayDisconnect {
 
   // Gestion de l'ajout de portes
   @SubscribeMessage('porte:added')
+  @UseGuards(WsRolesGuard)
+  @Roles('admin')
   handlePorteAdded(client: Socket, data: { porte: any }) {
     console.log(`🚪 Ajout de porte: ${data.porte.id}`);
     
@@ -852,6 +903,8 @@ export class EventsGateway implements OnGatewayConnection, OnGatewayDisconnect {
 
   // Gestion de la suppression de portes
   @SubscribeMessage('porte:deleted')
+  @UseGuards(WsRolesGuard)
+  @Roles('admin')
   handlePorteDeleted(client: Socket, data: { porteId: string }) {
     console.log(`🚪 Suppression de porte: ${data.porteId}`);
     
@@ -869,6 +922,8 @@ export class EventsGateway implements OnGatewayConnection, OnGatewayDisconnect {
 
   // Gestion de l'ajout d'étages
   @SubscribeMessage('floor:added')
+  @UseGuards(WsRolesGuard)
+  @Roles('admin')
   handleFloorAdded(client: Socket, data: { newNbEtages: number }) {
     console.log(`Ajout d'étage: ${data.newNbEtages} étages total`);
     

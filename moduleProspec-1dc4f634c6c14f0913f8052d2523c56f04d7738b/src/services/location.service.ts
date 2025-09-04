@@ -44,6 +44,9 @@ class LocationService {
     const socketUrl = isDevelopment ? `https://${SERVER_HOST}:${API_PORT}` : `https://${SERVER_HOST}`;
     console.log('🔌 Initialisation socket GPS:', socketUrl);
     
+    // Get auth token from localStorage
+    const token = localStorage.getItem('access_token');
+    
     this.socket = io(socketUrl, {
       secure: true,
       transports: ['polling', 'websocket'], // Polling en premier pour mobile
@@ -54,6 +57,12 @@ class LocationService {
       timeout: 20000,
       forceNew: true, // Force une nouvelle connexion
       rejectUnauthorized: false, // Accepter les certificats auto-signés
+      auth: {
+        token: token
+      },
+      query: {
+        token: token
+      }
     });
 
     this.socket.on('connect', () => {
