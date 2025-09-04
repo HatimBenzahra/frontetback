@@ -147,7 +147,7 @@ export class TranscriptionGateway implements OnGatewayConnection, OnGatewayDisco
 
   @SubscribeMessage('transcription_audio_chunk')
   @UseGuards(WsRolesGuard)
-  @Roles('commercial')
+  @Roles('commercial', 'manager')
   handleTranscriptionAudioChunk(client: Socket, data: {
     commercial_id: string;
     door_id?: string;

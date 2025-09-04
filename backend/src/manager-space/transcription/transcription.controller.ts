@@ -26,6 +26,8 @@ interface AuthRequest extends Request {
 export class TranscriptionController {
   constructor(private readonly transcriptionService: TranscriptionService) {}
 
+
+
   @Get('transcriptions')
   async getTranscriptions(
     @Request() req: AuthRequest

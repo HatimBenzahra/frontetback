@@ -4,8 +4,7 @@ import { useSocket } from '@/hooks/useSocket';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui-admin/card';
 import { Button } from '@/components/ui-admin/button';
 import { Input } from '@/components/ui-admin/input';
-import { Badge } from '@/components/ui-admin/badge';
-import { RefreshCw, Search, User, Mic, MicOff } from 'lucide-react';
+import { RefreshCw, Search, User } from 'lucide-react';
 import { API_BASE_URL } from '@/config';
 
 // Styles pour l'animation de slide
@@ -81,19 +80,21 @@ const ManagerTranscriptionsPage = () => {
   const loadManagerCommercials = useCallback(async () => {
     try {
       const token = localStorage.getItem('access_token');
-      const response = await fetch(`${BASE}/manager-space/transcriptions`, {
+      const response = await fetch(`${BASE}/commerciaux`, {
         headers: {
           'Authorization': `Bearer ${token}`
         }
       });
       if (response.ok) {
         const data = await response.json();
+        console.log('Données commerciaux reçues:', data);
+        
         // Traiter les données pour créer la structure CommercialItem
         const commercialMap = new Map<string, CommercialItem>();
         
-        data.forEach((transcription: any) => {
-          const commercialId = transcription.commercial_id;
-          const commercialName = transcription.commercial_name;
+        data.forEach((commercial: any) => {
+          const commercialId = commercial.id;
+          const commercialName = `${commercial.prenom} ${commercial.nom}`.trim();
           
           if (!commercialMap.has(commercialId)) {
             commercialMap.set(commercialId, {
@@ -104,17 +105,25 @@ const ManagerTranscriptionsPage = () => {
             });
           }
           
-          const commercial = commercialMap.get(commercialId)!;
-          commercial.sessionsCount++;
+          const commercialItem = commercialMap.get(commercialId)!;
           
-          // Utiliser start_time au lieu de createdAt
-          const transcriptionTime = new Date(transcription.start_time).getTime();
-          if (transcriptionTime > commercial.lastTime) {
-            commercial.lastTime = transcriptionTime;
+          // Compter les historiques comme sessions
+          if (commercial.historiques && commercial.historiques.length > 0) {
+            commercialItem.sessionsCount = commercial.historiques.length;
+            
+            // Trouver la date la plus récente
+            const latestHistory = commercial.historiques.reduce((latest: any, current: any) => {
+              const latestDate = new Date(latest.dateProspection || latest.createdAt).getTime();
+              const currentDate = new Date(current.dateProspection || current.createdAt).getTime();
+              return currentDate > latestDate ? current : latest;
+            });
+            
+            commercialItem.lastTime = new Date(latestHistory.dateProspection || latestHistory.createdAt).getTime();
           }
         });
         
         setAllCommercials(Array.from(commercialMap.values()));
+        console.log('Commerciaux traités:', Array.from(commercialMap.values()));
       } else {
         console.error('Erreur chargement commerciaux manager:', response.status);
       }
@@ -292,30 +301,10 @@ const ManagerTranscriptionsPage = () => {
               </div>
             </div>
           </div>
-          <div className="flex flex-col items-end gap-1 ml-2">
-            {isTranscribing && (
-              <Badge variant="secondary" className="bg-red-100 text-red-800 text-xs px-2 py-0.5">
-                <Mic className="h-3 w-3 mr-1" />
-                En cours
-              </Badge>
-            )}
-            {!isTranscribing && c.isOnline && (
-              <Badge variant="secondary" className="bg-green-100 text-green-800 text-xs px-2 py-0.5">
-                En ligne
-              </Badge>
-            )}
-            {!c.isOnline && !isTranscribing && (
-              <Badge variant="secondary" className="bg-gray-100 text-gray-600 text-xs px-2 py-0.5">
-                <MicOff className="h-3 w-3 mr-1" />
-                Hors ligne
-              </Badge>
-            )}
-          </div>
         </div>
       </button>
     );
   };
-
   return (
     <>
       <style>{slideStyles}</style>

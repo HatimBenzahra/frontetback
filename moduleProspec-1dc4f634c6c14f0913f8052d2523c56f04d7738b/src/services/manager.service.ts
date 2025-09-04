@@ -18,8 +18,6 @@ type UpdateManagerPayload = Partial<CreateManagerPayload>;
 // Fonction pour récupérer tous les managers
 const getManagers = async (): Promise<Manager[]> => {
   const response = await axios.get(API_URL);
-  // On peut ajouter ici un mapping si les données de l'API ne correspondent pas exactement au type `Manager` du front.
-  // Dans notre cas, elles correspondent, mais c'est une bonne pratique.
   return response.data;
 };
 
@@ -80,7 +78,7 @@ const deleteManagerImmeuble = async (immeubleId: string) => {
 
 // Fonction pour récupérer les transcriptions de tous les commerciaux du manager
 const getManagerTranscriptions = async (): Promise<any> => {
-  const response = await axios.get(`${API_BASE_URL}/manager-space/transcriptions`);
+  const response = await axios.get(`${API_BASE_URL}/manager-space/commerciaux`);
   return response.data;
 };
 
