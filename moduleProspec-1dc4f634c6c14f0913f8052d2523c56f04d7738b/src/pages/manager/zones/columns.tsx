@@ -1,15 +1,13 @@
-// frontend-shadcn/src/pages/manager/zones/columns.tsx
+import { ArrowUpDown, Edit, Calendar, Eye } from "lucide-react"
+import { Link } from "react-router-dom";
+import { Button } from '@/components/ui-admin/button';
+import { Checkbox } from '@/components/ui-admin/checkbox';
+import type { ColumnDef } from '@tanstack/react-table';
+import { Badge } from '@/components/ui-admin/badge';
+import { format } from 'date-fns';
+import { fr } from 'date-fns/locale';
 
-"use client"
-
-import type { ColumnDef } from "@tanstack/react-table"
-import { ArrowUpDown, MapPin, Users, Calendar } from "lucide-react"
-import { Button } from "@/components/ui-admin/button"
-
-import { format } from "date-fns"
-import { fr } from "date-fns/locale"
-
-export type Zone = {
+export interface Zone {
   id: string;
   name: string;
   assignedTo: string;
@@ -30,62 +28,54 @@ const SortableHeader = ({ title, column }: { title: string, column: any }) => (
   </Button>
 )
 
-export const createColumns = (): ColumnDef<Zone>[] => [
-  {
-    accessorKey: "name",
-    header: ({ column }) => <SortableHeader title="Nom de la zone" column={column} />,
-    cell: ({ row }) => {
-      const zone = row.original;
-      return (
-        <div className="flex items-center gap-3">
-          <div 
-            className="w-4 h-4 rounded-full border-2 border-white shadow-sm" 
-            style={{ backgroundColor: zone.color }}
-          />
-          <span className="font-medium text-slate-900">{zone.name}</span>
-        </div>
-      )
+export const createZoneColumns = (isDeleteMode: boolean, onEdit: (zone: Zone) => void): ColumnDef<Zone>[] => [
+    // Colonne de sélection conditionnelle
+    ...(isDeleteMode ? [{
+      id: "select",
+      header: ({ table }: any) => (<Checkbox checked={table.getIsAllPageRowsSelected()} onCheckedChange={(value) => table.toggleAllPageRowsSelected(!!value)} aria-label="Select all" />),
+      cell: ({ row }: any) => (<Checkbox checked={row.getIsSelected()} onCheckedChange={(value) => row.toggleSelected(!!value)} aria-label="Select row" onClick={(e) => e.stopPropagation()} />),
+      enableSorting: false, enableHiding: false,
+    }] : []),
+    {
+        accessorKey: "name",
+        header: ({ column }) => <SortableHeader title="Nom de la zone" column={column} />,
+        cell: ({ row }) => <div className="font-medium text-foreground">{row.original.name}</div>,
     },
-  },
-  {
-    accessorKey: "assignedTo",
-    header: ({ column }) => <SortableHeader title="Assignée à" column={column} />,
-    cell: ({ row }) => {
-      const assignedTo = row.original.assignedTo;
-      return (
-        <div className="flex items-center gap-2">
-          <Users className="h-4 w-4 text-slate-400" />
-          <span className="text-slate-700">{assignedTo}</span>
-        </div>
-      )
+    {
+        accessorKey: "assignedTo",
+        header: ({ column }: { column: any }) => <SortableHeader title="Assignée à" column={column} />,
+        cell: ({ row }) => {
+            const { color, assignedTo } = row.original;
+            const badgeStyle = color ? { backgroundColor: color, color: 'white', borderColor: 'transparent' } : {};
+            return ( <Badge style={badgeStyle} className="border-transparent">{assignedTo}</Badge> )
+        }
     },
-  },
-  {
-    accessorKey: "radius",
-    header: ({ column }) => <SortableHeader title="Rayon" column={column} />,
-    cell: ({ row }) => {
-      const radius = row.original.radius;
-      return (
-        <div className="flex items-center gap-2">
-          <MapPin className="h-4 w-4 text-slate-400" />
-          <span className="text-slate-700">{radius}m</span>
-        </div>
-      )
+    {
+        accessorKey: "dateCreation",
+        header: ({ column }) => <SortableHeader title="Date d'ajout" column={column} />,
+        cell: ({ row }) => (
+            <div className="flex items-center gap-2 text-muted-foreground">
+                <Calendar className="h-4 w-4" />
+                <span>{format(new Date(row.original.dateCreation), "d LLL yyyy", { locale: fr })}</span>
+            </div>
+        )
     },
-  },
-  {
-    accessorKey: "dateCreation",
-    header: ({ column }) => <SortableHeader title="Date de création" column={column} />,
-    cell: ({ row }) => {
-      const date = row.original.dateCreation;
-      return (
-        <div className="flex items-center gap-2">
-          <Calendar className="h-4 w-4 text-slate-400" />
-          <span className="text-slate-700">
-            {format(new Date(date), 'dd/MM/yyyy', { locale: fr })}
-          </span>
-        </div>
-      )
+    {
+        id: "actions",
+        header: () => <div className="text-right"><Header title="Actions" /></div>,
+        cell: ({ row }) => (
+            <div className="text-right space-x-2">
+                <Link 
+                  to={`/manager/zones/${row.original.id}`} 
+                  onClick={(e) => e.stopPropagation()}
+                  className="inline-flex items-center justify-center h-8 w-8 p-0 rounded-md text-sm font-medium transition-colors hover:bg-accent hover:text-accent-foreground"
+                >
+                  <Eye className="h-4 w-4" />
+                </Link>
+                <Button variant="ghost" size="icon" onClick={(e) => { e.stopPropagation(); onEdit(row.original); }}>
+                    <Edit className="h-4 w-4" />
+                </Button>
+            </div>
+        ),
     },
-  },
-]
+];
