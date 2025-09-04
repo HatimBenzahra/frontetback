@@ -276,26 +276,10 @@ const GPSTrackingPage: React.FC = () => {
             return commercial;
           });
         } else {
-          // Ajouter un nouveau commercial (cas rare, mais possible)
-          console.log('Nouveau commercial détecté:', data.commercialId);
-          return [...prev, {
-            id: data.commercialId,
-            nom: 'Commercial inconnu',
-            prenom: 'Utilisateur',
-            email: '',
-            telephone: null,
-            isOnline: true,
-            lastSeen: new Date(data.timestamp),
-            location: {
-              lat: data.position[0],
-              lng: data.position[1],
-              accuracy: data.accuracy || 0,
-              speed: data.speed,
-              heading: data.heading
-            },
-            currentActivity: 'En ligne',
-            hasLocationPermission: true
-          }];
+          // Pour les managers : ne pas ajouter de commerciaux inconnus
+          // Le backend filtre déjà selon les permissions
+          console.log('Commercial ignoré (non autorisé pour ce manager):', data.commercialId);
+          return prev; // Ne pas modifier la liste
         }
       });
     };
