@@ -988,7 +988,38 @@ const ImmeubleDetailsPage = () => {
     const [searchParams] = useSearchParams();
     const socket = useSocket(immeubleId);
     const { user } = useAuth();
-    const managerId = user?.id || "";
+    
+    // Debug: vérifier la connexion socket
+    useEffect(() => {
+        if (socket && immeubleId) {
+            console.log('🔌 [Frontend] Socket connecté pour immeuble:', immeubleId);
+            socket.on('connect', () => {
+                console.log('🔌 [Frontend] Socket connecté, ID:', socket.id);
+            });
+            socket.on('disconnect', () => {
+                console.log('🔌 [Frontend] Socket déconnecté');
+            });
+        }
+    }, [socket, immeubleId]);
+    
+    // Vérification de sécurité : s'assurer que l'utilisateur est un manager
+    useEffect(() => {
+        if (!user) {
+            navigate('/login');
+            return;
+        }
+        
+        if (user.role !== 'manager') {
+            toast.error("Accès non autorisé. Seuls les managers peuvent accéder à cette page.");
+            navigate('/');
+            return;
+        }
+    }, [user, navigate]);
+    
+    // Ne pas charger les données si l'utilisateur n'est pas autorisé
+    if (!user || user.role !== 'manager') {
+        return <AdminPageSkeleton hasHeader hasTable hasCards hasFilters cardsCount={4} />;
+    }
     
     const [immeuble, setImmeuble] = useState<ImmeubleDetails | null>(null);
     const [loading, setLoading] = useState(true);
@@ -1160,13 +1191,16 @@ const ImmeubleDetailsPage = () => {
         };
 
         const handlePorteAdded = (data: { porte: Porte }) => {
+            console.log('🚪 [Frontend] Événement porte:added reçu', data);
             setImmeuble(prev => {
                 if (!prev) return prev;
                 // Vérifier si la porte existe déjà pour éviter les doublons
                 const porteExists = prev.portes.some(p => p.id === data.porte.id);
                 if (porteExists) {
+                    console.log('🚪 [Frontend] Porte déjà existante, ignorée');
                     return prev;
                 }
+                console.log('🚪 [Frontend] Ajout de la nouvelle porte à l\'état local');
                 return {
                     ...prev,
                     portes: [...prev.portes, data.porte],
@@ -1188,8 +1222,10 @@ const ImmeubleDetailsPage = () => {
         };
 
         const handleFloorAdded = (data: { newNbEtages: number }) => {
+            console.log('🏢 [Frontend] Événement floor:added reçu', data);
             setImmeuble(prev => {
                 if (!prev) return prev;
+                console.log('🏢 [Frontend] Mise à jour du nombre d\'étages dans l\'état local');
                 return {
                     ...prev,
                     nbEtages: data.newNbEtages
@@ -1202,6 +1238,11 @@ const ImmeubleDetailsPage = () => {
         socket.on('porte:added', handlePorteAdded);
         socket.on('porte:deleted', handlePorteDeleted);
         socket.on('floor:added', handleFloorAdded);
+        
+        // Debug: écouter tous les événements pour diagnostiquer
+        socket.onAny((eventName, ...args) => {
+            console.log('🔌 [Frontend] Événement reçu:', eventName, args);
+        });
 
         return () => {
             socket.off('porte:updated', handlePorteUpdate);
@@ -1513,12 +1554,9 @@ const ImmeubleDetailsPage = () => {
         
         try {
             const newNbEtages = immeuble.nbEtages + 1;
-            // Pour l'instant, on utilise une mise à jour locale
-            // TODO: Implémenter l'endpoint manager-space pour la mise à jour des immeubles
-            console.log('Mise à jour de l\'immeuble:', immeubleId, {
-                nbEtages: newNbEtages,
-                nbPortesParEtage: immeuble.nbPortesParEtage,
-            });
+            
+            // Mettre à jour via l'API
+            await managerService.updateManagerImmeubleNbEtages(immeubleId, newNbEtages);
             
             // Mise à jour locale
             setImmeuble(prev => {
@@ -1530,7 +1568,6 @@ const ImmeubleDetailsPage = () => {
             });
 
             // L'événement WebSocket est émis automatiquement par le backend
-            // Pas besoin d'émettre côté frontend pour éviter la duplication
             
             setIsAddFloorModalOpen(false);
             toast.success("Étage ajouté avec succès");

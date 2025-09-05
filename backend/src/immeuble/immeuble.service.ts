@@ -86,11 +86,9 @@ export class ImmeubleService {
     });
 
     // Si le nombre d'étages a changé, émettre un événement WebSocket
-    if (oldImmeuble && oldImmeuble.nbEtages !== updatedImmeuble.nbEtages) {
-      this.portesGateway.sendToRoom(id, 'floor:added', {
-        newNbEtages: updatedImmeuble.nbEtages,
-        timestamp: new Date().toISOString()
-      });
+    if (oldImmeuble && oldImmeuble.nbEtages !== updatedImmeuble.nbEtages && updatedImmeuble.nbEtages !== null) {
+      console.log(`🏢 [AdminImmeubleService] Émission floor:added pour immeuble ${id}, ${updatedImmeuble.nbEtages} étages`);
+      this.portesGateway.emitFloorAdded(id, updatedImmeuble.nbEtages);
     }
 
     return updatedImmeuble;

@@ -9,6 +9,7 @@ import { PorteModule } from './porte/porte.module';
 import { TranscriptionModule } from './transcription/transcription.module';
 import { ManagerAssignmentGoalsModule } from './assignment-goals/assignment-goals.module';
 import { ManagerStatisticsModule } from './statistics/manager-statistics.module';
+import { ProfileModule } from './profile/profile.module';
 
 @Module({
   imports: [

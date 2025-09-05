@@ -68,6 +68,7 @@ import ManagerStatisticsPage from './pages/manager/statitistiques/StatistiquesPa
 import { Toaster } from "sonner";
 import SelectBuildingPage from './pages/commercial/prospection/SelectBuildingPage';
 import ManagerAssignmentGoalsPage from './pages/manager/assignment-goals/AssignmentGoalsPage';
+import ManagerProfilePage from './pages/manager/profile/ManagerProfilePage';
 
 
 function App() {
@@ -146,6 +147,7 @@ function App() {
             <Route path="zones/:zoneId" element={<ManagerZoneDetailsPage />} />
             <Route path="assignations-objectifs" element={<ManagerAssignmentGoalsPage />} />
             <Route path="statistiques" element={<ManagerStatisticsPage />} />
+            <Route path="profile" element={<ManagerProfilePage />} />
 
           </Route>
             

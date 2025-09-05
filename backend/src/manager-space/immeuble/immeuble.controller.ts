@@ -2,7 +2,9 @@ import {
   Controller,
   Get,
   Delete,
+  Patch,
   Param,
+  Body,
   UseGuards,
   Request,
 } from '@nestjs/common';
@@ -51,5 +53,15 @@ export class ImmeubleController {
   ) {
     const managerId = req.user.managerId;
     return this.immeubleService.deleteManagerImmeuble(managerId, immeubleId);
+  }
+
+  @Patch(':immeubleId/nb-etages')
+  async updateNbEtages(
+    @Param('immeubleId') immeubleId: string,
+    @Body() body: { newNbEtages: number },
+    @Request() req: AuthRequest
+  ) {
+    const managerId = req.user.managerId;
+    return this.immeubleService.updateImmeubleNbEtages(managerId, immeubleId, body.newNbEtages);
   }
 }

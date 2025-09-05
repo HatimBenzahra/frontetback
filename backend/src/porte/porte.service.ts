@@ -26,10 +26,8 @@ export class PorteService {
     });
 
     // Émettre un événement WebSocket pour la synchronisation en temps réel
-    this.portesGateway.sendToRoom(newPorte.immeubleId, 'porte:added', {
-      porte: newPorte,
-      timestamp: new Date().toISOString()
-    });
+    console.log(`🚪 [AdminPorteService] Émission porte:added pour immeuble ${newPorte.immeubleId}`);
+    this.portesGateway.emitPorteAdded(newPorte.immeubleId, newPorte);
 
     return newPorte;
   }
@@ -70,11 +68,8 @@ export class PorteService {
 
       // Émettre un événement WebSocket pour la synchronisation en temps réel
       if (existingPorte.immeubleId) {
-        this.portesGateway.sendToRoom(existingPorte.immeubleId, 'porte:updated', {
-          porteId: id,
-          updates: updatePorteDto,
-          timestamp: new Date().toISOString()
-        });
+        console.log(`🚪 [AdminPorteService] Émission porte:updated pour immeuble ${existingPorte.immeubleId}`);
+        this.portesGateway.emitPorteUpdated(existingPorte.immeubleId, id, updatePorteDto);
 
         // Si le statut a changé, émettre un événement spécifique
         if (existingPorte.statut !== updatedPorte.statut) {
@@ -204,11 +199,8 @@ export class PorteService {
       }
 
       // Emit WebSocket event for real-time update
-      this.portesGateway.sendToRoom(
-        existingPorte.immeubleId,
-        'porteUpdated',
-        updatedPorte,
-      );
+      console.log(`🚪 [AdminPorteService] Émission porte:updated pour immeuble ${existingPorte.immeubleId}`);
+      this.portesGateway.emitPorteUpdated(existingPorte.immeubleId, id, updatePorteDto);
 
       return updatedPorte;
     });
@@ -236,10 +228,8 @@ export class PorteService {
     });
 
     // Émettre un événement WebSocket pour la synchronisation en temps réel
-    this.portesGateway.sendToRoom(porte.immeubleId, 'porte:deleted', {
-      porteId: id,
-      timestamp: new Date().toISOString()
-    });
+    console.log(`🚪 [AdminPorteService] Émission porte:deleted pour immeuble ${porte.immeubleId}`);
+    this.portesGateway.emitPorteDeleted(porte.immeubleId, id);
 
     return deletedPorte;
   }

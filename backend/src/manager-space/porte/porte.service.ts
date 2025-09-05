@@ -1,9 +1,13 @@
 import { Injectable, NotFoundException, ForbiddenException } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
+import { PortesGateway } from '../../events/portes/portes.gateway';
 
 @Injectable()
 export class PorteService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private portesGateway: PortesGateway
+  ) {}
 
   async getPortesForImmeuble(managerId: string, immeubleId: string) {
     const manager = await this.prisma.manager.findUnique({
@@ -135,6 +139,9 @@ export class PorteService {
       }
     });
 
+    // Émettre l'événement websocket
+    this.portesGateway.emitPorteAdded(createPorteDto.immeubleId, porte);
+
     return porte;
   }
 
@@ -188,6 +195,9 @@ export class PorteService {
       }
     });
 
+    // Émettre l'événement websocket
+    this.portesGateway.emitPorteUpdated(existingPorte.immeubleId, porteId, updatePorteDto);
+
     return porte;
   }
 
@@ -225,8 +235,15 @@ export class PorteService {
       throw new ForbiddenException(`Porte with ID ${porteId} is not managed by manager ${managerId}`);
     }
 
-    return this.prisma.porte.delete({
+    const immeubleId = existingPorte.immeubleId;
+    
+    const result = await this.prisma.porte.delete({
       where: { id: porteId }
     });
+
+    // Émettre l'événement websocket
+    this.portesGateway.emitPorteDeleted(immeubleId, porteId);
+
+    return result;
   }
 }

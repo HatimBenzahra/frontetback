@@ -182,6 +182,14 @@ const deleteManagerPorte = async (porteId: string): Promise<any> => {
   return response.data;
 };
 
+// Fonction pour mettre à jour le nombre d'étages d'un immeuble
+const updateManagerImmeubleNbEtages = async (immeubleId: string, newNbEtages: number): Promise<any> => {
+  const response = await axios.patch(`${API_BASE_URL}/manager-space/immeubles/${immeubleId}/nb-etages`, {
+    newNbEtages
+  });
+  return response.data;
+};
+
 // Fonction pour supprimer un manager
 const deleteManager = async (id: string): Promise<void> => {
   await axios.delete(`${API_URL}/${id}`);
@@ -202,6 +210,7 @@ export const managerService = {
   getManagerImmeubles,
   getManagerImmeuble,
   deleteManagerImmeuble,
+  updateManagerImmeubleNbEtages,
   // Fonctions pour les portes
   getManagerPortesForImmeuble,
   getManagerPorte,

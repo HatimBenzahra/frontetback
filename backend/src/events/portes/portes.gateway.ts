@@ -80,7 +80,7 @@ export class PortesGateway implements OnGatewayConnection, OnGatewayDisconnect {
 
   @SubscribeMessage('porte:added')
   @UseGuards(WsRolesGuard)
-  @Roles('admin')
+  @Roles('admin', 'manager')
   handlePorteAdded(client: Socket, data: { porte: any }) {
     console.log(`Ajout de porte: ${data.porte.id}`);
     
@@ -98,7 +98,7 @@ export class PortesGateway implements OnGatewayConnection, OnGatewayDisconnect {
 
   @SubscribeMessage('porte:deleted')  
   @UseGuards(WsRolesGuard)
-  @Roles('admin')
+  @Roles('admin', 'manager')
   handlePorteDeleted(client: Socket, data: { porteId: string }) {
     console.log(`🚪 Suppression de porte: ${data.porteId}`);
     
@@ -116,7 +116,7 @@ export class PortesGateway implements OnGatewayConnection, OnGatewayDisconnect {
 
   @SubscribeMessage('floor:added')
   @UseGuards(WsRolesGuard)
-  @Roles('admin')
+  @Roles('admin', 'manager')
   handleFloorAdded(client: Socket, data: { newNbEtages: number }) {
     console.log(`Ajout d'étage: ${data.newNbEtages} étages total`);
     
@@ -135,5 +135,39 @@ export class PortesGateway implements OnGatewayConnection, OnGatewayDisconnect {
   // Méthodes utilitaires pour l'accès depuis l'extérieur
   sendToRoom(room: string, event: string, data: any) {
     this.server.to(room).emit(event, data);
+  }
+
+  // Méthodes pour émettre des événements depuis les services
+  emitPorteAdded(immeubleId: string, porte: any) {
+    console.log(`🚪 [PortesGateway] Émission porte:added vers room ${immeubleId}`, { porteId: porte.id });
+    this.server.to(immeubleId).emit('porte:added', {
+      porte,
+      timestamp: new Date().toISOString()
+    });
+  }
+
+  emitPorteUpdated(immeubleId: string, porteId: string, updates: any) {
+    this.server.to(immeubleId).emit('porte:updated', {
+      porteId,
+      updates,
+      timestamp: new Date().toISOString()
+    });
+  }
+
+  emitPorteDeleted(immeubleId: string, porteId: string) {
+    this.server.to(immeubleId).emit('porte:deleted', {
+      porteId,
+      timestamp: new Date().toISOString()
+    });
+  }
+
+  emitFloorAdded(immeubleId: string, newNbEtages: number) {
+    console.log(`🏢 [PortesGateway] Émission floor:added vers room ${immeubleId}`, { newNbEtages });
+    console.log(`🏢 [PortesGateway] Serveur disponible:`, !!this.server);
+    console.log(`🏢 [PortesGateway] Rooms disponibles:`, Array.from(this.server.sockets.adapter.rooms.keys()));
+    this.server.to(immeubleId).emit('floor:added', {
+      newNbEtages,
+      timestamp: new Date().toISOString()
+    });
   }
 }
