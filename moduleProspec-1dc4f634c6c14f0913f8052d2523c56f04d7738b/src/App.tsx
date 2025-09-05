@@ -53,6 +53,7 @@ import ManagerEquipesPage from './pages/manager/equipe/EquipesPage';
 import ManagerCommercialDetailsPage from './pages/manager/commericial/CommercialDetailsPage';
 import ManagerEquipeDetailsPage from './pages/manager/equipe/EquipeDetailsPage';
 import ManagerImmeublesPage from './pages/manager/immeubles/ImmeublesPage';
+import ManagerImmeubleDetailsPage from './pages/manager/immeubles/portes/ImmeubleDetailsPage';
 import ManagerSuiviPage from './pages/manager/suivi/SuiviPage';
 import ManagerTranscriptionsPage from './pages/manager/transcription/TranscriptionsPage';
 import ManagerCommercialTranscriptionPage from './pages/manager/transcription/CommercialTranscriptionPage';
@@ -136,6 +137,7 @@ function App() {
             <Route path="equipes" element={<ManagerEquipesPage />} />
             <Route path="equipes/:id" element={<ManagerEquipeDetailsPage />} />
             <Route path="immeubles" element={<ManagerImmeublesPage />} />
+            <Route path="immeubles/:immeubleId" element={<ManagerImmeubleDetailsPage />} />
             <Route path="suivi" element={<ManagerSuiviPage />} />
             <Route path="transcriptions" element={<ManagerTranscriptionsPage />} />
             <Route path="transcriptions/:commercialId" element={<ManagerCommercialTranscriptionPage />} />

@@ -1,7 +1,7 @@
 // src/layout/ManagerNavContent.tsx
 import { NavLink } from 'react-router-dom';
 import { Button } from '@/components/ui-admin/button';
-import { Users, Flag, PieChart, MapPin, FileText, Settings, LayoutDashboard, AudioLines, Building2, Target, Navigation, ScrollText } from 'lucide-react';
+import { Users, Flag, PieChart, MapPin, LayoutDashboard, AudioLines, Building2, Target, Navigation, ScrollText } from 'lucide-react';
 
 // Liens spécifiques au manager
 const managerNavLinks = [

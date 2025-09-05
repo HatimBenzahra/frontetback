@@ -70,6 +70,12 @@ const getManagerImmeubles = async (): Promise<any[]> => {
   return response.data;
 };
 
+// Fonction pour récupérer un immeuble spécifique du manager connecté
+const getManagerImmeuble = async (immeubleId: string): Promise<any> => {
+  const response = await axios.get(`${API_BASE_URL}/manager-space/immeubles/${immeubleId}`);
+  return response.data;
+};
+
 // Fonction pour supprimer un immeuble d'un commercial du manager connecté
 const deleteManagerImmeuble = async (immeubleId: string) => {
   const response = await axios.delete(`${API_BASE_URL}/manager-space/immeubles/${immeubleId}`);
@@ -150,6 +156,32 @@ const getManagerRepassageChart = async (period?: string): Promise<any> => {
   return response.data;
 };
 
+// Fonctions pour les portes
+const getManagerPortesForImmeuble = async (immeubleId: string): Promise<any> => {
+  const response = await axios.get(`${API_BASE_URL}/manager-space/portes/immeuble/${immeubleId}`);
+  return response.data;
+};
+
+const getManagerPorte = async (porteId: string): Promise<any> => {
+  const response = await axios.get(`${API_BASE_URL}/manager-space/portes/${porteId}`);
+  return response.data;
+};
+
+const createManagerPorte = async (porteData: any): Promise<any> => {
+  const response = await axios.post(`${API_BASE_URL}/manager-space/portes`, porteData);
+  return response.data;
+};
+
+const updateManagerPorte = async (porteId: string, porteData: any): Promise<any> => {
+  const response = await axios.patch(`${API_BASE_URL}/manager-space/portes/${porteId}`, porteData);
+  return response.data;
+};
+
+const deleteManagerPorte = async (porteId: string): Promise<any> => {
+  const response = await axios.delete(`${API_BASE_URL}/manager-space/portes/${porteId}`);
+  return response.data;
+};
+
 // Fonction pour supprimer un manager
 const deleteManager = async (id: string): Promise<void> => {
   await axios.delete(`${API_URL}/${id}`);
@@ -168,7 +200,14 @@ export const managerService = {
   getManagerCommercial,
   getManagerEquipe,
   getManagerImmeubles,
+  getManagerImmeuble,
   deleteManagerImmeuble,
+  // Fonctions pour les portes
+  getManagerPortesForImmeuble,
+  getManagerPorte,
+  createManagerPorte,
+  updateManagerPorte,
+  deleteManagerPorte,
   // Fonctions pour transcriptions et suivi
   getManagerTranscriptions,
   getCommercialTranscriptions,

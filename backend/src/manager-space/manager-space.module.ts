@@ -5,6 +5,7 @@ import { ZoneModule } from './zone/zone.module';
 import { EquipeModule } from './equipe/equipe.module';
 import { CommercialModule } from './commercial/commercial.module';
 import { ImmeubleModule } from './immeuble/immeuble.module';
+import { PorteModule } from './porte/porte.module';
 import { TranscriptionModule } from './transcription/transcription.module';
 import { ManagerAssignmentGoalsModule } from './assignment-goals/assignment-goals.module';
 import { ManagerStatisticsModule } from './statistics/manager-statistics.module';
@@ -17,6 +18,7 @@ import { ManagerStatisticsModule } from './statistics/manager-statistics.module'
     EquipeModule,
     CommercialModule,
     ImmeubleModule,
+    PorteModule,
     TranscriptionModule,
     ManagerAssignmentGoalsModule,
     ManagerStatisticsModule
