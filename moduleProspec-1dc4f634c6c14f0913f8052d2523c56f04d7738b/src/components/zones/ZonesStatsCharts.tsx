@@ -90,7 +90,6 @@ export const ZonesStatsCharts = ({ className }: ZonesStatsChartsProps) => {
 
   // Couleurs pour les graphiques
   const pieColors = contratsParZoneData.map(item => item.color || '#3b82f6');
-  const barColors = ['#ef4444', '#f97316', '#f59e0b', '#eab308', '#84cc16'];
 
   return (
     <div className={className}>
@@ -134,7 +133,7 @@ export const ZonesStatsCharts = ({ className }: ZonesStatsChartsProps) => {
               <StatCard 
                 title="Taux Global" 
                 value={zonesStats.totaux.totalPortesVisitees > 0 ? 
-                  ((zonesStats.totaux.totalContratsSignes / zonesStats.totaux.totalPortesVisitees) * 100).toFixed(1) : 0} 
+                  Number(((zonesStats.totaux.totalContratsSignes / zonesStats.totaux.totalPortesVisitees) * 100).toFixed(1)) : 0} 
                 Icon={Target} 
                 suffix="%" 
                 color="text-violet-600" 

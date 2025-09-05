@@ -4,20 +4,18 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui-admin/
 import { Button } from '@/components/ui-admin/button';
 import { Input } from '@/components/ui-admin/input';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui-admin/popover';
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui-admin/tooltip';
 import { Calendar } from '@/components/ui-admin/calendar';
 import { Slider } from '@/components/ui-admin/slider';
-import { MapPin, Loader2, Calendar as CalendarIcon, Users, Building, Shield, Target, Clock, CheckCircle2, Search, Edit3, Save, AlertCircle } from 'lucide-react';
+import { MapPin, Loader2, Calendar as CalendarIcon, Users, Shield, Target, Clock, CheckCircle2, Search, Edit3, Save } from 'lucide-react';
 import { fr } from 'date-fns/locale';
 import { startOfToday } from 'date-fns';
 import { AssignmentType } from '@/types/enums';
-import type { Commercial, Manager, Zone } from '@/types/types';
+import type { Commercial, Zone } from '@/types/types';
 import { managerAssignmentGoalsService } from '@/services/manager-assignment-goals.service';
 
 interface ManagerZoneAssignmentCardProps {
   zones: Zone[];
   commercials: Commercial[];
-  managers: Manager[];
   equipes: any[];
   onAssign: (
     zoneId: string,
@@ -29,7 +27,7 @@ interface ManagerZoneAssignmentCardProps {
   onZoneSelect: (zoneId: string) => void;
 }
 
-export const ManagerZoneAssignmentCard = ({ zones, commercials, managers, equipes, onAssign, onZoneSelect }: ManagerZoneAssignmentCardProps) => {
+export const ManagerZoneAssignmentCard = ({ zones, commercials, equipes, onAssign, onZoneSelect }: ManagerZoneAssignmentCardProps) => {
   const [selectedZone, setSelectedZone] = useState('');
   const [assigneeType, setAssigneeType] = useState<AssignmentType>(AssignmentType.COMMERCIAL);
   const [assigneeId, setAssigneeId] = useState('');
@@ -169,7 +167,7 @@ export const ManagerZoneAssignmentCard = ({ zones, commercials, managers, equipe
         assigneeId,
         assigneeType,
         startDate?.toISOString(),
-        typeof durationDays === 'number' ? durationDays : parseInt(durationDays.toString())
+        typeof durationDays === 'number' ? durationDays : parseInt(String(durationDays))
       );
       
       // Reset form

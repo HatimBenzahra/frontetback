@@ -35,7 +35,6 @@ interface ZoneAssignmentPageProps {
 export default function ZoneAssignmentPage({ 
   zones, 
   commercials, 
-  managers, 
   equipes, 
   onDataRefresh 
 }: ZoneAssignmentPageProps) {
@@ -450,7 +449,6 @@ export default function ZoneAssignmentPage({
           <ManagerZoneAssignmentCard
             zones={mapApiZonesToUiZones(zones)}
             commercials={commercials}
-            managers={managers}
             equipes={equipes}
             onAssign={handleAssignZone}
             onZoneSelect={handleSelectZone}

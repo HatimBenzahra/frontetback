@@ -1,9 +1,26 @@
 import { useState, useEffect, useMemo } from 'react';
-import { AlertCircle, Users, Shield, MapPin, CheckCircle2, FilterX, ChevronLeft, ChevronRight, Trash2, StopCircle, Map, History, BarChart3, Clock, Target, TrendingUp } from 'lucide-react';
+import { AlertCircle, Users, Shield, MapPin, CheckCircle2, FilterX, Trash2, StopCircle, Map, History, BarChart3, Clock, Target, TrendingUp } from 'lucide-react';
 import { toast } from 'sonner';
 import { useAuth } from '@/contexts/AuthContext';
 import { useAssignmentCleanup } from '@/hooks/useAssignmentCleanup';
 import type { ColumnDef } from '@tanstack/react-table';
+
+interface AssignmentTableData {
+  id: string;
+  zoneName: string;
+  assigneeName: string;
+  assignedToType: string;
+  status: string;
+  progressPercentage: number;
+  timeInfo: string;
+  startDate: string;
+  endDate: string;
+  assignedByUserName: string;
+  affectedCommercials?: any[];
+  affectedCommercialsCount?: number;
+  remainingDays?: number;
+  totalDurationDays?: number;
+}
 
 import { assignmentGoalsService } from '@/services/assignment-goals.service';
 
@@ -241,7 +258,7 @@ export default function ZoneAssignmentPage({
   };
 
   // Colonnes pour le tableau des assignations
-  const assignmentColumns: ColumnDef<any>[] = useMemo(() => [
+  const assignmentColumns: ColumnDef<AssignmentTableData>[] = useMemo(() => [
     {
       accessorKey: 'zoneName',
       header: 'Zone',
@@ -655,7 +672,7 @@ export default function ZoneAssignmentPage({
               {assignmentsStatus?.assignments && assignmentsStatus.assignments.length > 0 ? (
                 <DataTable
                   columns={assignmentColumns}
-                  data={assignmentsStatus.assignments.map(assignment => ({ ...assignment, id: assignment.id }))}
+                  data={assignmentsStatus.assignments.map((assignment: any) => ({ ...assignment, id: assignment.id })) as AssignmentTableData[]}
                   title=""
                   noCardWrapper={true}
                 />
