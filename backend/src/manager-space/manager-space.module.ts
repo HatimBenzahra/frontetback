@@ -7,6 +7,7 @@ import { CommercialModule } from './commercial/commercial.module';
 import { ImmeubleModule } from './immeuble/immeuble.module';
 import { TranscriptionModule } from './transcription/transcription.module';
 import { ManagerAssignmentGoalsModule } from './assignment-goals/assignment-goals.module';
+import { ManagerStatisticsModule } from './statistics/manager-statistics.module';
 
 @Module({
   imports: [
@@ -17,7 +18,8 @@ import { ManagerAssignmentGoalsModule } from './assignment-goals/assignment-goal
     CommercialModule,
     ImmeubleModule,
     TranscriptionModule,
-    ManagerAssignmentGoalsModule
+    ManagerAssignmentGoalsModule,
+    ManagerStatisticsModule
   ],
 })
 export class ManagerSpaceModule {}

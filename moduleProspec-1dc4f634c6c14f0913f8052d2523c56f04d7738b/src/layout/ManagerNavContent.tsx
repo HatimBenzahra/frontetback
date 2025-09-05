@@ -15,8 +15,7 @@ const managerNavLinks = [
   { to: '/manager/zones', text: 'Zones', icon: MapPin },
   { to: '/manager/assignations-objectifs', text: 'Assignations & Objectifs', icon: Target },
   { to: '/manager/statistiques', text: 'Statistiques', icon: PieChart },
-  { to: '/manager/rapports', text: 'Rapports & exports', icon: FileText },
-  { to: '/manager/parametres', text: 'Paramètres', icon: Settings },
+
 ];
 
 interface ManagerNavContentProps {

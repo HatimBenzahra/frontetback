@@ -61,6 +61,7 @@ import DashboardBackoffice from './pages/backoffice/DashboardBackoffice';
 import ManagerGPSPage from './pages/manager/gps/gps_suivi';
 import ManagerZonesPage from './pages/manager/zones/ZonesPage';
 import ManagerZoneDetailsPage from './pages/manager/zones/ZoneDetailsPage';
+import ManagerStatisticsPage from './pages/manager/statitistiques/StatistiquesPage';
 
 
 import { Toaster } from "sonner";
@@ -142,6 +143,7 @@ function App() {
             <Route path="zones" element={<ManagerZonesPage />} />
             <Route path="zones/:zoneId" element={<ManagerZoneDetailsPage />} />
             <Route path="assignations-objectifs" element={<ManagerAssignmentGoalsPage />} />
+            <Route path="statistiques" element={<ManagerStatisticsPage />} />
 
           </Route>
             

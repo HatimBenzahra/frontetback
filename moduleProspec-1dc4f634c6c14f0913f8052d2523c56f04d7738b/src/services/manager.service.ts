@@ -93,6 +93,63 @@ const getManagerSuivi = async (): Promise<any> => {
   const response = await axios.get(`${API_BASE_URL}/manager-space/suivi`);
   return response.data;
 };
+
+// Fonctions pour les statistiques manager
+const getManagerStatistics = async (query: any): Promise<any> => {
+  const response = await axios.get(`${API_BASE_URL}/manager-space/statistics`, { params: query });
+  return response.data;
+};
+
+const getManagerDashboardStats = async (period?: string): Promise<any> => {
+  const response = await axios.get(`${API_BASE_URL}/manager-space/statistics/dashboard`, { 
+    params: period ? { period } : {} 
+  });
+  return response.data;
+};
+
+const getManagerPerformanceHistory = async (period?: string): Promise<any> => {
+  const response = await axios.get(`${API_BASE_URL}/manager-space/statistics/performance-history`, { 
+    params: period ? { period } : {} 
+  });
+  return response.data;
+};
+
+const getManagerCommercialsProgress = async (period?: string): Promise<any> => {
+  const response = await axios.get(`${API_BASE_URL}/manager-space/statistics/commercials-progress`, { 
+    params: period ? { period } : {} 
+  });
+  return response.data;
+};
+
+const getManagerCommercialStats = async (commercialId: string): Promise<any> => {
+  const response = await axios.get(`${API_BASE_URL}/manager-space/statistics/commercial/${commercialId}`);
+  return response.data;
+};
+
+const getManagerCommercialHistory = async (commercialId: string): Promise<any> => {
+  const response = await axios.get(`${API_BASE_URL}/manager-space/statistics/commercial/${commercialId}/history`);
+  return response.data;
+};
+
+const getManagerEquipeStats = async (equipeId: string): Promise<any> => {
+  const response = await axios.get(`${API_BASE_URL}/manager-space/statistics/equipe/${equipeId}`);
+  return response.data;
+};
+
+const getManagerGlobalPerformanceChart = async (period?: string): Promise<any> => {
+  const response = await axios.get(`${API_BASE_URL}/manager-space/statistics/global-performance-chart`, { 
+    params: period ? { period } : {} 
+  });
+  return response.data;
+};
+
+const getManagerRepassageChart = async (period?: string): Promise<any> => {
+  const response = await axios.get(`${API_BASE_URL}/manager-space/statistics/repassage-chart`, { 
+    params: period ? { period } : {} 
+  });
+  return response.data;
+};
+
 // Fonction pour supprimer un manager
 const deleteManager = async (id: string): Promise<void> => {
   await axios.delete(`${API_URL}/${id}`);
@@ -116,4 +173,14 @@ export const managerService = {
   getManagerTranscriptions,
   getCommercialTranscriptions,
   getManagerSuivi,
+  // Fonctions pour les statistiques manager
+  getManagerStatistics,
+  getManagerDashboardStats,
+  getManagerPerformanceHistory,
+  getManagerCommercialsProgress,
+  getManagerCommercialStats,
+  getManagerCommercialHistory,
+  getManagerEquipeStats,
+  getManagerGlobalPerformanceChart,
+  getManagerRepassageChart,
 };

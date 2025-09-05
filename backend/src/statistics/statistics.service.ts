@@ -607,29 +607,26 @@ export class StatisticsService {
     }
   }
 
-  async getDashboardStats(period: string = 'month') {
+  async getDashboardStats(period: string = 'MONTHLY') {
     const getDateRanges = (period: string) => {
       const now = new Date();
       let startDate: Date, endDate: Date;
 
       switch (period) {
-        case 'week':
+        case 'WEEKLY':
           const currentDay = now.getDay();
-          const diff = now.getDate() - currentDay + (currentDay === 0 ? -6 : 1);
-          startDate = new Date(new Date().setDate(diff));
+          // Lundi = 1, Dimanche = 0
+          const daysFromMonday = currentDay === 0 ? 6 : currentDay - 1;
+          startDate = new Date(now);
+          startDate.setDate(now.getDate() - daysFromMonday);
           endDate = new Date(startDate);
           endDate.setDate(startDate.getDate() + 6);
           break;
-        case 'month':
+        case 'MONTHLY':
           startDate = new Date(now.getFullYear(), now.getMonth(), 1);
           endDate = new Date(now.getFullYear(), now.getMonth() + 1, 0);
           break;
-        case 'quarter':
-          const currentQuarter = Math.floor(now.getMonth() / 3);
-          startDate = new Date(now.getFullYear(), currentQuarter * 3, 1);
-          endDate = new Date(now.getFullYear(), (currentQuarter + 1) * 3, 0);
-          break;
-        case 'year':
+        case 'YEARLY':
           startDate = new Date(now.getFullYear(), 0, 1);
           endDate = new Date(now.getFullYear(), 11, 31);
           break;
@@ -907,29 +904,26 @@ export class StatisticsService {
     }
   }
 
-  async getGlobalPerformanceChart(period: string = 'week') {
+  async getGlobalPerformanceChart(period: string = 'WEEKLY') {
     const getDateRanges = (period: string) => {
       const now = new Date();
       let startDate: Date, endDate: Date;
 
       switch (period) {
-        case 'week':
+        case 'WEEKLY':
           const currentDay = now.getDay();
-          const diff = now.getDate() - currentDay + (currentDay === 0 ? -6 : 1);
-          startDate = new Date(new Date().setDate(diff));
+          // Lundi = 1, Dimanche = 0
+          const daysFromMonday = currentDay === 0 ? 6 : currentDay - 1;
+          startDate = new Date(now);
+          startDate.setDate(now.getDate() - daysFromMonday);
           endDate = new Date(startDate);
           endDate.setDate(startDate.getDate() + 6);
           break;
-        case 'month':
+        case 'MONTHLY':
           startDate = new Date(now.getFullYear(), now.getMonth(), 1);
           endDate = new Date(now.getFullYear(), now.getMonth() + 1, 0);
           break;
-        case 'quarter':
-          const currentQuarter = Math.floor(now.getMonth() / 3);
-          startDate = new Date(now.getFullYear(), currentQuarter * 3, 1);
-          endDate = new Date(now.getFullYear(), (currentQuarter + 1) * 3, 0);
-          break;
-        case 'year':
+        case 'YEARLY':
           startDate = new Date(now.getFullYear(), 0, 1);
           endDate = new Date(now.getFullYear(), 11, 31);
           break;
@@ -1055,29 +1049,26 @@ export class StatisticsService {
     return [];
   }
 
-  async getRepassageChart(period: string = 'week') {
+  async getRepassageChart(period: string = 'WEEKLY') {
     const getDateRanges = (period: string) => {
       const now = new Date();
       let startDate: Date, endDate: Date;
 
       switch (period) {
-        case 'week':
+        case 'WEEKLY':
           const currentDay = now.getDay();
-          const diff = now.getDate() - currentDay + (currentDay === 0 ? -6 : 1);
-          startDate = new Date(new Date().setDate(diff));
+          // Lundi = 1, Dimanche = 0
+          const daysFromMonday = currentDay === 0 ? 6 : currentDay - 1;
+          startDate = new Date(now);
+          startDate.setDate(now.getDate() - daysFromMonday);
           endDate = new Date(startDate);
           endDate.setDate(startDate.getDate() + 6);
           break;
-        case 'month':
+        case 'MONTHLY':
           startDate = new Date(now.getFullYear(), now.getMonth(), 1);
           endDate = new Date(now.getFullYear(), now.getMonth() + 1, 0);
           break;
-        case 'quarter':
-          const currentQuarter = Math.floor(now.getMonth() / 3);
-          startDate = new Date(now.getFullYear(), currentQuarter * 3, 1);
-          endDate = new Date(now.getFullYear(), (currentQuarter + 1) * 3, 0);
-          break;
-        case 'year':
+        case 'YEARLY':
           startDate = new Date(now.getFullYear(), 0, 1);
           endDate = new Date(now.getFullYear(), 11, 31);
           break;
@@ -1204,29 +1195,26 @@ export class StatisticsService {
     return [];
   }
 
-  async getCommercialsProgress(period: string = 'month') {
+  async getCommercialsProgress(period: string = 'MONTHLY') {
     const getDateRanges = (period: string) => {
       const now = new Date();
       let startDate: Date, endDate: Date;
 
       switch (period) {
-        case 'week':
+        case 'WEEKLY':
           const currentDay = now.getDay();
-          const diff = now.getDate() - currentDay + (currentDay === 0 ? -6 : 1);
-          startDate = new Date(new Date().setDate(diff));
+          // Lundi = 1, Dimanche = 0
+          const daysFromMonday = currentDay === 0 ? 6 : currentDay - 1;
+          startDate = new Date(now);
+          startDate.setDate(now.getDate() - daysFromMonday);
           endDate = new Date(startDate);
           endDate.setDate(startDate.getDate() + 6);
           break;
-        case 'month':
+        case 'MONTHLY':
           startDate = new Date(now.getFullYear(), now.getMonth(), 1);
           endDate = new Date(now.getFullYear(), now.getMonth() + 1, 0);
           break;
-        case 'quarter':
-          const currentQuarter = Math.floor(now.getMonth() / 3);
-          startDate = new Date(now.getFullYear(), currentQuarter * 3, 1);
-          endDate = new Date(now.getFullYear(), (currentQuarter + 1) * 3, 0);
-          break;
-        case 'year':
+        case 'YEARLY':
           startDate = new Date(now.getFullYear(), 0, 1);
           endDate = new Date(now.getFullYear(), 11, 31);
           break;

@@ -21,15 +21,20 @@ export class ManagerSpaceService {
 
     console.log(`Manager trouvé: ${manager.nom || manager.id}`);
 
-    // Récupérer les commerciaux du manager
+    // Récupérer les commerciaux du manager (éviter le double comptage)
     const commerciaux = await this.prisma.commercial.findMany({
       where: {
         OR: [
-          { managerId: managerId },
           {
             equipe: {
               managerId: managerId
             }
+          },
+          {
+            AND: [
+              { managerId: managerId },
+              { equipeId: null } // Seulement les commerciaux sans équipe
+            ]
           }
         ]
       },
@@ -315,11 +320,16 @@ export class ManagerSpaceService {
       where: {
         id: commercialId,
         OR: [
-          { managerId: managerId },
           {
             equipe: {
               managerId: managerId
             }
+          },
+          {
+            AND: [
+              { managerId: managerId },
+              { equipeId: null } // Seulement les commerciaux sans équipe
+            ]
           }
         ]
       }
