@@ -318,11 +318,7 @@ export class AdminController {
 
       // Generate setup token and attempt to send email
       const setupToken = this.jwtUtil.signSetup(keycloakUserId);
-      // Utiliser les variables d'environnement avec fallback intelligent
-      const localIp = this.configService.get('LOCAL_IP');
-      const frontendPort = this.configService.get('FRONTEND_PORT') || '5173';
-      const frontendUrl = this.configService.get('FRONTEND_URL') || 
-        (localIp ? `http://${localIp}:${frontendPort}` : 'http://localhost:5173');
+      const frontendUrl = this.getFrontendUrl();
       const setupLink = `${frontendUrl}/setup-password?token=${setupToken}`;
       this.logger.log(`Setup link generated: ${setupLink}`);
 
