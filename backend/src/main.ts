@@ -23,14 +23,29 @@ async function bootstrap() {
         origin: (origin: string | undefined, callback: (err: Error | null, allow?: boolean) => void) => {
           // Allow requests with no origin (mobile apps, curl)
           if (!origin) return callback(null, true);
+          
+          // Origins from environment variables with fallbacks
+          const localIp = process.env.LOCAL_IP;
+          const frontendPort = process.env.FRONTEND_PORT || '5173';
+          const productionIp = process.env.PRODUCTION_IP;
+          const stagingIp = process.env.STAGING_IP;
+          
           const allowed = [
-            `https://${process.env.LOCAL_IP}:${process.env.FRONTEND_PORT}`,
-            `http://${process.env.LOCAL_IP}:${process.env.FRONTEND_PORT}`,
-            `https://${process.env.PRODUCTION_IP}`,
-            `http://${process.env.PRODUCTION_IP}`,
-            `https://${process.env.STAGING_IP}`,
-            `http://${process.env.STAGING_IP}`,
-          ];
+            // Local development (with fallbacks)
+            localIp ? `http://${localIp}:${frontendPort}` : 'http://localhost:5173',
+            localIp ? `https://${localIp}:${frontendPort}` : 'https://localhost:5173',
+            'http://127.0.0.1:5173',
+            'https://127.0.0.1:5173',
+            
+            // Production (only if defined in .env)
+            productionIp && `http://${productionIp}`,
+            productionIp && `https://${productionIp}`,
+            
+            // Staging (only if defined in .env)
+            stagingIp && `http://${stagingIp}`,
+            stagingIp && `https://${stagingIp}`,
+          ].filter(Boolean);
+          
           if (allowed.includes(origin) || /^https?:\/\/192\.168\.[0-9]+\.[0-9]+(:\d+)?$/.test(origin)) {
             return callback(null, true);
           }
@@ -53,6 +68,13 @@ async function bootstrap() {
     const port = process.env.API_PORT ?? 3000;
     await app.listen(port, '0.0.0.0');
     console.log(`🚀 HTTPS Server running on https://localhost:${port}`);
+    const corsOrigins = [
+      process.env.LOCAL_IP ? `${process.env.LOCAL_IP}:${process.env.FRONTEND_PORT || '5173'}` : 'localhost:5173',
+      '127.0.0.1:5173',
+      process.env.PRODUCTION_IP,
+      process.env.STAGING_IP,
+    ].filter(Boolean).join(', ');
+    console.log(`🌐 CORS Origins: ${corsOrigins}`);
   } catch (error) {
     console.error('HTTPS failed, starting HTTP fallback:', error);
     
@@ -64,14 +86,29 @@ async function bootstrap() {
     app.enableCors({
       origin: (origin: string | undefined, callback: (err: Error | null, allow?: boolean) => void) => {
         if (!origin) return callback(null, true);
+        
+        // Origins from environment variables with fallbacks
+        const localIp = process.env.LOCAL_IP;
+        const frontendPort = process.env.FRONTEND_PORT || '5173';
+        const productionIp = process.env.PRODUCTION_IP;
+        const stagingIp = process.env.STAGING_IP;
+        
         const allowed = [
-          `https://${process.env.LOCAL_IP}:${process.env.FRONTEND_PORT}`,
-          `http://${process.env.LOCAL_IP}:${process.env.FRONTEND_PORT}`,
-          `https://${process.env.PRODUCTION_IP}`,
-          `http://${process.env.PRODUCTION_IP}`,
-          `https://${process.env.STAGING_IP}`,
-          `http://${process.env.STAGING_IP}`,
-        ];
+          // Local development (with fallbacks)
+          localIp ? `http://${localIp}:${frontendPort}` : 'http://localhost:5173',
+          localIp ? `https://${localIp}:${frontendPort}` : 'https://localhost:5173',
+          'http://127.0.0.1:5173',
+          'https://127.0.0.1:5173',
+          
+          // Production (only if defined in .env)
+          productionIp && `http://${productionIp}`,
+          productionIp && `https://${productionIp}`,
+          
+          // Staging (only if defined in .env)
+          stagingIp && `http://${stagingIp}`,
+          stagingIp && `https://${stagingIp}`,
+        ].filter(Boolean);
+        
         if (allowed.includes(origin) || /^https?:\/\/192\.168\.[0-9]+\.[0-9]+(:\d+)?$/.test(origin)) {
           return callback(null, true);
         }
@@ -87,6 +124,13 @@ async function bootstrap() {
     const port = process.env.API_PORT ?? 3000;
     await app.listen(port, '0.0.0.0');
     console.log(`HTTP Server running on http://localhost:${port}`);
+    const corsOrigins = [
+      process.env.LOCAL_IP ? `${process.env.LOCAL_IP}:${process.env.FRONTEND_PORT || '5173'}` : 'localhost:5173',
+      '127.0.0.1:5173',
+      process.env.PRODUCTION_IP,
+      process.env.STAGING_IP,
+    ].filter(Boolean).join(', ');
+    console.log(`🌐 CORS Origins: ${corsOrigins}`);
   }
 }
 bootstrap().catch((err: unknown) => {

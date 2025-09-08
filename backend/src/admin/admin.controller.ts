@@ -49,6 +49,16 @@ export class AdminController {
     private directeurService: DirecteurService,
   ) {}
 
+  /**
+   * Génère l'URL du frontend avec fallback intelligent
+   */
+  private getFrontendUrl(): string {
+    const localIp = this.configService.get('LOCAL_IP');
+    const frontendPort = this.configService.get('FRONTEND_PORT') || '5173';
+    return this.configService.get('FRONTEND_URL') || 
+      (localIp ? `https://${localIp}:${frontendPort}` : 'https://localhost:5173');
+  }
+
   @Post('commerciaux')
   async createCommercialWithAuth(@Body() dto: CreateCommercialWithAuthDto) {
     const { nom, prenom, email, telephone, equipeId, managerId } = dto;
@@ -84,7 +94,9 @@ export class AdminController {
 
       // Generate setup token and attempt to send email
       const setupToken = this.jwtUtil.signSetup(keycloakUserId);
-      const setupLink = `${this.configService.get('FRONTEND_URL')}/setup-password?token=${setupToken}`;
+      const frontendUrl = this.getFrontendUrl();
+      const setupLink = `${frontendUrl}/setup-password?token=${setupToken}`;
+      this.logger.log(`Setup link generated: ${setupLink}`);
 
       let emailSent = true;
       try {
@@ -159,7 +171,9 @@ export class AdminController {
 
       // Generate setup token and attempt to send email
       const setupToken = this.jwtUtil.signSetup(keycloakUserId);
-      const setupLink = `${this.configService.get('FRONTEND_URL')}/setup-password?token=${setupToken}`;
+      const frontendUrl = this.getFrontendUrl();
+      const setupLink = `${frontendUrl}/setup-password?token=${setupToken}`;
+      this.logger.log(`Setup link generated: ${setupLink}`);
 
       let emailSent = true;
       try {
@@ -304,7 +318,13 @@ export class AdminController {
 
       // Generate setup token and attempt to send email
       const setupToken = this.jwtUtil.signSetup(keycloakUserId);
-      const setupLink = `${this.configService.get('FRONTEND_URL')}/setup-password?token=${setupToken}`;
+      // Utiliser les variables d'environnement avec fallback intelligent
+      const localIp = this.configService.get('LOCAL_IP');
+      const frontendPort = this.configService.get('FRONTEND_PORT') || '5173';
+      const frontendUrl = this.configService.get('FRONTEND_URL') || 
+        (localIp ? `http://${localIp}:${frontendPort}` : 'http://localhost:5173');
+      const setupLink = `${frontendUrl}/setup-password?token=${setupToken}`;
+      this.logger.log(`Setup link generated: ${setupLink}`);
 
       let emailSent = true;
       try {
