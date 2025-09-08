@@ -11,12 +11,12 @@ export class ProfileController {
   constructor(private readonly profileService: ProfileService) {}
 
   @Get()
-  async getProfile(@Request() req) {
+  async getProfile(@Request() req: any) {
     return this.profileService.getManagerProfile(req.user.id);
   }
 
   @Patch()
-  async updateProfile(@Request() req, @Body() updateData: any) {
+  async updateProfile(@Request() req: any, @Body() updateData: any) {
     return this.profileService.updateManagerProfile(req.user.id, updateData);
   }
 }

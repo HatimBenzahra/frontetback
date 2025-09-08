@@ -7,14 +7,27 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-model Manager {
-  id        String   @id @default(uuid())
+model Directeur {
+  id        String    @id @default(uuid())
   nom       String
   prenom    String
-  email     String   @unique
+  email     String    @unique
   telephone String?
-  equipes   Equipe[]
-  zones     Zone[]   @relation("ManagerZones")
+  managers  Manager[]
+
+  @@map("directeurs")
+}
+
+model Manager {
+  id          String     @id @default(uuid())
+  nom         String
+  prenom      String
+  email       String     @unique
+  telephone   String?
+  directeurId String?
+  directeur   Directeur? @relation(fields: [directeurId], references: [id])
+  equipes     Equipe[]
+  zones       Zone[]     @relation("ManagerZones")
 
   @@map("managers")
 }

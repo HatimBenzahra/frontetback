@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo } from "react";
+import { Users, UserCheck, Target, Building2, Briefcase, Award } from "lucide-react";
 import type { Equipe } from "./equipes-table/columns";
 import { createEquipesColumns } from "./equipes-table/columns";
 import { DataTable } from "@/components/data-table/DataTable";
@@ -8,6 +9,7 @@ import { Label } from "@/components/ui-admin/label";
 import type { RowSelectionState } from "@tanstack/react-table";
 import { Modal } from "@/components/ui-admin/Modal";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui-admin/select";
+import StatCard from "@/components/ui-admin/StatCard";
 import { equipeService } from "@/services/equipe.service";
 import { managerService } from "@/services/manager.service";
 import type { Manager } from '@/types/types';
@@ -162,12 +164,83 @@ const EquipesPage = () => {
 
   const columns = useMemo(() => createEquipesColumns(isDeleteMode, handleEditOpen), [isDeleteMode]);
 
+  // Calcul des statistiques globales
+  const globalStats = useMemo(() => {
+    if (!data.length) return {
+      totalEquipes: 0,
+      totalCommerciaux: 0,
+      totalContrats: 0,
+      moyenneCommerciauxParEquipe: 0,
+      moyenneContratsParEquipe: 0,
+      equipesActives: 0
+    };
+
+    const totalEquipes = data.length;
+    const totalCommerciaux = data.reduce((sum, e) => sum + (e.nbCommerciaux || 0), 0);
+    const totalContrats = data.reduce((sum, e) => sum + (e.totalContratsSignes || 0), 0);
+    const moyenneCommerciauxParEquipe = totalEquipes > 0 ? Math.round(totalCommerciaux / totalEquipes) : 0;
+    const moyenneContratsParEquipe = totalEquipes > 0 ? Math.round(totalContrats / totalEquipes) : 0;
+    const equipesActives = data.filter(e => (e.nbCommerciaux || 0) > 0).length;
+
+    return {
+      totalEquipes,
+      totalCommerciaux,
+      totalContrats,
+      moyenneCommerciauxParEquipe,
+      moyenneContratsParEquipe,
+      equipesActives
+    };
+  }, [data]);
+
   if (loading) {
     return <AdminPageSkeleton hasHeader hasTable hasFilters />;
   }
 
   return (
     <>
+      {/* Section Statistiques Globales */}
+      <div className="mb-8">
+        <h2 className="text-2xl font-bold text-gray-900 mb-6">Vue d'ensemble des Équipes</h2>
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
+          <StatCard 
+            title="Total Équipes" 
+            value={globalStats.totalEquipes} 
+            Icon={Building2} 
+            color="text-blue-500" 
+          />
+          <StatCard 
+            title="Total Commerciaux" 
+            value={globalStats.totalCommerciaux} 
+            Icon={Users} 
+            color="text-green-500" 
+          />
+          <StatCard 
+            title="Total Contrats" 
+            value={globalStats.totalContrats} 
+            Icon={Briefcase} 
+            color="text-purple-500" 
+          />
+          <StatCard 
+            title="Moyenne Commerciaux/Équipe" 
+            value={globalStats.moyenneCommerciauxParEquipe} 
+            Icon={UserCheck} 
+            color="text-orange-500" 
+          />
+          <StatCard 
+            title="Moyenne Contrats/Équipe" 
+            value={globalStats.moyenneContratsParEquipe} 
+            Icon={Target} 
+            color="text-indigo-500" 
+          />
+          <StatCard 
+            title="Équipes Actives" 
+            value={globalStats.equipesActives} 
+            Icon={Award} 
+            color="text-emerald-500" 
+          />
+        </div>
+      </div>
+
       <DataTable 
         columns={columns} data={data} title="Gestion des Équipes" filterColumnId="nom"
         filterPlaceholder="Filtrer par nom d'équipe..." addEntityButtonText="Ajouter une Équipe"

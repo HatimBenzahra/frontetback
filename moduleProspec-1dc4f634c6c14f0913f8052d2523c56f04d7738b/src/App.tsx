@@ -17,6 +17,8 @@ import HistoriquePage from './pages/commercial/Historique';
 // --- Pages Admin ---
 // ... (imports admin inchangés) ...
 import DashboardAdmin from './pages/admin/Dashboard/DashboardAdmin';
+import DirecteursPage from './pages/admin/directeurs/DirecteursPage';
+import DirecteurDetailsPage from './pages/admin/directeurs/DirecteurDetailsPage';
 import ManagersPage from './pages/admin/Managers/ManagersPage';
 import ManagerDetailsPage from './pages/admin/Managers/ManagerDetailsPage';
 import CommerciauxPage from './pages/admin/commerciaux/CommerciauxPage';
@@ -94,6 +96,8 @@ function App() {
             <Route index element={<DashboardAdmin />} />
             <Route path="managers" element={<ManagersPage />} />
             <Route path="managers/:managerId" element={<ManagerDetailsPage />} />
+            <Route path="directeurs" element={<DirecteursPage />} />
+            <Route path="directeurs/:id" element={<DirecteurDetailsPage />} />
             <Route path="equipes" element={<EquipesPage />} /> 
             <Route path="equipes/:equipeId" element={<EquipeDetailsPage />} />
             <Route path="commerciaux" element={<CommerciauxPage />} />

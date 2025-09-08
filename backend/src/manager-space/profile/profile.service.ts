@@ -14,9 +14,6 @@ export class ProfileService {
         prenom: true,
         email: true,
         telephone: true,
-        role: true,
-        createdAt: true,
-        updatedAt: true,
       },
     });
 
@@ -34,11 +31,13 @@ export class ProfileService {
       }),
       this.prisma.zone.count({
         where: { managerId: managerId }
-      }),
+      }), 
       this.prisma.immeuble.count({
         where: { 
-          commercial: {
-            managerId: managerId
+          prospectors: {
+            some: {
+              managerId: managerId
+            }
           }
         }
       })
@@ -63,7 +62,6 @@ export class ProfileService {
         ...(prenom && { prenom }),
         ...(email && { email }),
         ...(telephone && { telephone }),
-        updatedAt: new Date(),
       },
       select: {
         id: true,
@@ -71,9 +69,6 @@ export class ProfileService {
         prenom: true,
         email: true,
         telephone: true,
-        role: true,
-        createdAt: true,
-        updatedAt: true,
       },
     });
 

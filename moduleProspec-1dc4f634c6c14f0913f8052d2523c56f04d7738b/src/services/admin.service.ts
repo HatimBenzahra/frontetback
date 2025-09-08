@@ -35,6 +35,13 @@ export interface CreateManagerWithAuthDto {
   telephone?: string;
 }
 
+export interface CreateDirecteurWithAuthDto {
+  nom: string;
+  prenom: string;
+  email: string;
+  telephone?: string;
+}
+
 export const adminService = {
   /**
    * Create a new commercial with Keycloak integration
@@ -65,6 +72,22 @@ export const adminService = {
    */
   async deleteManager(id: string) {
     const response = await adminApi.delete(`/managers/${id}`);
+    return response.data;
+  },
+
+  /**
+   * Create a new directeur with Keycloak integration
+   */
+  async createDirecteur(data: CreateDirecteurWithAuthDto) {
+    const response = await adminApi.post('/directeurs', data);
+    return response.data;
+  },
+
+  /**
+   * Delete a directeur (removes from both Keycloak and database)
+   */
+  async deleteDirecteur(id: string) {
+    const response = await adminApi.delete(`/directeurs/${id}`);
     return response.data;
   },
 };

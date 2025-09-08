@@ -63,7 +63,7 @@ export class KeycloakService {
     email: string; 
     firstName: string; 
     lastName: string; 
-    role: 'admin' | 'manager' | 'commercial'; 
+    role: 'admin' | 'manager' | 'commercial' | 'directeur'; 
   }): Promise<string> {
     try {
       const response = await this.kc.post('/users', {
@@ -195,7 +195,7 @@ export class KeycloakService {
   }
 
   /* ───── Helpers ───── */
-  private async assignRole(userId: string, roleName: 'admin' | 'manager' | 'commercial'): Promise<void> {
+  private async assignRole(userId: string, roleName: 'admin' | 'manager' | 'commercial' | 'directeur'): Promise<void> {
     try {
       const { data: role } = await this.kc.get(`/roles/${roleName}`, { headers: await this.hdr() });
       if (!role) {
@@ -210,7 +210,7 @@ export class KeycloakService {
   }
 
   async ensureRolesExist(): Promise<void> {
-    const roles = ['admin', 'manager', 'commercial'];
+    const roles = ['admin', 'manager', 'commercial', 'directeur'];
     
     for (const roleName of roles) {
       try {

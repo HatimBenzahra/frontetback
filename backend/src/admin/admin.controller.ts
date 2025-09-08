@@ -5,6 +5,7 @@ import { MailerService } from '../auth/mailer.service';
 import { ConfigService } from '@nestjs/config';
 import { CommercialService } from '../commercial/commercial.service';
 import { ManagerService } from '../manager/manager.service';
+import { DirecteurService } from '../directeur/directeur.service';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { RolesGuard } from '../auth/roles.guard';
 import { Roles } from '../auth/roles.decorator';
@@ -25,6 +26,13 @@ interface CreateManagerWithAuthDto {
   telephone?: string;
 }
 
+interface CreateDirecteurWithAuthDto {
+  nom: string;
+  prenom: string;
+  email: string;
+  telephone?: string;
+}
+
 @Controller('admin')
 @UseGuards(JwtAuthGuard, RolesGuard)
 @Roles('admin')
@@ -38,6 +46,7 @@ export class AdminController {
     private configService: ConfigService,
     private commercialService: CommercialService,
     private managerService: ManagerService,
+    private directeurService: DirecteurService,
   ) {}
 
   @Post('commerciaux')
@@ -259,6 +268,116 @@ export class AdminController {
       }
       
       throw new BadRequestException('Erreur lors de la suppression du manager.');
+    }
+  }
+
+  @Post('directeurs')
+  async createDirecteurWithAuth(@Body() dto: CreateDirecteurWithAuthDto) {
+    const { nom, prenom, email, telephone } = dto;
+
+    if (!nom || !prenom || !email) {
+      throw new BadRequestException('Tous les champs obligatoires doivent être remplis');
+    }
+
+    try {
+      // Check if user already exists in Keycloak
+      const existingUser = await this.keycloakService.getUserByEmail(email);
+      if (existingUser) {
+        throw new BadRequestException('Un utilisateur avec cet email existe déjà');
+      }
+
+      // Create user in Keycloak first
+      const keycloakUserId = await this.keycloakService.createUser({
+        email,
+        firstName: prenom,
+        lastName: nom,
+        role: 'directeur',
+      });
+
+      // Create directeur in local database
+      const directeur = await this.directeurService.create({
+        nom,
+        prenom,
+        email,
+        telephone,
+      });
+
+      // Generate setup token and attempt to send email
+      const setupToken = this.jwtUtil.signSetup(keycloakUserId);
+      const setupLink = `${this.configService.get('FRONTEND_URL')}/setup-password?token=${setupToken}`;
+
+      let emailSent = true;
+      try {
+        await this.mailerService.sendSetupPasswordEmail(email, setupLink);
+      } catch (mailError) {
+        emailSent = false;
+        this.logger.warn(`Directeur créé mais échec d'envoi d'email: ${email}`);
+      }
+
+      this.logger.log(`Directeur créé avec succès: ${email}`);
+
+      return {
+        success: true,
+        directeur,
+        keycloakId: keycloakUserId,
+        message: emailSent
+          ? 'Directeur créé avec succès. Email de configuration envoyé.'
+          : 'Directeur créé avec succès. Échec de l\'envoi de l\'email, utilisez le lien de configuration.',
+        setupLink: emailSent ? undefined : setupLink,
+      };
+    } catch (error) {
+      this.logger.error(`Erreur lors de la création du directeur ${email}`, error);
+      
+      // Cleanup if something went wrong
+      try {
+        const existingKeycloakUser = await this.keycloakService.getUserByEmail(email);
+        if (existingKeycloakUser) {
+          await this.keycloakService.deleteUser(existingKeycloakUser.id);
+        }
+      } catch (cleanupError) {
+        this.logger.error('Erreur lors du nettoyage après échec', cleanupError);
+      }
+
+      if (error instanceof BadRequestException) {
+        throw error;
+      }
+      
+      throw new BadRequestException('Erreur lors de la création du directeur. Veuillez réessayer.');
+    }
+  }
+
+  @Delete('directeurs/:id')
+  async deleteDirecteurWithAuth(@Param('id') id: string) {
+    try {
+      // First get the directeur to get the email
+      const directeur = await this.directeurService.findOne(id);
+      if (!directeur) {
+        throw new BadRequestException('Directeur introuvable');
+      }
+
+      // Find and delete user from Keycloak
+      const keycloakUser = await this.keycloakService.getUserByEmail(directeur.email);
+      if (keycloakUser) {
+        await this.keycloakService.deleteUser(keycloakUser.id);
+      }
+
+      // Delete from local database
+      await this.directeurService.remove(id);
+
+      this.logger.log(`Directeur supprimé: ${directeur.email}`);
+      
+      return {
+        success: true,
+        message: 'Directeur supprimé avec succès de Keycloak et de la base de données.',
+      };
+    } catch (error) {
+      this.logger.error(`Erreur lors de la suppression du directeur ${id}`, error);
+      
+      if (error instanceof BadRequestException) {
+        throw error;
+      }
+      
+      throw new BadRequestException('Erreur lors de la suppression du directeur.');
     }
   }
 }

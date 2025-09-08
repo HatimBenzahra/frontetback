@@ -1,7 +1,7 @@
 // frontend-shadcn/src/pages/admin/Managers/ManagersPage.tsx
 
 import React, { useState, useEffect, useMemo } from "react";
-import { AlertTriangle } from "lucide-react";
+import { AlertTriangle, Users, UserCheck, TrendingUp, Target, Building2, Briefcase } from "lucide-react";
 import type { Manager } from "./managers-table/columns";
 import { getColumns } from "./managers-table/columns";
 import { DataTable } from "@/components/data-table/DataTable";
@@ -11,6 +11,7 @@ import { Label } from "@/components/ui-admin/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui-admin/card";
 import { type RowSelectionState } from "@tanstack/react-table";
 import { Modal } from "@/components/ui-admin/Modal";
+import StatCard from "@/components/ui-admin/StatCard";
 import { managerService } from "@/services/manager.service";
 import { adminService } from "@/services/admin.service";
 import { toast } from "sonner";
@@ -205,12 +206,87 @@ const ManagersPage = () => {
   
   const columns = useMemo(() => getColumns(isDeleteMode, handleEditOpen), [isDeleteMode]);
 
+  // Calcul des statistiques globales
+  const globalStats = useMemo(() => {
+    if (!data.length) return {
+      totalManagers: 0,
+      totalEquipes: 0,
+      totalCommerciaux: 0,
+      totalContrats: 0,
+      moyenneContratsParManager: 0,
+      tauxActivation: 0
+    };
+
+    const totalManagers = data.length;
+    const totalEquipes = data.reduce((sum, m) => sum + (m.equipes?.length || 0), 0);
+    const totalCommerciaux = data.reduce((sum, m) => 
+      sum + (m.equipes?.reduce((eSum, e) => eSum + (e.commerciaux?.length || 0), 0) || 0), 0
+    );
+    const totalContrats = data.reduce((sum, m) => sum + (m.totalContratsSignes || 0), 0);
+    const moyenneContratsParManager = totalManagers > 0 ? Math.round(totalContrats / totalManagers) : 0;
+    const managersAvecEquipes = data.filter(m => (m.equipes?.length || 0) > 0).length;
+    const tauxActivation = totalManagers > 0 ? Math.round((managersAvecEquipes / totalManagers) * 100) : 0;
+
+    return {
+      totalManagers,
+      totalEquipes,
+      totalCommerciaux,
+      totalContrats,
+      moyenneContratsParManager,
+      tauxActivation
+    };
+  }, [data]);
+
   if (loading) {
       return <AdminPageSkeleton hasHeader hasTable hasFilters />;
   }
 
   return (
     <>
+      {/* Section Statistiques Globales */}
+      <div className="mb-8">
+        <h2 className="text-2xl font-bold text-gray-900 mb-6">Vue d'ensemble des Managers</h2>
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
+          <StatCard 
+            title="Total Managers" 
+            value={globalStats.totalManagers} 
+            Icon={Users} 
+            color="text-blue-500" 
+          />
+          <StatCard 
+            title="Total Équipes" 
+            value={globalStats.totalEquipes} 
+            Icon={Building2} 
+            color="text-green-500" 
+          />
+          <StatCard 
+            title="Total Commerciaux" 
+            value={globalStats.totalCommerciaux} 
+            Icon={UserCheck} 
+            color="text-purple-500" 
+          />
+          <StatCard 
+            title="Total Contrats" 
+            value={globalStats.totalContrats} 
+            Icon={Briefcase} 
+            color="text-orange-500" 
+          />
+          <StatCard 
+            title="Moyenne Contrats/Manager" 
+            value={globalStats.moyenneContratsParManager} 
+            Icon={Target} 
+            color="text-indigo-500" 
+          />
+          <StatCard 
+            title="Taux d'Activation" 
+            value={globalStats.tauxActivation} 
+            Icon={TrendingUp} 
+            suffix="%" 
+            color="text-emerald-500" 
+          />
+        </div>
+      </div>
+
       <DataTable 
         columns={columns} 
         data={data} 

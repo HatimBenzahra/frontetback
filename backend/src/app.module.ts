@@ -8,6 +8,7 @@ import { PrismaModule } from './prisma/prisma.module';
 import { AuthModule } from './auth/auth.module';
 import { AdminModule } from './admin/admin.module';
 import { ManagerModule } from './manager/manager.module';
+import { DirecteurModule } from './directeur/directeur.module';
 import { EquipeModule } from './equipe/equipe.module';
 import { CommercialModule } from './commercial/commercial.module';
 import { ZoneModule } from './zone/zone.module';
@@ -32,6 +33,7 @@ import { ManagerSpaceModule } from './manager-space/manager-space.module';
     AuthModule,
     AdminModule,
     ManagerModule,
+    DirecteurModule,
     EquipeModule,
     CommercialModule,
     ZoneModule,
