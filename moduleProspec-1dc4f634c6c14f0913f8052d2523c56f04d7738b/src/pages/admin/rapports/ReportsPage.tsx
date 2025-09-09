@@ -786,7 +786,7 @@ const onDownload = async () => {
                         <span className="font-medium text-gray-900">Configuration statistiques</span>
                       </div>
                       <div className="space-y-1 text-sm text-gray-600">
-                        <div>Période: {period}</div>
+                        <div>Période: {period === 'WEEKLY' ? 'Hebdomadaire' : period === 'MONTHLY' ? 'Mensuel' : period === 'YEARLY' ? 'Annuel' : ''}</div>
                         <div>Ciblage: {entityType === 'GLOBAL' ? 'Global' : entityType}</div>
                         {entityType !== 'GLOBAL' && entityId && (
                           <div>ID: {entityId}</div>

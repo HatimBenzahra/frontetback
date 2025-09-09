@@ -84,7 +84,22 @@ const SuiviPage = () => {
       if (!commercialId) return;
       const pc = pcsRef.current.get(commercialId);
       if (!pc) return;
-      await pc.setRemoteDescription({ type: payload.type as RTCSdpType, sdp: payload.sdp });
+      
+      try {
+        // Check if we can set remote description
+        if (pc.signalingState === 'have-local-offer' || pc.signalingState === 'have-remote-pranswer') {
+          await pc.setRemoteDescription({ type: payload.type as RTCSdpType, sdp: payload.sdp });
+        } else {
+          console.warn('Cannot set remote description in current signaling state:', pc.signalingState);
+        }
+      } catch (err) {
+        console.error('Error setting remote description (admin):', err);
+        // Clean up the connection if it's in a bad state
+        if (pc.signalingState === 'stable' && pc.connectionState === 'failed') {
+          pcsRef.current.delete(commercialId);
+          setFailedIds(prev => new Set(prev).add(commercialId));
+        }
+      }
     };
 
     const onIce = async (payload: { from_socket_id: string; candidate: RTCIceCandidateInit | null }) => {
@@ -155,13 +170,16 @@ const SuiviPage = () => {
       });
     };
     pc.onconnectionstatechange = async () => {
+      console.log(`WebRTC connection state for ${stream.commercial_id}:`, pc.connectionState);
+      
       if (pc.connectionState === 'connected') {
         // Ensure connecting is cleared when fully connected
         setConnectingIds(prev => { const n = new Set(prev); n.delete(stream.commercial_id); return n; });
         setFailedIds(prev => { const n = new Set(prev); n.delete(stream.commercial_id); return n; });
         return;
       }
-      if (pc.connectionState === 'disconnected' || pc.connectionState === 'failed') {
+      
+      if (pc.connectionState === 'disconnected' || pc.connectionState === 'failed' || pc.connectionState === 'closed') {
         // Try ICE restart once
         if (!restartingRef.current.get(stream.commercial_id) && 'restartIce' in pc) {
           restartingRef.current.set(stream.commercial_id, true);

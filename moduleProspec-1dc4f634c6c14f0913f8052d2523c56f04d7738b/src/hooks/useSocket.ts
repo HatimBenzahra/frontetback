@@ -4,53 +4,99 @@ import { io, Socket } from 'socket.io-client';
 export const useSocket = (buildingId?: string) => {
   const socketRef = useRef<Socket | null>(null);
   const [instance, setInstance] = useState<Socket | null>(null);
+  const [isConnected, setIsConnected] = useState(false);
 
   useEffect(() => {
     const SERVER_HOST = import.meta.env.VITE_SERVER_HOST || window.location.hostname;
     const isDevelopment = SERVER_HOST === 'localhost' || SERVER_HOST === '127.0.0.1' || SERVER_HOST.startsWith('192.168.');
-    const httpProtocol = window.location.protocol; // 'http:' or 'https:'
-
-    // Use nginx proxy in production, direct port in development
+    
+    // Force HTTPS for consistency with backend SSL configuration
     const socketUrl = isDevelopment
-      ? `${httpProtocol}//${SERVER_HOST}:${import.meta.env.VITE_API_PORT || '3000'}`
-      : `${httpProtocol}//${SERVER_HOST}`;
+      ? `https://${SERVER_HOST}:${import.meta.env.VITE_API_PORT || '3000'}`
+      : `https://${SERVER_HOST}`;
     
     // Get auth token from localStorage
     const token = localStorage.getItem('access_token');
     
-    // Disconnect any previous instance before creating a new one
-    if (socketRef.current) {
-      try { socketRef.current.disconnect(); } catch {}
+    // Only create new socket if we don't have one or if it's disconnected
+    if (!socketRef.current || socketRef.current.disconnected) {
+      // Disconnect any previous instance before creating a new one
+      if (socketRef.current) {
+        try { 
+          socketRef.current.removeAllListeners();
+          socketRef.current.disconnect(); 
+        } catch (e) {
+          console.warn('Error disconnecting previous socket:', e);
+        }
+      }
+
+      socketRef.current = io(socketUrl, {
+        secure: true,
+        transports: ['polling', 'websocket'], // Start with polling for better compatibility
+        reconnection: true,
+        reconnectionAttempts: 5,
+        reconnectionDelay: 1000,
+        reconnectionDelayMax: 5000,
+        timeout: 20000,
+        forceNew: true,
+        rejectUnauthorized: false, // Accept self-signed certificates
+        auth: {
+          token: token
+        },
+        query: {
+          token: token
+        }
+      });
+
+      // Add connection event listeners
+      socketRef.current.on('connect', () => {
+        console.log('🔌 WebSocket connected');
+        setIsConnected(true);
+      });
+
+      socketRef.current.on('disconnect', (reason) => {
+        console.log('🔌 WebSocket disconnected:', reason);
+        setIsConnected(false);
+      });
+
+      socketRef.current.on('connect_error', (error) => {
+        console.error('🔌 WebSocket connection error:', error);
+        setIsConnected(false);
+      });
+
+      setInstance(socketRef.current);
     }
 
-    socketRef.current = io(socketUrl, {
-      secure: httpProtocol === 'https:',
-      transports: ['websocket', 'polling'],
-      forceNew: true,
-      upgrade: true,
-      auth: {
-        token: token
-      },
-      query: {
-        token: token
-      }
-    });
-    setInstance(socketRef.current);
-
-    if (buildingId) {
+    // Join room if buildingId is provided and socket is connected
+    if (buildingId && socketRef.current && isConnected) {
       socketRef.current.emit('joinRoom', buildingId);
     }
 
     return () => {
-      if (socketRef.current) {
-        if (buildingId) {
-          socketRef.current.emit('leaveRoom', buildingId);
-        }
-        socketRef.current.disconnect();
+      // Only disconnect if this is the last component using the socket
+      // For now, we'll keep the socket alive and just leave the room
+      if (buildingId && socketRef.current && isConnected) {
+        socketRef.current.emit('leaveRoom', buildingId);
       }
-      setInstance(null);
     };
-  }, [buildingId]);
+  }, [buildingId, isConnected]);
+
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => {
+      if (socketRef.current) {
+        try {
+          socketRef.current.removeAllListeners();
+          socketRef.current.disconnect();
+        } catch (e) {
+          console.warn('Error cleaning up socket:', e);
+        }
+        socketRef.current = null;
+        setInstance(null);
+        setIsConnected(false);
+      }
+    };
+  }, []);
 
   return instance;
 };
