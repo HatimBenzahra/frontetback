@@ -71,11 +71,35 @@ export class EquipeService {
           acc.contratsSignes += h.nbContratsSignes;
           acc.rdvPris += h.nbRdvPris;
           acc.portesVisitees += h.nbPortesVisitees;
+          acc.refus += h.nbRefus;
         });
         return acc;
       },
-      { contratsSignes: 0, rdvPris: 0, portesVisitees: 0 },
+      { contratsSignes: 0, rdvPris: 0, portesVisitees: 0, refus: 0 },
     );
+
+    // 2. Calcul des immeubles prospectés par l'équipe
+    const immeublesProspectes = await this.prisma.immeuble.count({
+      where: {
+        prospectors: {
+          some: {
+            equipeId: equipeId
+          }
+        }
+      }
+    });
+
+    // 3. Calcul des portes prospectées par l'équipe
+    const portesProspectees = await this.prisma.porte.count({
+      where: {
+        assignee: {
+          equipeId: equipeId
+        },
+        statut: {
+          in: ['VISITE', 'REFUS', 'CONTRAT_SIGNE', 'RDV', 'ABSENT', 'CURIEUX']
+        }
+      }
+    });
 
     const perfMoyenne =
       equipeStats.portesVisitees > 0
@@ -153,6 +177,9 @@ export class EquipeService {
       stats: {
         contratsSignes: equipeStats.contratsSignes,
         rdvPris: equipeStats.rdvPris,
+        refus: equipeStats.refus,
+        immeublesProspectes: immeublesProspectes,
+        portesProspectees: portesProspectees,
         perfMoyenne: parseFloat(perfMoyenne.toFixed(2)),
         classementGeneral: classementGeneral > 0 ? classementGeneral : 'N/A',
         nbCommerciaux: equipe.commerciaux.length,

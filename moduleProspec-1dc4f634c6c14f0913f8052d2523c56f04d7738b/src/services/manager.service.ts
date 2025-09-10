@@ -32,6 +32,18 @@ const updateManager = async (id: string, data: UpdateManagerPayload): Promise<Ma
   const response = await axios.patch(`${API_URL}/${id}`, data);
   return response.data;
 };
+
+// Fonction pour assigner un manager à un directeur
+const assignManagerToDirecteur = async (managerId: string, directeurId: string): Promise<Manager> => {
+  const response = await axios.patch(`${API_URL}/${managerId}/assign-directeur`, { directeurId });
+  return response.data;
+};
+
+// Fonction pour détacher un manager d'un directeur
+const unassignManagerFromDirecteur = async (managerId: string): Promise<Manager> => {
+  const response = await axios.patch(`${API_URL}/${managerId}/unassign-directeur`);
+  return response.data;
+};
 // AJOUT DES NOUVELLES FONCTIONS POUR L'ESPACE MANAGER
 const getManagerDetails = async (id: string): Promise<any> => {
   const response = await axios.get(`${API_URL}/${id}`);
@@ -200,6 +212,8 @@ export const managerService = {
   createManager,
   getManagerDetails,
   updateManager,
+  assignManagerToDirecteur,
+  unassignManagerFromDirecteur,
   deleteManager,
   // Nouvelles fonctions pour l'espace manager
   getManagerCommerciaux,

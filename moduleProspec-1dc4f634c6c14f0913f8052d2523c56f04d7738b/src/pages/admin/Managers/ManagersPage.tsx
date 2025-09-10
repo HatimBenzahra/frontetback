@@ -222,7 +222,7 @@ const ManagersPage = () => {
     const totalCommerciaux = data.reduce((sum, m) => 
       sum + (m.equipes?.reduce((eSum, e) => eSum + (e.commerciaux?.length || 0), 0) || 0), 0
     );
-    const totalContrats = data.reduce((sum, m) => sum + (m.totalContratsSignes || 0), 0);
+    const totalContrats = 0; // TODO: Calculer les contrats totaux
     const moyenneContratsParManager = totalManagers > 0 ? Math.round(totalContrats / totalManagers) : 0;
     const managersAvecEquipes = data.filter(m => (m.equipes?.length || 0) > 0).length;
     const tauxActivation = totalManagers > 0 ? Math.round((managersAvecEquipes / totalManagers) * 100) : 0;

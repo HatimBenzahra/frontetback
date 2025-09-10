@@ -52,6 +52,12 @@
   --winvest-green-nuit: 140 100% 20%;     /* #006b1d */
   --winvest-green-profond: 140 77% 30%; /* #14a058 */
   
+  /* Couleurs spécifiques pour les directeurs (orange) */
+  --winvest-orange-clair: 25 95% 85%;    /* #FED7AA */
+  --winvest-orange-moyen: 25 95% 53%;    /* #EA580C */
+  --winvest-orange-nuit: 20 100% 25%;     /* #9A3412 */
+  --winvest-orange-profond: 20 100% 35%; /* #C2410C */
+  
   --winvest-grey: 0 0% 85.1%;          /* #d9d9d9 */
   --radius: 0.5rem;
 }

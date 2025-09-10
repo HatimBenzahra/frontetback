@@ -98,7 +98,7 @@ const ManagerProfilePage = () => {
           nom: profileData.nom,
           prenom: profileData.prenom,
           email: profileData.email,
-          telephone: profileData.telephone
+          telephone: profileData.telephone ?? ''
         });
       } catch (error) {
         console.error('Erreur lors du chargement du profil:', error);
@@ -133,8 +133,8 @@ const ManagerProfilePage = () => {
       setSaving(true);
       // Pour l'instant, on met à jour seulement localement
       // TODO: Créer un endpoint spécifique pour les managers dans manager-space
-      const updatedProfile = {
-        ...profile,
+      const updatedProfile: ManagerProfile = {
+        ...profile!,
         nom: editForm.nom,
         prenom: editForm.prenom,
         email: editForm.email,

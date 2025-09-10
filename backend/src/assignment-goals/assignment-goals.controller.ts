@@ -17,7 +17,7 @@ interface AuthRequest extends Request {
 
 @Controller('assignment-goals')
 @UseGuards(JwtAuthGuard, RolesGuard)
-@Roles('admin', 'manager', 'commercial')
+@Roles('admin', 'manager', 'commercial', 'directeur', 'backoffice')
 export class AssignmentGoalsController {
   constructor(
     private readonly assignmentGoalsService: AssignmentGoalsService,
@@ -92,6 +92,11 @@ export class AssignmentGoalsController {
     );
   }
 
+  @Get('equipe/:equipeId/zones')
+  getAssignedZonesForEquipe(@Param('equipeId') equipeId: string) {
+    return this.assignmentGoalsService.getAssignedZonesForEquipe(equipeId);
+  }
+
   @Get('zone/:zoneId/commercials')
   getCommercialsInZone(@Param('zoneId') zoneId: string) {
     return this.assignmentGoalsService.getCommercialsInZone(zoneId);
@@ -131,6 +136,14 @@ export class AssignmentGoalsController {
     }
     else if (roles.includes('commercial')) {
       // Commercial voit toutes les assignations (pour informations générales)
+      return this.assignmentGoalsService.getAllAssignmentsWithStatus();
+    }
+    else if (roles.includes('directeur')) {
+      // Directeur voit toutes les assignations
+      return this.assignmentGoalsService.getAllAssignmentsWithStatus();
+    }
+    else if (roles.includes('backoffice')) {
+      // Backoffice voit toutes les assignations
       return this.assignmentGoalsService.getAllAssignmentsWithStatus();
     }
     

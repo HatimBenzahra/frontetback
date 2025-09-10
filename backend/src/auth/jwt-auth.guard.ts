@@ -131,7 +131,7 @@ export class JwtAuthGuard implements CanActivate {
       
       // Récupérer les données utilisateur (avec cache)
       const userData = await this.getUserDataWithCache(payload.email, payload);
-      const { managerId, dbRoles } = userData;
+      const { managerId, directeurId, dbRoles } = userData;
       
       // Combine Keycloak roles with database roles
       const keycloakRoles = this.extractRoles(payload);
@@ -142,6 +142,7 @@ export class JwtAuthGuard implements CanActivate {
         ...payload,
         // Use the database manager ID, not the Keycloak user ID
         managerId: managerId,
+        directeurId: directeurId,
         userId: payload.sub, // Keep Keycloak user ID for reference
         roles: allRoles,
         email: payload.email,
@@ -197,9 +198,9 @@ export class JwtAuthGuard implements CanActivate {
     }
   }
 
-  private async getUserDataWithCache(email: string, payload: any): Promise<{ managerId: string | null; dbRoles: string[] }> {
+  private async getUserDataWithCache(email: string, payload: any): Promise<{ managerId: string | null; directeurId: string | null; dbRoles: string[] }> {
     if (!email) {
-      return { managerId: null, dbRoles: [] };
+      return { managerId: null, directeurId: null, dbRoles: [] };
     }
 
     // Vérifier le cache
@@ -213,16 +214,21 @@ export class JwtAuthGuard implements CanActivate {
 
     // Cache expiré ou inexistant, requête DB
     let managerId = null;
+    let directeurId = null;
     const dbRoles: string[] = [];
 
     try {
       // Requête optimisée: une seule requête avec Promise.all
-      const [manager, commercial] = await Promise.all([
+      const [manager, commercial, directeur] = await Promise.all([
         this.prisma.manager.findFirst({
           where: { email },
           select: { id: true }
         }),
         this.prisma.commercial.findFirst({
+          where: { email },
+          select: { id: true }
+        }),
+        this.prisma.directeur.findFirst({
           where: { email },
           select: { id: true }
         })
@@ -237,12 +243,17 @@ export class JwtAuthGuard implements CanActivate {
         dbRoles.push('commercial');
       }
 
+      if (directeur) {
+        directeurId = directeur.id;
+        dbRoles.push('directeur');
+      }
+
       // Check admin by email
       if (email === this.configService.get('ADMIN_EMAIL')) {
         dbRoles.push('admin');
       }
 
-      const userData = { managerId, dbRoles };
+      const userData = { managerId, directeurId, dbRoles };
 
       // TTL hiérarchique: plus sensible = cache plus court
       let ttl = this.CACHE_TTL_COMMERCIAL; // Par défaut
@@ -275,7 +286,7 @@ export class JwtAuthGuard implements CanActivate {
     } catch (error) {
       this.logger.error('Database query failed for user data', error);
       // En cas d'erreur, retourner des données vides mais ne pas crasher
-      return { managerId: null, dbRoles: [] };
+      return { managerId: null, directeurId: null, dbRoles: [] };
       
     }
   }

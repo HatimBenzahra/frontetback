@@ -17,7 +17,7 @@ import { Roles } from '../auth/roles.decorator';
 
 @Controller('portes')
 @UseGuards(JwtAuthGuard, RolesGuard)
-@Roles('admin', 'manager', 'commercial')
+@Roles('admin', 'manager', 'commercial' ,'directeur')
 export class PorteController {
   constructor(private readonly porteService: PorteService) {}
 

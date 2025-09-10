@@ -1,6 +1,5 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
-import { ScheduleModule } from '@nestjs/schedule';
 
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
@@ -21,6 +20,8 @@ import { EventsModule } from './events/events.module';
 import { TranscriptionHistoryModule } from './transcription-history/transcription-history.module';
 import { ExportsModule } from './exports/exports.module';
 import { ManagerSpaceModule } from './manager-space/manager-space.module';
+import { DirecteurSpaceModule } from './directeur-space/directeur-space.module';
+import { SchedulerModule } from './scheduler/scheduler.module';
 
 @Module({
   imports: [
@@ -28,7 +29,7 @@ import { ManagerSpaceModule } from './manager-space/manager-space.module';
       isGlobal: true,
       envFilePath: '.env',
     }),
-    ScheduleModule.forRoot(),
+    // SchedulerModule, // Temporairement désactivé pour résoudre l'erreur de dépendance
     PrismaModule,
     AuthModule,
     AdminModule,
@@ -46,6 +47,7 @@ import { ManagerSpaceModule } from './manager-space/manager-space.module';
     TranscriptionHistoryModule,
     ExportsModule,
     ManagerSpaceModule,
+    DirecteurSpaceModule,
   ],
   controllers: [AppController],
   providers: [AppService],

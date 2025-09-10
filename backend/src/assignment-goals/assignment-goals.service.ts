@@ -506,6 +506,127 @@ export class AssignmentGoalsService {
     });
   }
 
+  async getAssignedZonesForEquipe(equipeId: string) {
+    // Récupérer d'abord l'équipe pour connaître son manager
+    const equipe = await this.prisma.equipe.findUnique({
+      where: { id: equipeId },
+      include: { 
+        manager: true,
+        commerciaux: { select: { id: true } }
+      }
+    });
+
+    if (!equipe) {
+      throw new Error(`Équipe avec l'ID ${equipeId} non trouvée`);
+    }
+
+    // Récupérer l'historique des assignations pour cette équipe
+    const assignmentHistories = await this.prisma.zoneAssignmentHistory.findMany({
+      where: {
+        OR: [
+          {
+            assignedToType: 'EQUIPE',
+            assignedToId: equipeId
+          },
+          {
+            assignedToType: 'COMMERCIAL',
+            assignedToId: {
+              in: equipe.commerciaux.map(c => c.id)
+            }
+          },
+          {
+            assignedToType: 'MANAGER',
+            assignedToId: equipe.managerId
+          }
+        ]
+      },
+      include: {
+        zone: {
+          include: {
+            manager: true,
+            equipe: true,
+            commerciaux: {
+              where: { isActive: true },
+              include: { commercial: true }
+            }
+          }
+        }
+      },
+      orderBy: { startDate: 'asc' } // Trier par date d'assignation (plus ancien en premier)
+    });
+
+    // Extraire les zones uniques (en cas de plusieurs assignations sur la même zone)
+    const uniqueZones = new Map();
+    assignmentHistories.forEach(history => {
+      if (!uniqueZones.has(history.zone.id)) {
+        uniqueZones.set(history.zone.id, {
+          ...history.zone,
+          lastAssignmentDate: history.startDate,
+          assignmentHistory: history
+        });
+      }
+    });
+
+    const zones = Array.from(uniqueZones.values());
+
+    // Enrichir avec les statistiques de chaque zone
+    const zonesWithStats = await Promise.all(
+      zones.map(async (zone) => {
+        const stats = await this.prisma.porte.aggregate({
+          where: { immeuble: { zoneId: zone.id } },
+          _count: { id: true }
+        });
+
+        const contratsSignes = await this.prisma.porte.count({
+          where: { 
+            immeuble: { zoneId: zone.id },
+            statut: 'CONTRAT_SIGNE'
+          }
+        });
+
+        const rdvPris = await this.prisma.porte.count({
+          where: { 
+            immeuble: { zoneId: zone.id },
+            statut: 'RDV'
+          }
+        });
+
+        const refus = await this.prisma.porte.count({
+          where: { 
+            immeuble: { zoneId: zone.id },
+            statut: 'REFUS'
+          }
+        });
+
+        const portesVisitees = await this.prisma.porte.count({
+          where: { 
+            immeuble: { zoneId: zone.id },
+            statut: { in: ['VISITE', 'REFUS', 'CONTRAT_SIGNE', 'RDV', 'ABSENT', 'CURIEUX'] }
+          }
+        });
+
+        const tauxReussite = portesVisitees > 0 ? contratsSignes / portesVisitees : 0;
+        const tauxRefus = portesVisitees > 0 ? refus / portesVisitees : 0;
+
+        return {
+          ...zone,
+          stats: {
+            nbImmeubles: stats._count.id,
+            totalContratsSignes: contratsSignes,
+            totalRdvPris: rdvPris,
+            totalRefus: refus,
+            totalPortesVisitees: portesVisitees
+          },
+          tauxReussite,
+          tauxRefus
+        };
+      })
+    );
+
+    return zonesWithStats;
+  }
+
+
   async getCommercialsInZone(zoneId: string) {
     const zone = await this.prisma.zone.findUnique({
       where: { id: zoneId },

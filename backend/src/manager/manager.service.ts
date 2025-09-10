@@ -60,4 +60,34 @@ export class ManagerService {
   remove(id: string) {
     return this.prisma.manager.delete({ where: { id } });
   }
+
+  assignToDirecteur(id: string, directeurId: string) {
+    return this.prisma.manager.update({
+      where: { id },
+      data: { directeurId },
+      include: {
+        directeur: true,
+        equipes: {
+          include: {
+            commerciaux: true,
+          },
+        },
+      },
+    });
+  }
+
+  unassignFromDirecteur(id: string) {
+    return this.prisma.manager.update({
+      where: { id },
+      data: { directeurId: null },
+      include: {
+        directeur: true,
+        equipes: {
+          include: {
+            commerciaux: true,
+          },
+        },
+      },
+    });
+  }
 }

@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState, useCallback } from 'react';
-import { useParams, useNavigate, useLocation } from 'react-router-dom';
+import { useParams, useNavigate } from 'react-router-dom';
 import { ColumnDef } from '@tanstack/react-table';
 import {
   Building,
@@ -11,6 +11,8 @@ import {
   Phone,
   Mail,
   UserCheck,
+  Briefcase,
+  Award,
 } from 'lucide-react';
 
 import { statisticsService } from '@/services/statistics.service';
@@ -63,20 +65,13 @@ const historyColumns: ColumnDef<HistoryEntry>[] = [
 ];
 
 /* ----------------------- Utils UI ----------------------- */
-type BackOrigin = 'manager' | 'equipe' | null; // Type pour l'origine du bouton de retour
 
-const getBackButtonWrapperClass = (origin: BackOrigin) => {
-  if (origin === 'manager') return 'border-2 border-indigo-500 rounded-md px-2 py-0.5 mr-4';
-  if (origin === 'equipe') return 'border-2 border-emerald-500 rounded-md px-2 py-0.5 mr-4';
-  return 'mr-4';
-};
 
 const pieColors = ['#22c55e', '#f97316', '#f59e0b', '#ef4444', '#8b5cf6', '#3b82f6'];
 
 const CommercialDetailsPage = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const location = useLocation();
 
   const [stats, setStats] = useState<CommercialStats | null>(null);
   const [history, setHistory] = useState<HistoryEntry[]>([]);
@@ -84,11 +79,6 @@ const CommercialDetailsPage = () => {
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
 
-  const backOrigin: BackOrigin = useMemo(() => {
-    if (location.state?.fromManager) return 'manager';
-    if (location.state?.fromEquipe) return 'equipe';
-    return null;
-  }, [location.state]);
 
   useEffect(() => {
     if (!id) return;
@@ -167,16 +157,88 @@ const CommercialDetailsPage = () => {
   }
 
   return (
-    <div className="container mx-auto p-4 space-y-6">
-      <div className="flex items-center">
-        <div className={getBackButtonWrapperClass(backOrigin)}>
-          <Button variant="outline" size="icon" onClick={handleBackClick}>
-          <ArrowLeft className="h-4 w-4" />
-          </Button>
+    <div className="space-y-5 p-6 pb-4 bg-gradient-to-br from-white via-orange-50/60 to-orange-100/30">
+      {/* Header compact avec gradient */}
+      <div className="relative overflow-hidden bg-gradient-to-r from-orange-600 via-orange-700 to-orange-800 rounded-xl p-6 text-white shadow-lg">
+        <div className="absolute inset-0 bg-black/10"></div>
+        <div className="relative z-10">
+          {/* Bouton retour */}
+          <div className="mb-4">
+            <Button
+              variant="ghost"
+              onClick={handleBackClick}
+              className="flex items-center gap-2 text-white/90 hover:text-white hover:bg-white/20 backdrop-blur-sm border border-white/30"
+            >
+              <ArrowLeft className="h-4 w-4" />
+              Retour aux commerciaux
+            </Button>
+          </div>
+
+          {/* Informations principales du commercial - Version compacte */}
+          <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+            <div className="flex items-center gap-4">
+              {/* Avatar plus petit */}
+              <div className="relative">
+                <div className="w-16 h-16 bg-gradient-to-br from-white/20 to-white/10 rounded-xl flex items-center justify-center text-white font-bold text-xl backdrop-blur-sm border border-white/30">
+                  {stats.commercialInfo.prenom[0]}{stats.commercialInfo.nom[0]}
+                </div>
+                <div className="absolute -top-1 -right-1 w-6 h-6 bg-yellow-400 rounded-full flex items-center justify-center">
+                  <Award className="h-3 w-3 text-yellow-800" />
+                </div>
+              </div>
+
+              {/* Informations du commercial */}
+              <div>
+                <h1 className="text-2xl font-bold tracking-tight mb-1">
+                  {stats.commercialInfo.prenom} {stats.commercialInfo.nom}
+                </h1>
+                <div className="flex items-center gap-3 text-orange-100 text-sm">
+                  <div className="flex items-center gap-1">
+                    <Briefcase className="h-4 w-4" />
+                    <span>Commercial</span>
+                  </div>
+                  <div className="flex items-center gap-1">
+                    <Award className="h-4 w-4" />
+                    <span>Classement N/A</span>
+                  </div>
+                </div>
+                <p className="text-orange-200 mt-1 text-sm">
+                  {commercial.equipe?.manager ? `${commercial.equipe.manager.prenom} ${commercial.equipe.manager.nom}` : 'Manager non assigné'} • {commercial.equipe?.nom || 'Équipe non assignée'}
+                </p>
+              </div>
+            </div>
+
+            {/* Métriques de performance - Version horizontale compacte */}
+            <div className="flex gap-3">
+              <div className="bg-white/10 backdrop-blur-sm rounded-lg p-3 border border-white/20 min-w-[80px]">
+                <div className="text-center">
+                  <div className="text-xl font-bold text-white">
+                    {stats.kpis.contratsSignes || 0}
+                  </div>
+                  <div className="text-orange-100 text-xs">Contrats</div>
+                </div>
+              </div>
+              
+              <div className="bg-white/10 backdrop-blur-sm rounded-lg p-3 border border-white/20 min-w-[80px]">
+                <div className="text-center">
+                  <div className="text-xl font-bold text-white">
+                    {stats.kpis.rdvPris || 0}
+                  </div>
+                  <div className="text-orange-100 text-xs">RDV</div>
+                </div>
+              </div>
+
+              <div className="bg-white/10 backdrop-blur-sm rounded-lg p-3 border border-white/20 min-w-[80px]">
+                <div className="text-center">
+                  <div className="text-xl font-bold text-white">
+                    {Math.round((stats.kpis.tauxDeConversion || 0) * 100) / 100}%
+                  </div>
+                  <div className="text-orange-100 text-xs">Taux</div>
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
-        <h1 className="text-2xl font-bold">
-          Statistiques de {stats.commercialInfo.prenom} {stats.commercialInfo.nom}
-        </h1>
       </div>
 
       <Card>

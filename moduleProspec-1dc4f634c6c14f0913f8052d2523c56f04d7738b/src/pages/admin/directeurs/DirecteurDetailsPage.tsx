@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, Users, Building2, Target, Mail, Phone, User, Briefcase, Award, TrendingUp, Calendar, BarChart3, Eye, Edit } from 'lucide-react';
+import { ArrowLeft, Users, Building2, Target, Mail, Phone, User, Briefcase, Award, TrendingUp, Calendar, BarChart3, Eye, Edit, Plus, Trash2 } from 'lucide-react';
 
 import { Button } from '@/components/ui-admin/button';
 import StatCard from '@/components/ui-admin/StatCard';
@@ -13,8 +13,10 @@ import { LeaderboardTable } from '@/pages/admin/statitistiques/LeaderboardTable'
 import { Modal } from '@/components/ui-admin/Modal';
 import { Input } from '@/components/ui-admin/input';
 import { Label } from '@/components/ui-admin/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui-admin/select';
 
 import { directeurService, type Directeur } from '@/services/directeur.service';
+import { managerService } from '@/services/manager.service';
 import { assignmentGoalsService } from '@/services/assignment-goals.service';
 import { zoneService } from '@/services/zone.service';
 import { immeubleService } from '@/services/immeuble.service';
@@ -42,9 +44,15 @@ const DirecteurDetailsPage = () => {
   const [realClassement, setRealClassement] = useState<number>(0);
   
   // États pour les modals d'édition
-  const [editManagerModal, setEditManagerModal] = useState<{ isOpen: boolean; manager: any }>({ isOpen: false, manager: null });
   const [editEquipeModal, setEditEquipeModal] = useState<{ isOpen: boolean; equipe: any }>({ isOpen: false, equipe: null });
-  const [editCommercialModal, setEditCommercialModal] = useState<{ isOpen: boolean; commercial: any }>({ isOpen: false, commercial: null });
+  
+  // États pour l'assignation de manager
+  const [assignManagerModal, setAssignManagerModal] = useState<{ isOpen: boolean }>({ isOpen: false });
+  const [availableManagers, setAvailableManagers] = useState<any[]>([]);
+  const [selectedManagerId, setSelectedManagerId] = useState<string>('');
+  
+  // États pour la suppression de manager
+  const [removeManagerModal, setRemoveManagerModal] = useState<{ isOpen: boolean; manager: any }>({ isOpen: false, manager: null });
 
   useEffect(() => {
     if (!id) return;
@@ -54,16 +62,20 @@ const DirecteurDetailsPage = () => {
   const fetchDirecteurDetails = async () => {
     try {
       setLoading(true);
-      const [directeurDetails, currentGlobalGoal, zones, immeubles, allDirecteurs] = await Promise.all([
+      const [directeurDetails, currentGlobalGoal, zones, immeubles, allDirecteurs, allManagers] = await Promise.all([
         directeurService.getDirecteurDetails(id!),
         assignmentGoalsService.getCurrentGlobalGoal(),
         zoneService.getZones(),
         immeubleService.getImmeubles(),
-        directeurService.getDirecteurs()
+        directeurService.getDirecteurs(),
+        managerService.getManagers()
       ]);
       
       setDirecteur(directeurDetails);
       setGlobalGoal(currentGlobalGoal);
+      
+      // Utiliser tous les managers disponibles
+      setAvailableManagers(allManagers);
       
       // Calculer le vrai classement basé sur la performance
       const calculatedClassement = calculateRealClassement(directeurDetails, allDirecteurs);
@@ -230,10 +242,6 @@ const DirecteurDetailsPage = () => {
     navigate(`/admin/managers/${managerId}`);
   };
 
-  const handleEditManager = (manager: any) => {
-    console.log(`Édition du manager: ${manager.id}`);
-    setEditManagerModal({ isOpen: true, manager });
-  };
 
   const handleViewEquipe = (equipeId: string, equipeName: string) => {
     console.log(`Navigation vers équipe: ${equipeId}`);
@@ -252,9 +260,48 @@ const DirecteurDetailsPage = () => {
     navigate(`/admin/commerciaux/${commercialId}`);
   };
 
-  const handleEditCommercial = (commercial: any) => {
-    console.log(`Édition du commercial: ${commercial.id}`);
-    setEditCommercialModal({ isOpen: true, commercial });
+
+  // Fonctions pour l'assignation de manager
+  const handleAssignManager = () => {
+    setAssignManagerModal({ isOpen: true });
+  };
+
+  const handleConfirmAssignManager = async () => {
+    if (!selectedManagerId || !id) return;
+    
+    try {
+      // Appeler l'API pour assigner le manager au directeur
+      await managerService.assignManagerToDirecteur(selectedManagerId, id);
+      toast.success("Manager assigné avec succès");
+      setAssignManagerModal({ isOpen: false });
+      setSelectedManagerId('');
+      // Recharger les données
+      fetchDirecteurDetails();
+    } catch (error) {
+      console.error('Erreur lors de l\'assignation:', error);
+      toast.error("Erreur lors de l'assignation du manager");
+    }
+  };
+
+  // Fonctions pour la suppression de manager
+  const handleRemoveManager = (manager: any) => {
+    setRemoveManagerModal({ isOpen: true, manager });
+  };
+
+  const handleConfirmRemoveManager = async () => {
+    if (!removeManagerModal.manager?.id) return;
+    
+    try {
+      // Appeler l'API pour détacher le manager du directeur
+      await managerService.unassignManagerFromDirecteur(removeManagerModal.manager.id);
+      toast.success("Manager détaché avec succès");
+      setRemoveManagerModal({ isOpen: false, manager: null });
+      // Recharger les données
+      fetchDirecteurDetails();
+    } catch (error) {
+      console.error('Erreur lors du détachement:', error);
+      toast.error("Erreur lors du détachement du manager");
+    }
   };
 
   // Calcul des statistiques
@@ -614,10 +661,20 @@ const DirecteurDetailsPage = () => {
 
       {/* Managers avec leurs équipes et commerciaux - Version compacte */}
       <div className="space-y-6">
-        <h2 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
-          <Briefcase className="h-6 w-6" />
-          Structure de l'Équipe
-        </h2>
+        <div className="flex items-center justify-between">
+          <h2 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
+            <Briefcase className="h-6 w-6" />
+            Structure de l'Équipe
+          </h2>
+          <Button 
+            onClick={handleAssignManager}
+            className="bg-blue-600 hover:bg-blue-700 text-white"
+            disabled={availableManagers.length === 0}
+          >
+            <Plus className="h-4 w-4 mr-2" />
+            Assigner un Manager
+          </Button>
+        </div>
         
         {directeur?.managers?.map((manager) => (
           <Card key={manager.id} className="overflow-hidden">
@@ -674,12 +731,13 @@ const DirecteurDetailsPage = () => {
                           <Button 
                             variant="outline" 
                             size="sm"
-                            onClick={() => handleEditManager(manager)}
+                            onClick={() => handleRemoveManager(manager)}
+                            className="text-red-600 hover:text-red-700 hover:bg-red-50 border-red-200"
                           >
-                            <Edit className="h-4 w-4" />
+                            <Trash2 className="h-4 w-4" />
                           </Button>
                         </TooltipTrigger>
-                        <TooltipContent><p>Modifier</p></TooltipContent>
+                        <TooltipContent><p>Détacher du directeur</p></TooltipContent>
                       </Tooltip>
                     </TooltipProvider>
                   </div>
@@ -787,19 +845,6 @@ const DirecteurDetailsPage = () => {
                                   </TooltipTrigger>
                                   <TooltipContent><p>Voir détails</p></TooltipContent>
                                 </Tooltip>
-                                <Tooltip>
-                                  <TooltipTrigger asChild>
-                                    <Button 
-                                      variant="ghost" 
-                                      size="sm" 
-                                      className="h-6 w-6 p-0"
-                                      onClick={() => handleEditCommercial(commercial)}
-                                    >
-                                      <Edit className="h-3 w-3" />
-                                    </Button>
-                                  </TooltipTrigger>
-                                  <TooltipContent><p>Modifier</p></TooltipContent>
-                                </Tooltip>
                               </TooltipProvider>
                             </div>
                           </div>
@@ -840,42 +885,6 @@ const DirecteurDetailsPage = () => {
         </div>
       </div>
 
-      {/* Modal d'édition Manager */}
-      <Modal
-        isOpen={editManagerModal.isOpen}
-        onClose={() => setEditManagerModal({ isOpen: false, manager: null })}
-        title="Modifier le manager"
-        maxWidth="max-w-2xl"
-        overlayClassName="backdrop-blur-sm bg-black/10"
-      >
-        <div className="mb-4 text-sm text-muted-foreground">
-          Modifiez les informations du manager {editManagerModal.manager?.prenom} {editManagerModal.manager?.nom}
-        </div>
-        <div className="grid gap-4">
-          <div className="space-y-1">
-            <Label htmlFor="prenom">Prénom</Label>
-            <Input id="prenom" defaultValue={editManagerModal.manager?.prenom} />
-          </div>
-          <div className="space-y-1">
-            <Label htmlFor="nom">Nom</Label>
-            <Input id="nom" defaultValue={editManagerModal.manager?.nom} />
-          </div>
-        </div>
-        <div className="flex justify-end gap-2 mt-6">
-          <Button variant="outline" onClick={() => setEditManagerModal({ isOpen: false, manager: null })}>
-            Annuler
-          </Button>
-          <Button 
-            onClick={() => {
-              toast.success("Manager modifié avec succès");
-              setEditManagerModal({ isOpen: false, manager: null });
-            }}
-            className="bg-green-600 text-white hover:bg-green-700"
-          >
-            Enregistrer les modifications
-          </Button>
-        </div>
-      </Modal>
 
       {/* Modal d'édition Équipe */}
       <Modal
@@ -910,39 +919,89 @@ const DirecteurDetailsPage = () => {
         </div>
       </Modal>
 
-      {/* Modal d'édition Commercial */}
+
+      {/* Modal d'assignation de Manager */}
       <Modal
-        isOpen={editCommercialModal.isOpen}
-        onClose={() => setEditCommercialModal({ isOpen: false, commercial: null })}
-        title="Modifier le commercial"
-        maxWidth="max-w-2xl"
+        isOpen={assignManagerModal.isOpen}
+        onClose={() => setAssignManagerModal({ isOpen: false })}
+        title="Assigner un Manager"
+        maxWidth="max-w-md"
         overlayClassName="backdrop-blur-sm bg-black/10"
       >
         <div className="mb-4 text-sm text-muted-foreground">
-          Modifiez les informations du commercial {editCommercialModal.commercial?.id}
+          Sélectionnez un manager à assigner à {directeur?.prenom} {directeur?.nom}
         </div>
-        <div className="grid gap-4">
-          <div className="space-y-1">
-            <Label htmlFor="nom-commercial">Nom</Label>
-            <Input id="nom-commercial" defaultValue="Commercial" />
+        <div className="space-y-4">
+          <div className="space-y-2">
+            <Label htmlFor="manager-select">Manager disponible</Label>
+            <Select value={selectedManagerId} onValueChange={setSelectedManagerId}>
+              <SelectTrigger>
+                <SelectValue placeholder="Choisir un manager..." />
+              </SelectTrigger>
+              <SelectContent>
+                {availableManagers.map((manager) => (
+                  <SelectItem key={manager.id} value={manager.id}>
+                    {manager.prenom} {manager.nom} - {manager.email}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
-          <div className="space-y-1">
-            <Label htmlFor="prenom-commercial">Prénom</Label>
-            <Input id="prenom-commercial" defaultValue={`Commercial ${editCommercialModal.commercial?.id.slice(-3)}`} />
-          </div>
+          {availableManagers.length === 0 && (
+            <div className="text-sm text-amber-600 bg-amber-50 p-3 rounded-lg border border-amber-200">
+              Aucun manager disponible pour l'assignation. Tous les managers sont déjà assignés à un directeur.
+            </div>
+          )}
         </div>
         <div className="flex justify-end gap-2 mt-6">
-          <Button variant="outline" onClick={() => setEditCommercialModal({ isOpen: false, commercial: null })}>
+          <Button 
+            variant="outline" 
+            onClick={() => {
+              setAssignManagerModal({ isOpen: false });
+              setSelectedManagerId('');
+            }}
+          >
             Annuler
           </Button>
           <Button 
-            onClick={() => {
-              toast.success("Commercial modifié avec succès");
-              setEditCommercialModal({ isOpen: false, commercial: null });
-            }}
-            className="bg-green-600 text-white hover:bg-green-700"
+            onClick={handleConfirmAssignManager}
+            disabled={!selectedManagerId}
+            className="bg-blue-600 text-white hover:bg-blue-700"
           >
-            Enregistrer les modifications
+            Assigner le Manager
+          </Button>
+        </div>
+      </Modal>
+
+      {/* Modal de confirmation de suppression de Manager */}
+      <Modal
+        isOpen={removeManagerModal.isOpen}
+        onClose={() => setRemoveManagerModal({ isOpen: false, manager: null })}
+        title="Détacher le Manager"
+        maxWidth="max-w-md"
+        overlayClassName="backdrop-blur-sm bg-black/10"
+      >
+        <div className="mb-4 text-sm text-muted-foreground">
+          Êtes-vous sûr de vouloir détacher le manager <strong>{removeManagerModal.manager?.prenom} {removeManagerModal.manager?.nom}</strong> du directeur <strong>{directeur?.prenom} {directeur?.nom}</strong> ?
+        </div>
+        <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 mb-4">
+          <div className="text-sm text-amber-800">
+            <strong>Attention :</strong> Cette action détachera le manager du directeur. Le manager redeviendra disponible pour être assigné à un autre directeur.
+          </div>
+        </div>
+        <div className="flex justify-end gap-2 mt-6">
+          <Button 
+            variant="outline" 
+            onClick={() => setRemoveManagerModal({ isOpen: false, manager: null })}
+          >
+            Annuler
+          </Button>
+          <Button 
+            onClick={handleConfirmRemoveManager}
+            className="bg-red-600 text-white hover:bg-red-700"
+          >
+            <Trash2 className="h-4 w-4 mr-2" />
+            Détacher le Manager
           </Button>
         </div>
       </Modal>

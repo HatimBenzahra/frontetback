@@ -7,7 +7,7 @@ export const WEBSOCKET_CONFIG = {
   CONNECTION_TIMEOUT: 20000,
   
   // Transport preferences
-  TRANSPORTS: ['polling', 'websocket'] as const,
+  TRANSPORTS: ['polling', 'websocket'],
   
   // SSL settings
   REJECT_UNAUTHORIZED: false, // Accept self-signed certificates in development
@@ -54,7 +54,7 @@ export const createSocketOptions = () => {
   
   return {
     secure: true,
-    transports: WEBSOCKET_CONFIG.TRANSPORTS,
+    transports: [...WEBSOCKET_CONFIG.TRANSPORTS],
     reconnection: true,
     reconnectionAttempts: WEBSOCKET_CONFIG.RECONNECTION_ATTEMPTS,
     reconnectionDelay: WEBSOCKET_CONFIG.RECONNECTION_DELAY,

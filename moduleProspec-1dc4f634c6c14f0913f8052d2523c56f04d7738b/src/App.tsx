@@ -8,6 +8,7 @@ import RoleBasedRedirect from './routes/RoleBasedRedirect';
 // --- Layouts et Pages Publiques ---
 import AdminLayout from './layout/AdminLayout';
 import CommercialLayout from './layout/CommercialLayout';
+import DirecteurLayout from './layout/DirecteurLayout';
 import Login from './pages/auth/Login';
 import SetupPassword from './pages/auth/SetupPassword';
 import ForgotPassword from './pages/auth/ForgotPassword';
@@ -59,7 +60,14 @@ import ManagerImmeubleDetailsPage from './pages/manager/immeubles/portes/Immeubl
 import ManagerSuiviPage from './pages/manager/suivi/SuiviPage';
 import ManagerTranscriptionsPage from './pages/manager/transcription/TranscriptionsPage';
 import ManagerCommercialTranscriptionPage from './pages/manager/transcription/CommercialTranscriptionPage';
-import DashboardDirecteur from './pages/directeur/DashboardDirecteur';
+import DashboardDirecteur from './pages/directeur/Dashboard/DashboardDirecteur';
+import DirecteurManagersPage from './pages/directeur/managers/ManagersPage';
+import DirecteurManagerDetailsPage from './pages/directeur/managers/ManagerDetailsPage';
+import DirecteurEquipesPage from './pages/directeur/equipes/EquipesPage';
+import DirecteurEquipeDetailsPage from './pages/directeur/equipes/EquipeDetailsPage';
+import DirecteurCommerciauxPage from './pages/directeur/commerciaux/CommerciauxPage';
+import DirecteurCommercialDetailsPage from './pages/directeur/commerciaux/CommercialDetailsPage';
+import DirecteurStatistiquesPage from './pages/directeur/statistiques/StatistiquesPage';
 import DashboardBackoffice from './pages/backoffice/DashboardBackoffice';
 import ManagerGPSPage from './pages/manager/gps/gps_suivi';
 import ManagerZonesPage from './pages/manager/zones/ZonesPage';
@@ -155,8 +163,21 @@ function App() {
 
           </Route>
             
+                  {/* --- Layout pour les directeurs --- */}
+                  <Route path="/directeur" element={<DirecteurLayout />}>
+                    <Route index element={<DashboardDirecteur />} />
+                    <Route path="dashboard" element={<DashboardDirecteur />} />
+                    <Route path="managers" element={<DirecteurManagersPage />} />
+                    <Route path="managers/:managerId" element={<DirecteurManagerDetailsPage />} />
+                    <Route path="equipes" element={<DirecteurEquipesPage />} />
+                    <Route path="equipes/:equipeId" element={<DirecteurEquipeDetailsPage />} />
+                    <Route path="commerciaux" element={<DirecteurCommerciauxPage />} />
+                    <Route path="commerciaux/:id" element={<DirecteurCommercialDetailsPage />} />
+                    <Route path="statistiques" element={<DirecteurStatistiquesPage />} />
+                    {/* Routes supplémentaires pour le directeur seront ajoutées ici */}
+                  </Route>
+
           {/* Routes pour les autres rôles */}
-          <Route path="/directeur" element={<DashboardDirecteur />} />
           <Route path="/backoffice" element={<DashboardBackoffice />} />
 
         </Route>

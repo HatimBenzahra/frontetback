@@ -65,15 +65,47 @@ const DashboardDirecteur = () => {
         try {
             setLoading(true);
             setError(null);
-            const [dashboardDataResp, chartsDataResp, progressDataResp, goalDataResp] = await Promise.all([
-                directeurSpaceService.getDashboardStats(settings.defaultTimeFilter),
-                Promise.all([
-                    directeurSpaceService.getPerformanceChart(chartPeriod),
-                    directeurSpaceService.getRepassageChart(chartPeriod)
-                ]),
-                directeurSpaceService.getCommercialsProgress(settings.defaultTimeFilter),
+            const [globalStats, managersStats, performanceHistory, progressDataResp, goalDataResp] = await Promise.all([
+                directeurSpaceService.getGlobalStats(),
+                directeurSpaceService.getManagersStats(),
+                directeurSpaceService.getPerformanceHistory(),
+                directeurSpaceService.getCommerciauxStats(),
                 assignmentGoalsService.getCurrentGlobalGoal()
             ]);
+            
+            // Trouver le meilleur manager basé sur le taux de conversion
+            const meilleurManager = managersStats.length > 0 
+                ? managersStats.reduce((best: any, current: any) => 
+                    (current.tauxConversion || 0) > (best.tauxConversion || 0) ? current : best
+                  )
+                : null;
+            
+            // Calculer le taux de conclusion moyen des managers
+            const tauxConclusionMoyen = managersStats.length > 0
+                ? managersStats.reduce((sum: number, manager: any) => sum + (manager.tauxConversion || 0), 0) / managersStats.length
+                : 0;
+            
+            // Transformer les données pour correspondre au format attendu par le frontend
+            const dashboardDataResp = {
+                stats: {
+                    contratsSignes: globalStats.totalContrats || 0,
+                    rdvPris: globalStats.totalRdv || 0,
+                    tauxSignature: globalStats.tauxConversion || 0,
+                    perfMoyenne: globalStats.tauxConversion || 0
+                },
+                managerStats: {
+                    meilleurManager: meilleurManager ? `${meilleurManager.prenom} ${meilleurManager.nom}` : "Aucun manager",
+                    tauxConclusionMoyen: Math.round(tauxConclusionMoyen * 100) / 100,
+                    rdvMoyen: Math.round((globalStats.totalRdv || 0) / (globalStats.totalManagers || 1)),
+                    effectifTotal: globalStats.totalManagers || 0
+                },
+                activiteRecente: [] // Pour l'instant, retourner un tableau vide
+            };
+            
+            const chartsDataResp = [
+                performanceHistory[chartPeriod as keyof typeof performanceHistory] || [],
+                [] // Repassage chart - pas encore implémenté
+            ];
             setDashboardData(dashboardDataResp);
             setPerformanceData(chartsDataResp[0]);
             setRepassageData(chartsDataResp[1]);
@@ -96,20 +128,47 @@ const DashboardDirecteur = () => {
                 setError(null);
                 
                 // Charger toutes les données en parallèle
-                const [dashboardData, chartsData, progressData, goalData] = await Promise.all([
-                    directeurSpaceService.getDashboardStats(settings.defaultTimeFilter),
-                    Promise.all([
-                        directeurSpaceService.getPerformanceChart(chartPeriod),
-                        directeurSpaceService.getRepassageChart(chartPeriod)
-                    ]),
-                    directeurSpaceService.getCommercialsProgress(settings.defaultTimeFilter),
+                const [globalStats, managersStats, performanceHistory, progressData, goalData] = await Promise.all([
+                    directeurSpaceService.getGlobalStats(),
+                    directeurSpaceService.getManagersStats(),
+                    directeurSpaceService.getPerformanceHistory(),
+                    directeurSpaceService.getCommerciauxStats(),
                     assignmentGoalsService.getCurrentGlobalGoal()
                 ]);
                 
+                // Trouver le meilleur manager basé sur le taux de conversion
+                const meilleurManager = managersStats.length > 0 
+                    ? managersStats.reduce((best: any, current: any) => 
+                        (current.tauxConversion || 0) > (best.tauxConversion || 0) ? current : best
+                      )
+                    : null;
+                
+                // Calculer le taux de conclusion moyen des managers
+                const tauxConclusionMoyen = managersStats.length > 0
+                    ? managersStats.reduce((sum: number, manager: any) => sum + (manager.tauxConversion || 0), 0) / managersStats.length
+                    : 0;
+                
+                // Transformer les données pour correspondre au format attendu par le frontend
+                const dashboardData = {
+                    stats: {
+                        contratsSignes: globalStats.totalContrats || 0,
+                        rdvPris: globalStats.totalRdv || 0,
+                        tauxSignature: globalStats.tauxConversion || 0,
+                        perfMoyenne: globalStats.tauxConversion || 0
+                    },
+                    managerStats: {
+                        meilleurManager: meilleurManager ? `${meilleurManager.prenom} ${meilleurManager.nom}` : "Aucun manager",
+                        tauxConclusionMoyen: Math.round(tauxConclusionMoyen * 100) / 100,
+                        rdvMoyen: Math.round((globalStats.totalRdv || 0) / (globalStats.totalManagers || 1)),
+                        effectifTotal: globalStats.totalManagers || 0
+                    },
+                    activiteRecente: [] // Pour l'instant, retourner un tableau vide
+                };
+                
                 // Mettre à jour tous les states
                 setDashboardData(dashboardData);
-                setPerformanceData(chartsData[0]);
-                setRepassageData(chartsData[1]);
+                setPerformanceData(performanceHistory[chartPeriod as keyof typeof performanceHistory] || []);
+                setRepassageData([]); // Repassage chart - pas encore implémenté
                 setCommercialsProgress(progressData);
                 setCurrentGlobalGoal(goalData);
                 // Déclencher le rafraîchissement des assignations
@@ -132,12 +191,9 @@ const DashboardDirecteur = () => {
         const loadChartsData = async () => {
             try {
                 setChartsLoading(true);
-                const [perfData, repassData] = await Promise.all([
-                    directeurSpaceService.getPerformanceChart(chartPeriod),
-                    directeurSpaceService.getRepassageChart(chartPeriod)
-                ]);
-                setPerformanceData(perfData);
-                setRepassageData(repassData);
+                const performanceHistory = await directeurSpaceService.getPerformanceHistory();
+                setPerformanceData(performanceHistory[chartPeriod as keyof typeof performanceHistory] || []);
+                setRepassageData([]); // Repassage chart - pas encore implémenté
             } catch (err) {
                 console.error('Error fetching directeur charts data:', err);
             } finally {
@@ -152,15 +208,47 @@ const DashboardDirecteur = () => {
         if (settings.autoRefresh && !loading) {
             const timer = setInterval(async () => {
                 try {
-                    const [dashboardData, chartsData, progressData, goalData] = await Promise.all([
-                        directeurSpaceService.getDashboardStats(settings.defaultTimeFilter),
-                        Promise.all([
-                            directeurSpaceService.getPerformanceChart(chartPeriod),
-                            directeurSpaceService.getRepassageChart(chartPeriod)
-                        ]),
-                        directeurSpaceService.getCommercialsProgress(settings.defaultTimeFilter),
+                    const [globalStats, managersStats, performanceHistory, progressData, goalData] = await Promise.all([
+                        directeurSpaceService.getGlobalStats(),
+                        directeurSpaceService.getManagersStats(),
+                        directeurSpaceService.getPerformanceHistory(),
+                        directeurSpaceService.getCommerciauxStats(),
                         assignmentGoalsService.getCurrentGlobalGoal()
                     ]);
+                    
+                    // Trouver le meilleur manager basé sur le taux de conversion
+                    const meilleurManager = managersStats.length > 0 
+                        ? managersStats.reduce((best: any, current: any) => 
+                            (current.tauxConversion || 0) > (best.tauxConversion || 0) ? current : best
+                          )
+                        : null;
+                    
+                    // Calculer le taux de conclusion moyen des managers
+                    const tauxConclusionMoyen = managersStats.length > 0
+                        ? managersStats.reduce((sum: number, manager: any) => sum + (manager.tauxConversion || 0), 0) / managersStats.length
+                        : 0;
+                    
+                    // Transformer les données pour correspondre au format attendu par le frontend
+                    const dashboardData = {
+                        stats: {
+                            contratsSignes: globalStats.totalContrats || 0,
+                            rdvPris: globalStats.totalRdv || 0,
+                            tauxSignature: globalStats.tauxConversion || 0,
+                            perfMoyenne: globalStats.tauxConversion || 0
+                        },
+                        managerStats: {
+                            meilleurManager: meilleurManager ? `${meilleurManager.prenom} ${meilleurManager.nom}` : "Aucun manager",
+                            tauxConclusionMoyen: Math.round(tauxConclusionMoyen * 100) / 100,
+                            rdvMoyen: Math.round((globalStats.totalRdv || 0) / (globalStats.totalManagers || 1)),
+                            effectifTotal: globalStats.totalManagers || 0
+                        },
+                        activiteRecente: [] // Pour l'instant, retourner un tableau vide
+                    };
+                    
+                    const chartsData = [
+                        performanceHistory[chartPeriod as keyof typeof performanceHistory] || [],
+                        [] // Repassage chart - pas encore implémenté
+                    ];
                     
                     setDashboardData(dashboardData);
                     setPerformanceData(chartsData[0]);

@@ -20,6 +20,9 @@ export interface EquipeDetailsFromApi {
     stats: {
         contratsSignes: number;
         rdvPris: number;
+        refus: number;
+        immeublesProspectes: number;
+        portesProspectees: number;
         perfMoyenne: number;
         classementGeneral: number | string;
         nbCommerciaux: number;

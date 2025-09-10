@@ -8,7 +8,7 @@ import { ManagerAssignmentSchedulerService } from './manager-assignment-schedule
 @Module({
   imports: [PrismaModule, AuthModule],
   controllers: [ManagerAssignmentGoalsController],
-  providers: [ManagerAssignmentGoalsService, ManagerAssignmentSchedulerService],
-  exports: [ManagerAssignmentGoalsService, ManagerAssignmentSchedulerService],
+  providers: [ManagerAssignmentGoalsService], // ManagerAssignmentSchedulerService temporairement désactivé
+  exports: [ManagerAssignmentGoalsService], // ManagerAssignmentSchedulerService temporairement désactivé
 })
 export class ManagerAssignmentGoalsModule {}

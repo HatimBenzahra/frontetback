@@ -9,6 +9,11 @@ const getAssignedZonesForCommercial = async (commercialId: string): Promise<any[
   return response.data;
 };
 
+const getAssignedZonesForEquipe = async (equipeId: string): Promise<any[]> => {
+  const response = await axios.get(`${API_URL}/equipe/${equipeId}/zones`);
+  return response.data;
+};
+
 // On inclut les autres fonctions pour que le service soit complet
 const assignZone = async (
   zoneId: string,
@@ -106,6 +111,7 @@ const cleanupExpiredAssignments = async (): Promise<any> => {
 
 export const assignmentGoalsService = {
   getAssignedZonesForCommercial,
+  getAssignedZonesForEquipe,
   assignZone,
   setMonthlyGoal,
   setGlobalGoal,

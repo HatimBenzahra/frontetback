@@ -45,4 +45,14 @@ export class ManagerController {
   remove(@Param('id') id: string) {
     return this.managerService.remove(id);
   }
+
+  @Patch(':id/assign-directeur')
+  assignToDirecteur(@Param('id') id: string, @Body() body: { directeurId: string }) {
+    return this.managerService.assignToDirecteur(id, body.directeurId);
+  }
+
+  @Patch(':id/unassign-directeur')
+  unassignFromDirecteur(@Param('id') id: string) {
+    return this.managerService.unassignFromDirecteur(id);
+  }
 }

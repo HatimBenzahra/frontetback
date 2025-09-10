@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import type { RowSelectionState } from "@tanstack/react-table";
-import { ArrowLeft, Briefcase, CheckCircle, Target, Users, User, Mail, Phone } from 'lucide-react';
+import { ArrowLeft, Briefcase, CheckCircle, Target, Users, User, Mail, Phone, Award } from 'lucide-react';
 
 import { Button } from '@/components/ui-admin/button';
 import StatCard from '@/components/ui-admin/StatCard';
@@ -195,11 +195,89 @@ const ManagerDetailsPage = () => {
     const commerciauxDeLequipeSelectionnee = manager.equipes.find((e) => e.id === selectedTeam?.id)?.commerciaux || [];
 
     return (
-        <div className="space-y-8">
-            <Button variant="outline" onClick={() => navigate(-1)}>
-                <ArrowLeft className="mr-2 h-4 w-4" /> Retour
-            </Button>
-            
+        <div className="space-y-5 p-6 pb-4 bg-gradient-to-br from-white via-green-50/60 to-green-100/30">
+            {/* Header compact avec gradient */}
+            <div className="relative overflow-hidden bg-gradient-to-r from-green-600 via-green-700 to-green-800 rounded-xl p-6 text-white shadow-lg">
+                <div className="absolute inset-0 bg-black/10"></div>
+                <div className="relative z-10">
+                    {/* Bouton retour */}
+                    <div className="mb-4">
+                        <Button
+                            variant="ghost"
+                            onClick={() => navigate(-1)}
+                            className="flex items-center gap-2 text-white/90 hover:text-white hover:bg-white/20 backdrop-blur-sm border border-white/30"
+                        >
+                            <ArrowLeft className="h-4 w-4" />
+                            Retour aux managers
+                        </Button>
+                    </div>
+
+                    {/* Informations principales du manager - Version compacte */}
+                    <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+                        <div className="flex items-center gap-4">
+                            {/* Avatar plus petit */}
+                            <div className="relative">
+                                <div className="w-16 h-16 bg-gradient-to-br from-white/20 to-white/10 rounded-xl flex items-center justify-center text-white font-bold text-xl backdrop-blur-sm border border-white/30">
+                                    {manager.prenom[0]}{manager.nom[0]}
+                                </div>
+                                <div className="absolute -top-1 -right-1 w-6 h-6 bg-yellow-400 rounded-full flex items-center justify-center">
+                                    <Award className="h-3 w-3 text-yellow-800" />
+                                </div>
+                            </div>
+
+                            {/* Informations du manager */}
+                            <div>
+                                <h1 className="text-2xl font-bold tracking-tight mb-1">
+                                    {manager.prenom} {manager.nom}
+                                </h1>
+                                <div className="flex items-center gap-3 text-green-100 text-sm">
+                                    <div className="flex items-center gap-1">
+                                        <Briefcase className="h-4 w-4" />
+                                        <span>Manager</span>
+                                    </div>
+                                    <div className="flex items-center gap-1">
+                                        <Award className="h-4 w-4" />
+                                        <span>Classement N/A</span>
+                                    </div>
+                                </div>
+                                <p className="text-green-200 mt-1 text-sm">
+                                    {stats?.totalEquipes || 0} équipes • {stats?.totalCommerciaux || 0} commerciaux
+                                </p>
+                            </div>
+                        </div>
+
+                        {/* Métriques de performance - Version horizontale compacte */}
+                        <div className="flex gap-3">
+                            <div className="bg-white/10 backdrop-blur-sm rounded-lg p-3 border border-white/20 min-w-[80px]">
+                                <div className="text-center">
+                                    <div className="text-xl font-bold text-white">
+                                        {currentStats.contratsSignes || 0}
+                                    </div>
+                                    <div className="text-green-100 text-xs">Contrats</div>
+                                </div>
+                            </div>
+                            
+                            <div className="bg-white/10 backdrop-blur-sm rounded-lg p-3 border border-white/20 min-w-[80px]">
+                                <div className="text-center">
+                                    <div className="text-xl font-bold text-white">
+                                        {currentStats.rdvPris || 0}
+                                    </div>
+                                    <div className="text-green-100 text-xs">RDV</div>
+                                </div>
+                            </div>
+
+                            <div className="bg-white/10 backdrop-blur-sm rounded-lg p-3 border border-white/20 min-w-[80px]">
+                                <div className="text-center">
+                                    <div className="text-xl font-bold text-white">
+                                        {Math.round((currentStats.tauxConclusion || 0) * 100) / 100}%
+                                    </div>
+                                    <div className="text-green-100 text-xs">Taux</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
 
             <Card>
                 <CardHeader>

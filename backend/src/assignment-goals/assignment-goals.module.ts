@@ -7,7 +7,7 @@ import { PrismaModule } from '../prisma/prisma.module';
 @Module({
   imports: [PrismaModule],
   controllers: [AssignmentGoalsController],
-  providers: [AssignmentGoalsService, AssignmentSchedulerService],
-  exports: [AssignmentSchedulerService],
+  providers: [AssignmentGoalsService], // AssignmentSchedulerService temporairement désactivé
+  exports: [], // AssignmentSchedulerService temporairement désactivé
 })
 export class AssignmentGoalsModule {}

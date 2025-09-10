@@ -4,7 +4,7 @@ import { getWebSocketUrl, createSocketOptions, WEBSOCKET_CONFIG } from '@/config
 
 // Global socket instance to avoid multiple connections
 let globalSocket: Socket | null = null;
-let connectionPromise: Promise<Socket> | null = null;
+let connectionPromise: Promise<Socket | null> | null = null;
 let connectionListeners: Set<(socket: Socket | null) => void> = new Set();
 
 export const useGlobalSocket = () => {
@@ -37,7 +37,7 @@ export const useGlobalSocket = () => {
     }
 
     // Create new connection
-    const connectSocket = async (): Promise<Socket> => {
+    const connectSocket = async (): Promise<Socket | null> => {
       const socketUrl = getWebSocketUrl();
       const socketOptions = createSocketOptions();
       
