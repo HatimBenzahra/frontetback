@@ -9,7 +9,7 @@ export class CentralizedConfig {
   private static readonly STAGING_IP = process.env.STAGING_IP;
   private static readonly FRONTEND_PORT = process.env.FRONTEND_PORT;
   private static readonly API_PORT = process.env.API_PORT;
-  private static readonly LOCAL_LLM_URL = process.env.LOCAL_LLM_URL;
+  // LOCAL_LLM_URL supprimé - utilisation de Gemini API maintenant
   
   // Configuration des réseaux autorisés (optionnel)
   private static readonly ALLOWED_NETWORKS = process.env.ALLOWED_NETWORKS; // Ex: "192.168.0.0/16,10.0.0.0/8"
@@ -181,13 +181,14 @@ export class CentralizedConfig {
   }
 
   /**
-   * Retourne l'URL du LLM local - UNIQUEMENT depuis les variables d'environnement
+   * Retourne la clé API Gemini - UNIQUEMENT depuis les variables d'environnement
    */
-  static getLocalLLMUrl(): string {
-    if (!this.LOCAL_LLM_URL) {
-      throw new Error('LOCAL_LLM_URL doit être défini dans .env');
+  static getGeminiApiKey(): string {
+    const apiKey = process.env.GEMINI_API_KEY;
+    if (!apiKey) {
+      throw new Error('GEMINI_API_KEY doit être défini dans .env');
     }
-    return this.LOCAL_LLM_URL;
+    return apiKey;
   }
 
   /**
@@ -213,7 +214,7 @@ export class CentralizedConfig {
       corsOrigins: this.getAllowedOrigins().join(', '),
       frontendUrl: this.getFrontendUrl(),
       apiUrl: this.getApiUrl(),
-      localLLMUrl: this.getLocalLLMUrl(),
+      geminiApiKey: process.env.GEMINI_API_KEY ? '✅ Défini' : '❌ Manquant',
       environment: process.env.NODE_ENV || 'development',
       allowedNetworks: this.ALLOWED_NETWORKS || 'Aucun réseau autorisé',
       // Informations sur les variables d'environnement
@@ -223,7 +224,7 @@ export class CentralizedConfig {
         STAGING_IP: this.STAGING_IP ? '✅ Défini' : '❌ Manquant',
         FRONTEND_PORT: this.FRONTEND_PORT ? '✅ Défini' : '❌ Manquant',
         API_PORT: this.API_PORT ? '✅ Défini' : '❌ Manquant',
-        LOCAL_LLM_URL: this.LOCAL_LLM_URL ? '✅ Défini' : '❌ Manquant',
+        GEMINI_API_KEY: process.env.GEMINI_API_KEY ? '✅ Défini' : '❌ Manquant',
         ALLOWED_NETWORKS: this.ALLOWED_NETWORKS ? '✅ Défini' : '❌ Manquant',
       }
     };

@@ -4,12 +4,12 @@ import { CentralizedConfig } from '../events/websocket.config';
 @Injectable()
 export class GeminiService {
   private readonly logger = new Logger(GeminiService.name);
-  private localLLMUrl: string;
+  private geminiApiKey: string;
 
   constructor() {
-    // Utiliser l'URL du LLM local depuis la configuration centralisée
-    this.localLLMUrl = CentralizedConfig.getLocalLLMUrl();
-    this.logger.log(`LLM local configuré: ${this.localLLMUrl}`);
+    // Utiliser la clé API Gemini depuis la configuration centralisée
+    this.geminiApiKey = CentralizedConfig.getGeminiApiKey();
+    this.logger.log(`API Gemini configurée avec succès`);
   }
 
   async restructureDialogue(transcription: string): Promise<string> {
@@ -18,7 +18,7 @@ export class GeminiService {
 
     for (let attempt = 1; attempt <= maxRetries; attempt++) {
       try {
-        this.logger.log(`Début de la restructuration du dialogue avec LLM local (tentative ${attempt}/${maxRetries})`);
+        this.logger.log(`Début de la restructuration du dialogue avec Gemini API (tentative ${attempt}/${maxRetries})`);
         
         const prompt = `
 Tu es un expert en restructuration de transcriptions commerciales.
@@ -64,50 +64,53 @@ IMPORTANT : Chaque interlocuteur doit être sur sa propre ligne avec une ligne v
 
 RÉSULTAT (avec retours à la ligne obligatoires) :`;
 
-        // Appel à l'API locale
-        const response = await fetch(`${this.localLLMUrl}/v1/chat/completions`, {
+        // Appel à l'API Gemini
+        const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${this.geminiApiKey}`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
           },
           body: JSON.stringify({
-            model: 'qwen/qwen3-4b-2507', // modèle local détecté
-            messages: [
+            contents: [
               {
-                role: 'system',
-                content: prompt
-              },
-              {
-                role: 'user',
-                content: 'Voici les données à traiter : ' + transcription
+                parts: [
+                  {
+                    text: `${prompt}\n\nVoici les données à traiter : ${transcription}`
+                  }
+                ]
               }
             ],
-            temperature: 0.3,
-            max_tokens: 2000
+            generationConfig: {
+              temperature: 0.3,
+              maxOutputTokens: 2000,
+              topP: 0.8,
+              topK: 10
+            }
           })
         });
 
         if (!response.ok) {
-          throw new Error(`Erreur HTTP: ${response.status} ${response.statusText}`);
+          const errorText = await response.text();
+          throw new Error(`Erreur Gemini API: ${response.status} ${response.statusText} - ${errorText}`);
         }
 
         const data = await response.json();
-        const restructuredText = data.choices[0]?.message?.content;
+        const restructuredText = data.candidates?.[0]?.content?.parts?.[0]?.text;
 
         if (!restructuredText) {
-          throw new Error('Réponse vide du LLM local');
+          throw new Error('Réponse vide de l\'API Gemini');
         }
 
-        this.logger.log('Restructuration terminée avec succès');
+        this.logger.log('Restructuration terminée avec succès via Gemini API');
         return restructuredText;
 
       } catch (error: any) {
         lastError = error;
         
-        // Gestion des erreurs réseau
-        if (error.code === 'ECONNREFUSED' || error.code === 'ENOTFOUND') {
+        // Gestion des erreurs réseau et API
+        if (error.code === 'ECONNREFUSED' || error.code === 'ENOTFOUND' || error.message.includes('fetch')) {
           const retryDelay = Math.min(1000 * Math.pow(2, attempt - 1), 5000);
-          this.logger.warn(`Erreur de connexion au LLM local, nouvelle tentative dans ${retryDelay}ms (${attempt}/${maxRetries})`);
+          this.logger.warn(`Erreur de connexion à l'API Gemini, nouvelle tentative dans ${retryDelay}ms (${attempt}/${maxRetries})`);
           
           if (attempt < maxRetries) {
             await new Promise(resolve => setTimeout(resolve, retryDelay));
@@ -117,7 +120,7 @@ RÉSULTAT (avec retours à la ligne obligatoires) :`;
         
         // Pour les autres erreurs ou après max tentatives
         this.logger.error(`Erreur lors de la restructuration (tentative ${attempt}/${maxRetries}):`, error);
-        throw new Error(`Erreur de restructuration: ${error.message}`);
+        throw new Error(`Erreur de restructuration Gemini: ${error.message}`);
       }
     }
     

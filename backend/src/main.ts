@@ -38,6 +38,7 @@ async function bootstrap() {
     console.log(`🌐 CORS Origins: ${debugInfo.corsOrigins}`);
     console.log(`🔧 Environment: ${debugInfo.environment}`);
     console.log(`🌍 Réseaux autorisés: ${debugInfo.allowedNetworks}`);
+    console.log(`🤖 Gemini API: ${debugInfo.geminiApiKey}`);
     console.log(`📋 Variables d'environnement:`);
     Object.entries(debugInfo.envVars).forEach(([key, status]) => {
       console.log(`   ${status} ${key}`);
@@ -59,6 +60,7 @@ async function bootstrap() {
     console.log(`🌐 CORS Origins: ${debugInfo.corsOrigins}`);
     console.log(`🔧 Environment: ${debugInfo.environment}`);
     console.log(`🌍 Réseaux autorisés: ${debugInfo.allowedNetworks}`);
+    console.log(`🤖 Gemini API: ${debugInfo.geminiApiKey}`);
     console.log(`📋 Variables d'environnement:`);
     Object.entries(debugInfo.envVars).forEach(([key, status]) => {
       console.log(`   ${status} ${key}`);
