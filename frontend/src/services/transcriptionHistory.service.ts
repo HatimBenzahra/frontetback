@@ -24,10 +24,14 @@ class TranscriptionHistoryService {
     try {
       console.log('📚 Sauvegarde session transcription:', session);
       
+      // Récupérer le token d'authentification
+      const token = localStorage.getItem('access_token');
+      
       const response = await fetch(`${this.baseUrl}/api/transcription-history`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          ...(token && { 'Authorization': `Bearer ${token}` }),
         },
         body: JSON.stringify(session),
       });
@@ -43,7 +47,7 @@ class TranscriptionHistoryService {
     }
   }
 
-  async getTranscriptionHistory(commercialId?: string, limit: number = 50, buildingId?: string): Promise<TranscriptionSession[]> {
+  async getTranscriptionHistory(commercialId?: string, limit?: number, buildingId?: string): Promise<TranscriptionSession[]> {
     try {
       const params = new URLSearchParams();
       if (commercialId) {
@@ -52,12 +56,18 @@ class TranscriptionHistoryService {
       if (buildingId) {
         params.append('building_id', buildingId);
       }
-      params.append('limit', limit.toString());
+      if (limit) {
+        params.append('limit', limit.toString());
+      }
+
+      // Récupérer le token d'authentification
+      const token = localStorage.getItem('access_token');
 
       const response = await fetch(`${this.baseUrl}/api/transcription-history/commercials/${params}`, {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json',
+          ...(token && { 'Authorization': `Bearer ${token}` }),
         },
       });
 
@@ -75,10 +85,14 @@ class TranscriptionHistoryService {
 
   async deleteTranscriptionSession(sessionId: string): Promise<void> {
     try {
+      // Récupérer le token d'authentification
+      const token = localStorage.getItem('access_token');
+      
       const response = await fetch(`${this.baseUrl}/api/transcription-history/${sessionId}`, {
         method: 'DELETE',
         headers: {
           'Content-Type': 'application/json',
+          ...(token && { 'Authorization': `Bearer ${token}` }),
         },
       });
 
@@ -97,10 +111,14 @@ class TranscriptionHistoryService {
     try {
       console.log('📚 Synchronisation session transcription:', sessionId, 'longueur:', fullTranscript.length);
       
+      // Récupérer le token d'authentification
+      const token = localStorage.getItem('access_token');
+      
       const response = await fetch(`${this.baseUrl}/api/transcription-history/${sessionId}/sync`, {
         method: 'PATCH',
         headers: {
           'Content-Type': 'application/json',
+          ...(token && { 'Authorization': `Bearer ${token}` }),
         },
         body: JSON.stringify({ full_transcript: fullTranscript }),
       });
@@ -121,9 +139,15 @@ class TranscriptionHistoryService {
 
   async getAllCommercials(): Promise<Array<{ id: string; name: string }>> {
     try {
+      // Récupérer le token d'authentification
+      const token = localStorage.getItem('access_token');
+      
       const response = await fetch(`${this.baseUrl}/api/transcription-history/commercials`, {
         method: 'GET',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+          'Content-Type': 'application/json',
+          ...(token && { 'Authorization': `Bearer ${token}` }),
+        },
       });
       if (!response.ok) {
         throw new Error(`Erreur HTTP: ${response.status}`);

@@ -17,6 +17,7 @@ import { StatisticsModule } from './statistics/statistics.module';
 import { AssignmentGoalsModule } from './assignment-goals/assignment-goals.module';
 import { ProspectionModule } from './prospection/prospection.module';
 import { EventsModule } from './events/events.module';
+import { GlobalEventsModule } from './events/global-events.module';
 import { TranscriptionHistoryModule } from './transcription-history/transcription-history.module';
 import { ExportsModule } from './exports/exports.module';
 import { ManagerSpaceModule } from './manager-space/manager-space.module';
@@ -30,6 +31,7 @@ import { SchedulerModule } from './scheduler/scheduler.module';
       envFilePath: '.env',
     }),
     // SchedulerModule, // Temporairement désactivé pour résoudre l'erreur de dépendance
+    GlobalEventsModule,
     PrismaModule,
     AuthModule,
     AdminModule,

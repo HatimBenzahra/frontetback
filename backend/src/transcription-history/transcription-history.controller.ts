@@ -22,7 +22,7 @@ export class TranscriptionHistoryController {
     @Query('building_id') buildingId?: string,
     @Query('limit') limit?: string
   ) {
-    const limitNumber = limit ? parseInt(limit, 10) : 50;
+    const limitNumber = limit ? parseInt(limit, 10) : undefined;
     console.log('Récupération historique transcriptions:', { commercialId, buildingId, limit: limitNumber });
     const history = await this.transcriptionHistoryService.getHistory(commercialId, limitNumber, buildingId);
     return { history };

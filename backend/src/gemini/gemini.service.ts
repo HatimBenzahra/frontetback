@@ -21,46 +21,59 @@ export class GeminiService {
         this.logger.log(`Début de la restructuration du dialogue avec Gemini API (tentative ${attempt}/${maxRetries})`);
         
         const prompt = `
-Tu es un expert en restructuration de transcriptions commerciales.
-Ta mission : identifier les interlocuteurs et corriger le texte, SANS EXPLICATION.
+Tu es un correcteur de transcriptions commerciales. Ta mission UNIQUE : corriger et améliorer le texte existant SANS AJOUTER de contenu.
 
-RÈGLES D'IDENTIFICATION AUTOMATIQUE :
+RÈGLES STRICTES - À RESPECTER ABSOLUMENT :
+1. NE PAS INVENTER de nouvelles phrases
+2. NE PAS AJOUTER d'informations non présentes dans le texte original
+3. NE PAS COMPLÉTER les phrases avec du contenu fictif
+4. SEULEMENT corriger les erreurs de transcription évidentes
+5. SEULEMENT deviner les mots manquants quand le contexte le permet clairement
+6. SEULEMENT améliorer la ponctuation et la structure des phrases existantes
+
+IDENTIFICATION DES INTERLOCUTEURS :
 • COMMERCIAL : vocabulaire professionnel ("je vous propose", "notre offre", "je vous envoie", "confirmation", "comme convenu", "parfait")
 • PROSPECT/CLIENT : réactions ("ça m'intéresse", "je réfléchis", "d'accord", questions sur le produit)
 • Si incertain, la personne qui structure/présente = COMMERCIAL
 
-INSTRUCTIONS :
-1. Identifie automatiquement qui parle
-2. Corrige les erreurs de transcription 
-3. Complète les phrases incomplètes
-4. Supprime les hésitations (euh, hmm)
-5. Améliore la ponctuation
-6. AUCUN commentaire ni explication
-7. Il faut que la phrase soit cohérente avec le contexte de la conversation
-8. OBLIGATOIRE : Un retour à la ligne vide entre chaque interlocuteur
+CORRECTIONS AUTORISÉES UNIQUEMENT :
+- Corriger les mots mal transcrits (ex: "bonjour" au lieu de "bonzour")
+- Compléter les mots évidents (ex: "téléph" → "téléphone")
+- Supprimer les hésitations (euh, hmm, etc.)
+- Améliorer la ponctuation
+- Structurer les phrases pour qu'elles aient du sens
+- Corriger les répétitions évidentes
+
+INTERDICTIONS ABSOLUES :
+- Ajouter des phrases entières
+- Inventer des réponses
+- Compléter avec du contenu fictif
+- Ajouter des détails non mentionnés
+- Créer des dialogues qui n'existent pas dans l'original
 
 FORMAT STRICT - RESPECTER EXACTEMENT :
-**Commercial :** [texte corrigé]
+**Commercial :** [texte corrigé uniquement]
 
-**Prospect :** [texte corrigé]
+**Prospect :** [texte corrigé uniquement]
 
-**Commercial :** [texte corrigé]
+**Commercial :** [texte corrigé uniquement]
 
 RÈGLES DE FORMATAGE OBLIGATOIRES :
 - TOUJOURS une ligne vide entre chaque interlocuteur
-- JAMAIS de dialogue consécutif sans ligne vide
 - Chaque changement d'interlocuteur = nouvelle ligne vide
 - FORMAT EXACT À RESPECTER :
 
-**Commercial :** Bonjour, comment allez-vous ?
-
-**Prospect :** Très bien, merci.
-
-**Commercial :** Parfait, je vous propose notre offre.
+**Commercial :** Bonjour, je vous propose notre offre.
 
 **Prospect :** Ça m'intéresse.
 
-IMPORTANT : Chaque interlocuteur doit être sur sa propre ligne avec une ligne vide entre eux.
+**Commercial :** Parfait, je vous envoie les détails.
+
+IMPORTANT : 
+- Reste fidèle au contenu original
+- Ne transforme pas le sens des phrases
+- Ne complète que ce qui est évident dans le contexte
+- Chaque interlocuteur doit être sur sa propre ligne avec une ligne vide entre eux
 
 RÉSULTAT (avec retours à la ligne obligatoires) :`;
 
@@ -81,10 +94,10 @@ RÉSULTAT (avec retours à la ligne obligatoires) :`;
               }
             ],
             generationConfig: {
-              temperature: 0.3,
-              maxOutputTokens: 2000,
-              topP: 0.8,
-              topK: 10
+              temperature: 0.1, // Plus bas pour être plus conservateur
+              maxOutputTokens: 1500, // Limiter la longueur pour éviter l'ajout de contenu
+              topP: 0.6, // Plus bas pour réduire la créativité
+              topK: 5 // Plus bas pour être plus prévisible
             }
           })
         });

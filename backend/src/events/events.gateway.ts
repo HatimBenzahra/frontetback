@@ -464,7 +464,7 @@ export class EventsGateway implements OnGatewayConnection, OnGatewayDisconnect {
     
     try {
       // Récupérer l'historique depuis la base de données
-      const history = await this.transcriptionHistoryService.getHistory(data?.commercial_id, 100);
+      const history = await this.transcriptionHistoryService.getHistory(data?.commercial_id);
       console.log(`📚 Historique récupéré de la DB: ${history.length} sessions`);
       client.emit('transcription_history_response', { history });
     } catch (error) {

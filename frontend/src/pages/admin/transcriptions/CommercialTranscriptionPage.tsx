@@ -143,10 +143,50 @@ const CommercialTranscriptionPage = () => {
       });
       if (response.ok) {
         const data = await response.json();
-        const list: TranscriptionSession[] = (Array.isArray(data) ? data : data.history || data.sessions || []).sort(
+        const rawList: TranscriptionSession[] = (Array.isArray(data) ? data : data.history || data.sessions || []).sort(
           (a: TranscriptionSession, b: TranscriptionSession) => new Date(b.start_time).getTime() - new Date(a.start_time).getTime()
         );
-        setSessions(list);
+        
+        // Dédupliquer les sessions en gardant la plus récente (avec traitement IA si disponible)
+        const deduplicatedSessions = rawList.reduce((acc, current) => {
+          // Créer une clé unique basée sur commercial_id, building_id et timestamp (à la minute près)
+          const sessionKey = `${current.commercial_id}_${current.building_id || 'no-building'}_${new Date(current.start_time).toISOString().substring(0, 16)}`;
+          
+          const existing = acc.find(session => {
+            const existingKey = `${session.commercial_id}_${session.building_id || 'no-building'}_${new Date(session.start_time).toISOString().substring(0, 16)}`;
+            return existingKey === sessionKey;
+          });
+          
+          if (!existing) {
+            acc.push(current);
+          } else {
+            // Si on trouve une session existante, garder celle qui a le traitement IA (si disponible)
+            const currentHasAI = current.full_transcript?.includes('**Commercial :**');
+            const existingHasAI = existing.full_transcript?.includes('**Commercial :**');
+            
+            if (currentHasAI && !existingHasAI) {
+              // Remplacer par la version avec IA
+              const index = acc.indexOf(existing);
+              acc[index] = current;
+              console.log('🔄 Session remplacée par version IA:', current.id);
+            } else if (!currentHasAI && existingHasAI) {
+              // Garder la version avec IA existante
+              console.log('🔄 Session gardée (version IA existante):', existing.id);
+            } else {
+              // Si les deux ont ou n'ont pas l'IA, garder la plus récente
+              if (new Date(current.start_time) > new Date(existing.start_time)) {
+                const index = acc.indexOf(existing);
+                acc[index] = current;
+                console.log('🔄 Session remplacée par version plus récente:', current.id);
+              }
+            }
+          }
+          
+          return acc;
+        }, [] as TranscriptionSession[]);
+        
+        console.log('Sessions après déduplication:', deduplicatedSessions.length, 'sur', rawList.length, 'originales');
+        setSessions(deduplicatedSessions);
         // Reset à la première page quand on charge de nouvelles données
         setCurrentPage(1);
       } else {
@@ -352,14 +392,49 @@ const CommercialTranscriptionPage = () => {
       socket.emit('request_commercials_status');
     };
 
+    const onSessionUpdated = async (updatedSession: TranscriptionSession) => {
+      if (updatedSession.commercial_id !== commercialId) return;
+      
+      console.log('📝 Session mise à jour reçue:', updatedSession.id, 'transcript length:', updatedSession.full_transcript?.length || 0);
+      
+      // Mettre à jour directement la session dans l'état local
+      setSessions(prevSessions => {
+        const sessionIndex = prevSessions.findIndex(s => s.id === updatedSession.id);
+        if (sessionIndex !== -1) {
+          // Mettre à jour la session existante
+          const newSessions = [...prevSessions];
+          newSessions[sessionIndex] = updatedSession;
+          console.log('✅ Session mise à jour dans l\'état local:', updatedSession.id);
+          return newSessions;
+        } else {
+          // Si la session n'existe pas encore, l'ajouter au début
+          console.log('➕ Nouvelle session ajoutée à l\'état local:', updatedSession.id);
+          return [updatedSession, ...prevSessions];
+        }
+      });
+      
+      // Si la session était en traitement IA et qu'elle a maintenant du contenu traité, arrêter le loading
+      if (aiProcessingSessions.has(updatedSession.id)) {
+        const hasAiProcessing = updatedSession.full_transcript?.includes('**Commercial :**') || 
+                               updatedSession.full_transcript?.includes('**Prospect :**');
+        
+        if (hasAiProcessing && updatedSession.full_transcript && updatedSession.full_transcript.length > 100) {
+          console.log('✅ Traitement IA terminé détecté via WebSocket pour session:', updatedSession.id);
+          setAiProcessing(updatedSession.id, false);
+        }
+      }
+    };
+
     socket.on('transcription_update', onUpdate);
     socket.on('commercials_status_response', onCommercialsStatus);
     socket.on('transcription_session_completed', onCompleted);
+    socket.on('transcription_session_updated', onSessionUpdated);
 
     return () => {
       socket.off('transcription_update', onUpdate);
       socket.off('commercials_status_response', onCommercialsStatus);
       socket.off('transcription_session_completed', onCompleted);
+      socket.off('transcription_session_updated', onSessionUpdated);
       socket.emit('leaveRoom', 'audio-streaming');
     };
   }, [socket, commercialId, liveCommitted, liveMaxChars, loadHistory, sessions, BASE]);
@@ -374,10 +449,20 @@ const CommercialTranscriptionPage = () => {
                                session.full_transcript.includes('**Prospect :**');
         
         if (hasAiProcessing) {
-          console.log('✅ Traitement IA détecté pour session:', sessionId);
+          console.log('✅ Traitement IA terminé détecté pour session:', sessionId);
           setAiProcessing(sessionId, false);
         } else {
-          console.log('⏳ Session en cours de traitement IA:', sessionId);
+          // Vérifier si la session a été mise à jour avec du contenu traité
+          // Si le texte a changé et n'est plus en cours de traitement, arrêter le loading
+          const isStillProcessing = session.full_transcript.includes('Traitement IA en cours') ||
+                                   session.full_transcript.length < 50; // Texte trop court = encore en traitement
+          
+          if (!isStillProcessing && session.full_transcript.length > 0) {
+            console.log('✅ Session mise à jour détectée, arrêt du loading IA:', sessionId);
+            setAiProcessing(sessionId, false);
+          } else {
+            console.log('⏳ Session en cours de traitement IA:', sessionId);
+          }
         }
       }
     });
@@ -728,16 +813,18 @@ const CommercialTranscriptionPage = () => {
                                     <span className="ml-2">- Portes: {session.visited_doors.join(', ')}</span>
                                   )}
                                 </div>
-                                <p className="text-sm text-gray-700 line-clamp-3 group-hover:text-gray-900 transition-colors">
-                                  {isAiProcessing ? (
+                                {isAiProcessing ? (
+                                  <div className="text-sm text-gray-700 group-hover:text-gray-900 transition-colors">
                                     <span className="flex items-center gap-2">
                                       <span className="text-orange-600 font-medium">Traitement IA en cours...</span>
                                       <div className="w-3 h-3 border-2 border-orange-500 border-t-transparent rounded-full animate-spin" />
                                     </span>
-                                  ) : (
-                                    displayTranscript || 'Aucune transcription'
-                                  )}
-                                </p>
+                                  </div>
+                                ) : (
+                                  <p className="text-sm text-gray-700 line-clamp-3 group-hover:text-gray-900 transition-colors">
+                                    {displayTranscript || 'Aucune transcription'}
+                                  </p>
+                                )}
                               </div>
                             </div>
                           </div>
