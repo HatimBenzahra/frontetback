@@ -4,8 +4,10 @@ import { AppModule } from './app.module';
 import { ValidationPipe } from '@nestjs/common';
 import * as fs from 'fs';
 import * as path from 'path';
+import { CentralizedConfig } from './events/websocket.config';
 
 async function bootstrap() {
+  const sslPaths = CentralizedConfig.getSslPaths();
   const sslPath = process.env.NODE_ENV === 'production' 
     ? path.join(__dirname, '..', 'ssl')
     : path.join(process.cwd(), 'ssl');
@@ -13,50 +15,13 @@ async function bootstrap() {
   try {
     // Essayer HTTPS d'abord
     const httpsOptions = {
-      key: fs.readFileSync(path.join(sslPath, '127.0.0.1+4-key.pem')),
-      cert: fs.readFileSync(path.join(sslPath, '127.0.0.1+4.pem')),
+      key: fs.readFileSync(path.join(sslPath, sslPaths.keyPath.split('/').pop()!)),
+      cert: fs.readFileSync(path.join(sslPath, sslPaths.certPath.split('/').pop()!)),
     };
 
     const app = await NestFactory.create(AppModule, {
       httpsOptions,
-      cors: {
-        origin: (origin: string | undefined, callback: (err: Error | null, allow?: boolean) => void) => {
-          // Allow requests with no origin (mobile apps, curl)
-          if (!origin) return callback(null, true);
-          
-          // Origins from environment variables with fallbacks
-          const localIp = process.env.LOCAL_IP;
-          const frontendPort = process.env.FRONTEND_PORT || '5173';
-          const productionIp = process.env.PRODUCTION_IP;
-          const stagingIp = process.env.STAGING_IP;
-          
-          const allowed = [
-            // Local development (with fallbacks)
-            localIp ? `http://${localIp}:${frontendPort}` : 'http://localhost:5173',
-            localIp ? `https://${localIp}:${frontendPort}` : 'https://localhost:5173',
-            'http://127.0.0.1:5173',
-            'https://127.0.0.1:5173',
-            
-            // Production (only if defined in .env)
-            productionIp && `http://${productionIp}`,
-            productionIp && `https://${productionIp}`,
-            
-            // Staging (only if defined in .env)
-            stagingIp && `http://${stagingIp}`,
-            stagingIp && `https://${stagingIp}`,
-          ].filter(Boolean);
-          
-          if (allowed.includes(origin) || /^https?:\/\/192\.168\.[0-9]+\.[0-9]+(:\d+)?$/.test(origin)) {
-            return callback(null, true);
-          }
-          return callback(new Error('Not allowed by CORS'));
-        },
-        methods: 'GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS',
-        credentials: true,
-        allowedHeaders: ['Content-Type', 'Authorization', 'Accept'],
-        preflightContinue: false,
-        optionsSuccessStatus: 204,
-      },
+      cors: CentralizedConfig.getCorsConfig(),
     });
 
     app.useGlobalPipes(new ValidationPipe());
@@ -67,14 +32,16 @@ async function bootstrap() {
 
     const port = process.env.API_PORT ?? 3000;
     await app.listen(port, '0.0.0.0');
+    
+    const debugInfo = CentralizedConfig.getDebugInfo();
     console.log(`🚀 HTTPS Server running on https://localhost:${port}`);
-    const corsOrigins = [
-      process.env.LOCAL_IP ? `${process.env.LOCAL_IP}:${process.env.FRONTEND_PORT || '5173'}` : 'localhost:5173',
-      '127.0.0.1:5173',
-      process.env.PRODUCTION_IP,
-      process.env.STAGING_IP,
-    ].filter(Boolean).join(', ');
-    console.log(`🌐 CORS Origins: ${corsOrigins}`);
+    console.log(`🌐 CORS Origins: ${debugInfo.corsOrigins}`);
+    console.log(`🔧 Environment: ${debugInfo.environment}`);
+    console.log(`🌍 Réseaux autorisés: ${debugInfo.allowedNetworks}`);
+    console.log(`📋 Variables d'environnement:`);
+    Object.entries(debugInfo.envVars).forEach(([key, status]) => {
+      console.log(`   ${status} ${key}`);
+    });
   } catch (error) {
     console.error('HTTPS failed, starting HTTP fallback:', error);
     
@@ -82,55 +49,20 @@ async function bootstrap() {
     const app = await NestFactory.create(AppModule);
 
     app.useGlobalPipes(new ValidationPipe());
-
-    app.enableCors({
-      origin: (origin: string | undefined, callback: (err: Error | null, allow?: boolean) => void) => {
-        if (!origin) return callback(null, true);
-        
-        // Origins from environment variables with fallbacks
-        const localIp = process.env.LOCAL_IP;
-        const frontendPort = process.env.FRONTEND_PORT || '5173';
-        const productionIp = process.env.PRODUCTION_IP;
-        const stagingIp = process.env.STAGING_IP;
-        
-        const allowed = [
-          // Local development (with fallbacks)
-          localIp ? `http://${localIp}:${frontendPort}` : 'http://localhost:5173',
-          localIp ? `https://${localIp}:${frontendPort}` : 'https://localhost:5173',
-          'http://127.0.0.1:5173',
-          'https://127.0.0.1:5173',
-          
-          // Production (only if defined in .env)
-          productionIp && `http://${productionIp}`,
-          productionIp && `https://${productionIp}`,
-          
-          // Staging (only if defined in .env)
-          stagingIp && `http://${stagingIp}`,
-          stagingIp && `https://${stagingIp}`,
-        ].filter(Boolean);
-        
-        if (allowed.includes(origin) || /^https?:\/\/192\.168\.[0-9]+\.[0-9]+(:\d+)?$/.test(origin)) {
-          return callback(null, true);
-        }
-        return callback(new Error('Not allowed by CORS'));
-      },
-      methods: 'GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS',
-      credentials: true,
-      allowedHeaders: ['Content-Type', 'Authorization', 'Accept'],
-      preflightContinue: false,
-      optionsSuccessStatus: 204,
-    });
+    app.enableCors(CentralizedConfig.getCorsConfig());
 
     const port = process.env.API_PORT ?? 3000;
     await app.listen(port, '0.0.0.0');
+    
+    const debugInfo = CentralizedConfig.getDebugInfo();
     console.log(`HTTP Server running on http://localhost:${port}`);
-    const corsOrigins = [
-      process.env.LOCAL_IP ? `${process.env.LOCAL_IP}:${process.env.FRONTEND_PORT || '5173'}` : 'localhost:5173',
-      '127.0.0.1:5173',
-      process.env.PRODUCTION_IP,
-      process.env.STAGING_IP,
-    ].filter(Boolean).join(', ');
-    console.log(`🌐 CORS Origins: ${corsOrigins}`);
+    console.log(`🌐 CORS Origins: ${debugInfo.corsOrigins}`);
+    console.log(`🔧 Environment: ${debugInfo.environment}`);
+    console.log(`🌍 Réseaux autorisés: ${debugInfo.allowedNetworks}`);
+    console.log(`📋 Variables d'environnement:`);
+    Object.entries(debugInfo.envVars).forEach(([key, status]) => {
+      console.log(`   ${status} ${key}`);
+    });
   }
 }
 bootstrap().catch((err: unknown) => {

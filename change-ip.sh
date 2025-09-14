@@ -23,11 +23,11 @@ sed -i '' "s/LOCAL_IP=.*/LOCAL_IP=$NEW_IP/" backend/.env
 
 # Mise à jour du frontend .env
 echo "🔧 Mise à jour frontend/.env..."
-sed -i '' "s/VITE_LOCAL_IP=.*/VITE_LOCAL_IP=$NEW_IP/" moduleProspec-1dc4f634c6c14f0913f8052d2523c56f04d7738b/.env
+sed -i '' "s/VITE_LOCAL_IP=.*/VITE_LOCAL_IP=$NEW_IP/" frontend/.env
 
 echo "✅ IP changée avec succès vers $NEW_IP"
 echo "🔄 Redémarrage des serveurs nécessaire..."
 echo ""
 echo "Pour redémarrer les serveurs:"
 echo "1. Backend: cd backend && npm run start:dev"
-echo "2. Frontend: cd moduleProspec-1dc4f634c6c14f0913f8052d2523c56f04d7738b && npm run dev"
+echo "2. Frontend: cd frontend && npm run dev"

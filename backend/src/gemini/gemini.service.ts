@@ -1,4 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
+import { CentralizedConfig } from '../events/websocket.config';
 
 @Injectable()
 export class GeminiService {
@@ -6,8 +7,8 @@ export class GeminiService {
   private localLLMUrl: string;
 
   constructor() {
-    // Utiliser l'URL du LLM local depuis les variables d'environnement
-    this.localLLMUrl = process.env.LOCAL_LLM_URL || 'http://192.168.1.120:1234';
+    // Utiliser l'URL du LLM local depuis la configuration centralisée
+    this.localLLMUrl = CentralizedConfig.getLocalLLMUrl();
     this.logger.log(`LLM local configuré: ${this.localLLMUrl}`);
   }
 

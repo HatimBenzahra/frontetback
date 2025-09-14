@@ -9,6 +9,7 @@ import { DirecteurService } from '../directeur/directeur.service';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { RolesGuard } from '../auth/roles.guard';
 import { Roles } from '../auth/roles.decorator';
+import { CentralizedConfig } from '../events/websocket.config';
 
 interface CreateCommercialWithAuthDto {
   nom: string;
@@ -53,10 +54,7 @@ export class AdminController {
    * Génère l'URL du frontend avec fallback intelligent
    */
   private getFrontendUrl(): string {
-    const localIp = this.configService.get('LOCAL_IP');
-    const frontendPort = this.configService.get('FRONTEND_PORT') || '5173';
-    return this.configService.get('FRONTEND_URL') || 
-      (localIp ? `https://${localIp}:${frontendPort}` : 'https://localhost:5173');
+    return CentralizedConfig.getFrontendUrl();
   }
 
   @Post('commerciaux')

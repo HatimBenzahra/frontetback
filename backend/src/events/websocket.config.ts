@@ -1,22 +1,234 @@
-export const websocketConfig = {
-  cors: {
-    origin: (origin: string | undefined, callback: (err: Error | null, allow?: boolean) => void) => {
-      if (!origin) return callback(null, true);
-      const allowed = [
-        `https://${process.env.LOCAL_IP}:${process.env.FRONTEND_PORT}`,
-        `http://${process.env.LOCAL_IP}:${process.env.FRONTEND_PORT}`,
-        `https://${process.env.PRODUCTION_IP}`,
-        `http://${process.env.PRODUCTION_IP}`,
-        `https://${process.env.STAGING_IP}`,
-        `http://${process.env.STAGING_IP}`,
-      ];
-      const isLocalNetwork = /^https?:\/\/192\.168\.[0-9]+\.[0-9]+(:\d+)?$/.test(origin);
-      if (allowed.includes(origin) || isLocalNetwork) {
-        return callback(null, true);
+/**
+ * Configuration centralisée pour toutes les adresses IP et CORS
+ * ⚠️  TOUTES LES ADRESSES IP DOIVENT ÊTRE DÉFINIES ICI ⚠️
+ */
+export class CentralizedConfig {
+  // Configuration des IPs depuis les variables d'environnement - AUCUN FALLBACK HARDCODÉ
+  private static readonly LOCAL_IP = process.env.LOCAL_IP;
+  private static readonly PRODUCTION_IP = process.env.PRODUCTION_IP;
+  private static readonly STAGING_IP = process.env.STAGING_IP;
+  private static readonly FRONTEND_PORT = process.env.FRONTEND_PORT;
+  private static readonly API_PORT = process.env.API_PORT;
+  private static readonly LOCAL_LLM_URL = process.env.LOCAL_LLM_URL;
+  
+  // Configuration des réseaux autorisés (optionnel)
+  private static readonly ALLOWED_NETWORKS = process.env.ALLOWED_NETWORKS; // Ex: "192.168.0.0/16,10.0.0.0/8"
+
+  /**
+   * Vérifie si une IP appartient aux réseaux autorisés
+   */
+  private static isIpInAllowedNetworks(ip: string): boolean {
+    if (!this.ALLOWED_NETWORKS) {
+      return false; // Aucun réseau autorisé si pas défini
+    }
+
+    const networks = this.ALLOWED_NETWORKS.split(',').map(net => net.trim());
+    
+    for (const network of networks) {
+      if (this.isIpInNetwork(ip, network)) {
+        return true;
       }
-      return callback(new Error('Not allowed by CORS'));
-    },
-    credentials: true,
-  },
-  transports: ['websocket', 'polling'],
-};
+    }
+    
+    return false;
+  }
+
+  /**
+   * Vérifie si une IP appartient à un réseau CIDR
+   */
+  private static isIpInNetwork(ip: string, network: string): boolean {
+    try {
+      const [networkIp, prefixLength] = network.split('/');
+      const prefix = parseInt(prefixLength);
+      
+      const ipNum = this.ipToNumber(ip);
+      const networkNum = this.ipToNumber(networkIp);
+      const mask = (0xffffffff << (32 - prefix)) >>> 0;
+      
+      return (ipNum & mask) === (networkNum & mask);
+    } catch (error) {
+      console.warn(`Erreur lors de la vérification du réseau ${network}:`, error);
+      return false;
+    }
+  }
+
+  /**
+   * Convertit une IP en nombre
+   */
+  private static ipToNumber(ip: string): number {
+    return ip.split('.').reduce((acc, octet) => (acc << 8) + parseInt(octet), 0) >>> 0;
+  }
+
+  /**
+   * Extrait l'IP d'une URL
+   */
+  private static extractIpFromUrl(url: string): string | null {
+    try {
+      const urlObj = new URL(url);
+      return urlObj.hostname;
+    } catch (error) {
+      return null;
+    }
+  }
+
+  /**
+   * Génère toutes les URLs autorisées pour CORS
+   * ⚠️  UNIQUEMENT depuis les variables d'environnement
+   */
+  static getAllowedOrigins(): string[] {
+    const allowed: string[] = [];
+    
+    // URLs locales (seulement si définies dans .env)
+    if (this.LOCAL_IP && this.FRONTEND_PORT) {
+      allowed.push(`http://${this.LOCAL_IP}:${this.FRONTEND_PORT}`);
+      allowed.push(`https://${this.LOCAL_IP}:${this.FRONTEND_PORT}`);
+    }
+    
+    // URLs de production (seulement si définies dans .env)
+    if (this.PRODUCTION_IP) {
+      allowed.push(`http://${this.PRODUCTION_IP}`);
+      allowed.push(`https://${this.PRODUCTION_IP}`);
+    }
+    
+    // URLs de staging (seulement si définies dans .env)
+    if (this.STAGING_IP) {
+      allowed.push(`http://${this.STAGING_IP}`);
+      allowed.push(`https://${this.STAGING_IP}`);
+    }
+    
+    return allowed.filter(Boolean);
+  }
+
+  /**
+   * Fonction de validation CORS centralisée
+   * ⚠️  UNIQUEMENT basée sur les variables d'environnement
+   */
+  static corsOriginValidator = (origin: string | undefined, callback: (err: Error | null, allow?: boolean) => void) => {
+    // Autoriser les requêtes sans origine (apps mobiles, curl)
+    if (!origin) return callback(null, true);
+    
+    const allowed = this.getAllowedOrigins();
+    
+    // Vérifier si l'origine est dans la liste autorisée
+    if (allowed.includes(origin)) {
+      return callback(null, true);
+    }
+    
+    // Vérifier si l'IP appartient aux réseaux autorisés (configurable via .env)
+    const ip = this.extractIpFromUrl(origin);
+    if (ip && this.isIpInAllowedNetworks(ip)) {
+      return callback(null, true);
+    }
+    
+    return callback(new Error('Not allowed by CORS'));
+  };
+
+  /**
+   * Configuration CORS centralisée
+   */
+  static getCorsConfig() {
+    return {
+      origin: this.corsOriginValidator,
+      methods: 'GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS',
+      credentials: true,
+      allowedHeaders: ['Content-Type', 'Authorization', 'Accept'],
+      preflightContinue: false,
+      optionsSuccessStatus: 204,
+    };
+  }
+
+  /**
+   * Configuration WebSocket centralisée
+   */
+  static getWebSocketConfig() {
+    return {
+      cors: {
+        origin: this.corsOriginValidator,
+        credentials: true,
+      },
+      transports: ['websocket', 'polling'],
+    };
+  }
+
+  /**
+   * Génère l'URL du frontend - UNIQUEMENT depuis les variables d'environnement
+   */
+  static getFrontendUrl(): string {
+    if (process.env.FRONTEND_URL) {
+      return process.env.FRONTEND_URL;
+    }
+    
+    if (this.LOCAL_IP && this.FRONTEND_PORT) {
+      return `https://${this.LOCAL_IP}:${this.FRONTEND_PORT}`;
+    }
+    
+    throw new Error('FRONTEND_URL ou (LOCAL_IP + FRONTEND_PORT) doivent être définis dans .env');
+  }
+
+  /**
+   * Génère l'URL de l'API backend - UNIQUEMENT depuis les variables d'environnement
+   */
+  static getApiUrl(): string {
+    if (process.env.API_URL) {
+      return process.env.API_URL;
+    }
+    
+    if (this.LOCAL_IP && this.API_PORT) {
+      return `https://${this.LOCAL_IP}:${this.API_PORT}`;
+    }
+    
+    throw new Error('API_URL ou (LOCAL_IP + API_PORT) doivent être définis dans .env');
+  }
+
+  /**
+   * Retourne l'URL du LLM local - UNIQUEMENT depuis les variables d'environnement
+   */
+  static getLocalLLMUrl(): string {
+    if (!this.LOCAL_LLM_URL) {
+      throw new Error('LOCAL_LLM_URL doit être défini dans .env');
+    }
+    return this.LOCAL_LLM_URL;
+  }
+
+  /**
+   * Retourne les chemins SSL pour les certificats
+   * ⚠️  Les noms de fichiers SSL sont hardcodés car ils correspondent aux certificats générés
+   */
+  static getSslPaths() {
+    const sslPath = process.env.NODE_ENV === 'production' 
+      ? 'ssl'
+      : 'ssl';
+    
+    return {
+      keyPath: `${sslPath}/127.0.0.1+4-key.pem`,
+      certPath: `${sslPath}/127.0.0.1+4.pem`,
+    };
+  }
+
+  /**
+   * Génère les informations de debug pour les logs
+   */
+  static getDebugInfo() {
+    return {
+      corsOrigins: this.getAllowedOrigins().join(', '),
+      frontendUrl: this.getFrontendUrl(),
+      apiUrl: this.getApiUrl(),
+      localLLMUrl: this.getLocalLLMUrl(),
+      environment: process.env.NODE_ENV || 'development',
+      allowedNetworks: this.ALLOWED_NETWORKS || 'Aucun réseau autorisé',
+      // Informations sur les variables d'environnement
+      envVars: {
+        LOCAL_IP: this.LOCAL_IP ? '✅ Défini' : '❌ Manquant',
+        PRODUCTION_IP: this.PRODUCTION_IP ? '✅ Défini' : '❌ Manquant',
+        STAGING_IP: this.STAGING_IP ? '✅ Défini' : '❌ Manquant',
+        FRONTEND_PORT: this.FRONTEND_PORT ? '✅ Défini' : '❌ Manquant',
+        API_PORT: this.API_PORT ? '✅ Défini' : '❌ Manquant',
+        LOCAL_LLM_URL: this.LOCAL_LLM_URL ? '✅ Défini' : '❌ Manquant',
+        ALLOWED_NETWORKS: this.ALLOWED_NETWORKS ? '✅ Défini' : '❌ Manquant',
+      }
+    };
+  }
+}
+
+// Export de la configuration WebSocket pour compatibilité
+export const websocketConfig = CentralizedConfig.getWebSocketConfig();
