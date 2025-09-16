@@ -3,6 +3,7 @@ import { ConfigService } from '@nestjs/config';
 import { KeycloakService } from './keycloak.service';
 import { JwtUtil } from './jwt.util';
 import { MailerService } from './mailer.service';
+import { CentralizedConfig } from '../events/websocket.config';
 
 @Injectable()
 export class AuthInitService implements OnModuleInit {
@@ -62,7 +63,7 @@ export class AuthInitService implements OnModuleInit {
 
       // Generate setup token and log the setup link
       const setupToken = this.jwtUtil.signSetup(keycloakUserId);
-      const setupLink = `${this.configService.get('FRONTEND_URL')}/setup-password?token=${setupToken}`;
+      const setupLink = `${CentralizedConfig.getFrontendUrl()}/setup-password?token=${setupToken}`;
       
       this.logger.log('='.repeat(80));
       this.logger.log('INITIAL ADMIN SETUP REQUIRED');

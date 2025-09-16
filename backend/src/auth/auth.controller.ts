@@ -6,6 +6,7 @@ import { MailerService } from './mailer.service';
 import { ConfigService } from '@nestjs/config';
 import { CommercialService } from '../commercial/commercial.service';
 import { ManagerService } from '../manager/manager.service';
+import { CentralizedConfig } from '../events/websocket.config';
 
 interface CreateUserDto {
   email: string;
@@ -100,7 +101,7 @@ export class AuthController {
 
       // Generate setup token and send email
       const setupToken = this.jwtUtil.signSetup(keycloakUserId);
-      const setupLink = `${this.configService.get('FRONTEND_URL')}/setup-password?token=${setupToken}`;
+      const setupLink = `${CentralizedConfig.getFrontendUrl()}/setup-password?token=${setupToken}`;
       
       await this.mailerService.sendSetupPasswordEmail(email, setupLink);
 
@@ -182,7 +183,7 @@ export class AuthController {
       // Always return 200 for privacy; send email only if user exists
       if (user) {
         const token = this.jwtUtil.signReset(user.id);
-        const link = `${this.configService.get('FRONTEND_URL')}/reset-password?token=${token}`;
+        const link = `${CentralizedConfig.getFrontendUrl()}/reset-password?token=${token}`;
         try {
           await this.mailerService.sendForgotPasswordEmail(email, link);
         } catch (emailError) {
@@ -421,7 +422,7 @@ export class AuthController {
       }
 
       const setupToken = this.jwtUtil.signSetup(user.id);
-      const setupLink = `${this.configService.get('FRONTEND_URL')}/setup-password?token=${setupToken}`;
+      const setupLink = `${CentralizedConfig.getFrontendUrl()}/setup-password?token=${setupToken}`;
 
       try {
         await this.mailerService.sendSetupPasswordEmail(email, setupLink);
