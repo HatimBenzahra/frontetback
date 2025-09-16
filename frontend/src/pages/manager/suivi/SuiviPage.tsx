@@ -129,7 +129,24 @@ const ManagerSuiviPage = () => {
       if (!commercialId) return;
       const pc = pcsRef.current.get(commercialId);
       if (!pc) return;
-      await pc.setRemoteDescription({ type: payload.type as RTCSdpType, sdp: payload.sdp });
+
+      try {
+        // Only accept answer if we're in the correct state (waiting for answer)
+        if (pc.signalingState === 'have-local-offer') {
+          await pc.setRemoteDescription({ type: payload.type as RTCSdpType, sdp: payload.sdp });
+          console.log(`WebRTC answer accepted for ${commercialId}, state now:`, pc.signalingState);
+        } else {
+          console.warn(`Ignoring duplicate answer for ${commercialId} in state:`, pc.signalingState);
+          return; // Ignore duplicate answers
+        }
+      } catch (err) {
+        console.error('Error setting remote description (manager):', err);
+        // Clean up the connection if it's in a bad state
+        if (pc.connectionState === 'failed') {
+          pcsRef.current.delete(commercialId);
+          setFailedIds(prev => new Set(prev).add(commercialId));
+        }
+      }
     };
 
     const onIce = async (payload: { from_socket_id: string; candidate: RTCIceCandidateInit | null }) => {

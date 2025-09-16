@@ -84,18 +84,20 @@ const SuiviPage = () => {
       if (!commercialId) return;
       const pc = pcsRef.current.get(commercialId);
       if (!pc) return;
-      
+
       try {
-        // Check if we can set remote description
-        if (pc.signalingState === 'have-local-offer' || pc.signalingState === 'have-remote-pranswer') {
+        // Only accept answer if we're in the correct state (waiting for answer)
+        if (pc.signalingState === 'have-local-offer') {
           await pc.setRemoteDescription({ type: payload.type as RTCSdpType, sdp: payload.sdp });
+          console.log(`WebRTC answer accepted for ${commercialId}, state now:`, pc.signalingState);
         } else {
-          console.warn('Cannot set remote description in current signaling state:', pc.signalingState);
+          console.warn(`Ignoring duplicate answer for ${commercialId} in state:`, pc.signalingState);
+          return; // Ignore duplicate answers
         }
       } catch (err) {
         console.error('Error setting remote description (admin):', err);
         // Clean up the connection if it's in a bad state
-        if (pc.signalingState === 'stable' && pc.connectionState === 'failed') {
+        if (pc.connectionState === 'failed') {
           pcsRef.current.delete(commercialId);
           setFailedIds(prev => new Set(prev).add(commercialId));
         }
