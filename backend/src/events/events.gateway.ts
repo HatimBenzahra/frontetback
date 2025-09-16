@@ -409,51 +409,7 @@ export class EventsGateway implements OnGatewayConnection, OnGatewayDisconnect {
     }
   }
 
-  // --- WebRTC signaling relay for listen-only ---
-  @SubscribeMessage('suivi:webrtc_offer')
-  @UseGuards(WsRolesGuard)
-  @Roles('admin', 'manager')
-  handleSuiviOffer(client: Socket, data: { to_socket_id: string; sdp: string; type: string }) {
-    console.log(`📨 Offer from ${client.id} to ${data.to_socket_id}`);
-    this.server.to(data.to_socket_id).emit('suivi:webrtc_offer', {
-      from_socket_id: client.id,
-      sdp: data.sdp,
-      type: data.type,
-    });
-  }
-
-  @SubscribeMessage('suivi:webrtc_answer')
-  @UseGuards(WsRolesGuard)
-  @Roles('commercial')
-  handleSuiviAnswer(client: Socket, data: { to_socket_id: string; sdp: string; type: string }) {
-    console.log(`📨 Answer from ${client.id} to ${data.to_socket_id}`);
-    this.server.to(data.to_socket_id).emit('suivi:webrtc_answer', {
-      from_socket_id: client.id,
-      sdp: data.sdp,
-      type: data.type,
-    });
-  }
-
-  @SubscribeMessage('suivi:webrtc_ice_candidate')
-  @UseGuards(WsRolesGuard)
-  @Roles('admin', 'manager', 'commercial')
-  handleSuiviIce(client: Socket, data: { to_socket_id: string; candidate: any }) {
-    // Note: candidate can be null (end of candidates)
-    this.server.to(data.to_socket_id).emit('suivi:webrtc_ice_candidate', {
-      from_socket_id: client.id,
-      candidate: data.candidate,
-    });
-  }
-
-  @SubscribeMessage('suivi:leave')
-  @UseGuards(WsRolesGuard)
-  @Roles('admin', 'manager', 'commercial')
-  handleSuiviLeave(client: Socket, data: { to_socket_id: string }) {
-    // Notify the commercial that a listener left so it can close the peer connection
-    this.server.to(data.to_socket_id).emit('suivi:leave', {
-      from_socket_id: client.id,
-    });
-  }
+  // --- WebRTC signaling moved to AudioGateway to prevent duplicate handlers ---
 
   // Gestion de la demande d'historique des transcriptions
   @SubscribeMessage('request_transcription_history')
