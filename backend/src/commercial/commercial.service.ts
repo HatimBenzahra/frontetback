@@ -247,6 +247,11 @@ export class CommercialService {
       }
     });
 
+    // 7. Delete activity feed entries
+    await this.prisma.activityFeed.deleteMany({
+      where: { commercialId: id }
+    });
+
     // Finally delete the commercial
     return this.prisma.commercial.delete({ where: { id } });
   }
