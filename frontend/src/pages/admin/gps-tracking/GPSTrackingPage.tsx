@@ -242,8 +242,14 @@ const GPSTrackingPage: React.FC = () => {
       socket.emit('request_gps_state');
     };
 
-    // Demander l'état actuel après un court délai pour s'assurer que la room est jointe
-    const timeoutId = setTimeout(requestCurrentState, 500);
+    // Demander l'état actuel immédiatement et avec des retry
+    requestCurrentState();
+    
+    // Retry automatique toutes les 5 secondes pendant les 30 premières secondes
+    const retryInterval = setInterval(requestCurrentState, 5000);
+    const stopRetryTimeout = setTimeout(() => {
+      clearInterval(retryInterval);
+    }, 30000);
 
     // Écouter les mises à jour de position
     const handleLocationUpdate = (data: LocationData) => {
@@ -257,7 +263,8 @@ const GPSTrackingPage: React.FC = () => {
           // Mettre à jour le commercial existant
           return prev.map(commercial => {
             if (commercial.id === data.commercialId) {
-              return {
+              const wasOffline = !commercial.isOnline;
+              const updatedCommercial = {
                 ...commercial,
                 isOnline: true,
                 lastSeen: new Date(data.timestamp),
@@ -272,6 +279,13 @@ const GPSTrackingPage: React.FC = () => {
                 hasLocationPermission: true,
                 locationError: undefined
               };
+              
+              // Notifier si le commercial vient de se connecter
+              if (wasOffline) {
+                console.log(`🟢 Commercial ${data.commercialId} vient de se connecter`);
+              }
+              
+              return updatedCommercial;
             }
             return commercial;
           });
@@ -342,7 +356,8 @@ const GPSTrackingPage: React.FC = () => {
 
     // Nettoyage
     return () => {
-      clearTimeout(timeoutId);
+      clearInterval(retryInterval);
+      clearTimeout(stopRetryTimeout);
       socket.off('locationUpdate', handleLocationUpdate);
       socket.off('locationError', handleLocationError);
       socket.off('commercialOffline', handleCommercialOffline);
@@ -429,14 +444,23 @@ const GPSTrackingPage: React.FC = () => {
     measurePing();
     const pingInterval = setInterval(measurePing, 10000);
     
-    // Mettre à jour l'état des commerciaux toutes les 15 secondes (plus fréquent)
-    const statusInterval = setInterval(updateCommercialStatus, 15000);
+    // Mettre à jour l'état des commerciaux toutes les 10 secondes (plus fréquent)
+    const statusInterval = setInterval(updateCommercialStatus, 10000);
+    
+    // Re-synchronisation automatique toutes les 30 secondes
+    const resyncInterval = setInterval(() => {
+      if (socket?.connected) {
+        console.log('🔄 Re-synchronisation automatique GPS');
+        socket.emit('request_gps_state');
+      }
+    }, 30000);
 
     return () => {
       clearTimeout(pingTimeout);
       socket.off('pong', handlePong);
       clearInterval(pingInterval);
       clearInterval(statusInterval);
+      clearInterval(resyncInterval);
     };
   }, [socket]);
 
@@ -503,6 +527,9 @@ const GPSTrackingPage: React.FC = () => {
     if (socket) {
       console.log('Rafraîchissement manuel de l\'état GPS');
       socket.emit('request_gps_state');
+      
+      // Forcer une mise à jour immédiate de l'état des commerciaux
+      setCommerciaux(prev => [...prev]);
     }
   };
 

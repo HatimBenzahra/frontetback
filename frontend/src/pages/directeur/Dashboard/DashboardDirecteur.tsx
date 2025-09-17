@@ -1,3 +1,5 @@
+
+
 import { useEffect, useState } from 'react';
 
 // --- Imports des Composants ---
@@ -18,8 +20,8 @@ import {
 
 // --- Imports des Settings ---
 import { useDashboardSettings } from '@/hooks/useDashboardSettings';
+// Remplacement du Select par un groupe de boutons segmentés pour un look plus moderne
 import { directeurSpaceService } from '@/services/directeur-space.service';
-import { assignmentGoalsService } from '@/services/assignment-goals.service';
 import { Loader2 } from 'lucide-react';
 import { CommercialProgressCard } from '@/components/ui-admin/CommercialProgressCard';
 import { CountdownCard } from '@/components/ui-admin/CountdownCard';
@@ -36,6 +38,10 @@ type ActiviteRecenteItem = {
   temps: string;
 };
 
+
+
+
+
 const ActivityBadge = ({ type }: { type: string }) => {
     switch (type) {
         case 'CONTRAT': return <Badge className="bg-emerald-100 text-emerald-800 border-emerald-300">Contrat</Badge>;
@@ -45,7 +51,10 @@ const ActivityBadge = ({ type }: { type: string }) => {
     }
 };
 
-const DashboardDirecteur = () => {
+
+
+
+const DashboardAdmin = () => {
     const { settings } = useDashboardSettings();
     const [dashboardData, setDashboardData] = useState<any>(null);
     const [loading, setLoading] = useState(true);
@@ -59,67 +68,58 @@ const DashboardDirecteur = () => {
     const activityItemsPerPage = settings.activityItemsPerPage || 5;
     const [currentGlobalGoal, setCurrentGlobalGoal] = useState<any>(null);
     const [assignmentRefreshTrigger, setAssignmentRefreshTrigger] = useState<number>(0);
-
     // Rafraîchissement manuel pour afficher le skeleton
     const handleManualRefresh = async () => {
         try {
             setLoading(true);
             setError(null);
-            const [globalStats, managersStats, performanceHistory, progressDataResp, goalDataResp] = await Promise.all([
-                directeurSpaceService.getGlobalStats(),
-                directeurSpaceService.getManagersStats(),
-                directeurSpaceService.getPerformanceHistory(),
+            const [dashboardDataResp, chartsDataResp, progressDataResp, goalDataResp] = await Promise.all([
+                directeurSpaceService.getCurrentGlobalGoal(),
+                Promise.all([
+                    directeurSpaceService.getPerformanceHistory(),
+                    directeurSpaceService.getPerformanceHistory()
+                ]),
                 directeurSpaceService.getCommerciauxStats(),
-                assignmentGoalsService.getCurrentGlobalGoal()
+                directeurSpaceService.getCurrentGlobalGoal()
             ]);
-            
-            // Trouver le meilleur manager basé sur le taux de conversion
-            const meilleurManager = managersStats.length > 0 
-                ? managersStats.reduce((best: any, current: any) => 
-                    (current.tauxConversion || 0) > (best.tauxConversion || 0) ? current : best
-                  )
-                : null;
-            
-            // Calculer le taux de conclusion moyen des managers
-            const tauxConclusionMoyen = managersStats.length > 0
-                ? managersStats.reduce((sum: number, manager: any) => sum + (manager.tauxConversion || 0), 0) / managersStats.length
-                : 0;
-            
-            // Transformer les données pour correspondre au format attendu par le frontend
-            const dashboardDataResp = {
+            // Adapter les données pour correspondre au format attendu
+            const adaptedDashboardData = {
                 stats: {
-                    contratsSignes: globalStats.totalContrats || 0,
-                    rdvPris: globalStats.totalRdv || 0,
-                    tauxSignature: globalStats.tauxConversion || 0,
-                    perfMoyenne: globalStats.tauxConversion || 0
+                    contratsSignes: dashboardDataResp.totalContrats || 0,
+                    rdvPris: dashboardDataResp.totalRdv || 0,
+                    tauxSignature: dashboardDataResp.tauxConversion || 0,
+                    perfMoyenne: dashboardDataResp.tauxConversion || 0
                 },
                 managerStats: {
-                    meilleurManager: meilleurManager ? `${meilleurManager.prenom} ${meilleurManager.nom}` : "Aucun manager",
-                    tauxConclusionMoyen: Math.round(tauxConclusionMoyen * 100) / 100,
-                    rdvMoyen: Math.round((globalStats.totalRdv || 0) / (globalStats.totalManagers || 1)),
-                    effectifTotal: globalStats.totalManagers || 0
+                    meilleurManager: 'N/A',
+                    tauxConclusionMoyen: dashboardDataResp.tauxConversion || 0,
+                    rdvMoyen: Math.round(dashboardDataResp.totalRdv / Math.max(dashboardDataResp.totalManagers, 1)),
+                    effectifTotal: dashboardDataResp.totalManagers || 0
                 },
-                activiteRecente: [] // Pour l'instant, retourner un tableau vide
+                activiteRecente: []
             };
-            
-            const chartsDataResp = [
-                performanceHistory[chartPeriod as keyof typeof performanceHistory] || [],
-                [] // Repassage chart - pas encore implémenté
-            ];
-            setDashboardData(dashboardDataResp);
-            setPerformanceData(chartsDataResp[0]);
-            setRepassageData(chartsDataResp[1]);
-            setCommercialsProgress(progressDataResp);
-            setCurrentGlobalGoal(goalDataResp);
+
+            setDashboardData(adaptedDashboardData);
+            setPerformanceData(chartsDataResp[0]?.week || []);
+            setRepassageData(chartsDataResp[1]?.week || []);
+            setCommercialsProgress(progressDataResp || []);
+            setCurrentGlobalGoal(goalDataResp || {
+                goal: 0,
+                startDate: new Date().toISOString(),
+                endDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString()
+            });
             // Déclencher le rafraîchissement des assignations
             setAssignmentRefreshTrigger(prev => prev + 1);
         } catch (err) {
             setError('Erreur lors du chargement des données');
-            console.error('Error loading directeur dashboard data:', err);
+            console.error('Error loading dashboard data:', err);
         } finally {
             setLoading(false);
         }
     };
+
+
+
 
     useEffect(() => {
         const loadAllData = async () => {
@@ -128,55 +128,49 @@ const DashboardDirecteur = () => {
                 setError(null);
                 
                 // Charger toutes les données en parallèle
-                const [globalStats, managersStats, performanceHistory, progressData, goalData] = await Promise.all([
-                    directeurSpaceService.getGlobalStats(),
-                    directeurSpaceService.getManagersStats(),
-                    directeurSpaceService.getPerformanceHistory(),
+                const [dashboardData, chartsData, progressData, goalData] = await Promise.all([
+                    directeurSpaceService.getCurrentGlobalGoal(),
+                    Promise.all([
+                        directeurSpaceService.getPerformanceHistory(),
+                        directeurSpaceService.getPerformanceHistory()
+                    ]),
                     directeurSpaceService.getCommerciauxStats(),
-                    assignmentGoalsService.getCurrentGlobalGoal()
+                    directeurSpaceService.getCurrentGlobalGoal()
                 ]);
                 
-                // Trouver le meilleur manager basé sur le taux de conversion
-                const meilleurManager = managersStats.length > 0 
-                    ? managersStats.reduce((best: any, current: any) => 
-                        (current.tauxConversion || 0) > (best.tauxConversion || 0) ? current : best
-                      )
-                    : null;
-                
-                // Calculer le taux de conclusion moyen des managers
-                const tauxConclusionMoyen = managersStats.length > 0
-                    ? managersStats.reduce((sum: number, manager: any) => sum + (manager.tauxConversion || 0), 0) / managersStats.length
-                    : 0;
-                
-                // Transformer les données pour correspondre au format attendu par le frontend
-                const dashboardData = {
+                // Adapter les données pour correspondre au format attendu
+                const adaptedDashboardData = {
                     stats: {
-                        contratsSignes: globalStats.totalContrats || 0,
-                        rdvPris: globalStats.totalRdv || 0,
-                        tauxSignature: globalStats.tauxConversion || 0,
-                        perfMoyenne: globalStats.tauxConversion || 0
+                        contratsSignes: dashboardData.totalContrats || 0,
+                        rdvPris: dashboardData.totalRdv || 0,
+                        tauxSignature: dashboardData.tauxConversion || 0,
+                        perfMoyenne: dashboardData.tauxConversion || 0
                     },
                     managerStats: {
-                        meilleurManager: meilleurManager ? `${meilleurManager.prenom} ${meilleurManager.nom}` : "Aucun manager",
-                        tauxConclusionMoyen: Math.round(tauxConclusionMoyen * 100) / 100,
-                        rdvMoyen: Math.round((globalStats.totalRdv || 0) / (globalStats.totalManagers || 1)),
-                        effectifTotal: globalStats.totalManagers || 0
+                        meilleurManager: 'N/A',
+                        tauxConclusionMoyen: dashboardData.tauxConversion || 0,
+                        rdvMoyen: Math.round(dashboardData.totalRdv / Math.max(dashboardData.totalManagers, 1)),
+                        effectifTotal: dashboardData.totalManagers || 0
                     },
-                    activiteRecente: [] // Pour l'instant, retourner un tableau vide
+                    activiteRecente: []
                 };
-                
+
                 // Mettre à jour tous les states
-                setDashboardData(dashboardData);
-                setPerformanceData(performanceHistory[chartPeriod as keyof typeof performanceHistory] || []);
-                setRepassageData([]); // Repassage chart - pas encore implémenté
-                setCommercialsProgress(progressData);
-                setCurrentGlobalGoal(goalData);
+                setDashboardData(adaptedDashboardData);
+                setPerformanceData(chartsData[0]?.week || []);
+                setRepassageData(chartsData[1]?.week || []);
+                setCommercialsProgress(progressData || []);
+                setCurrentGlobalGoal(goalData || {
+                    goal: 0,
+                    startDate: new Date().toISOString(),
+                    endDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString()
+                });
                 // Déclencher le rafraîchissement des assignations
                 setAssignmentRefreshTrigger(prev => prev + 1);
                 
             } catch (err) {
                 setError('Erreur lors du chargement des données');
-                console.error('Error loading directeur dashboard data:', err);
+                console.error('Error loading dashboard data:', err);
             } finally {
                 setLoading(false);
             }
@@ -191,11 +185,14 @@ const DashboardDirecteur = () => {
         const loadChartsData = async () => {
             try {
                 setChartsLoading(true);
-                const performanceHistory = await directeurSpaceService.getPerformanceHistory();
-                setPerformanceData(performanceHistory[chartPeriod as keyof typeof performanceHistory] || []);
-                setRepassageData([]); // Repassage chart - pas encore implémenté
+                const [perfData, repassData] = await Promise.all([
+                    directeurSpaceService.getPerformanceHistory(),
+                    directeurSpaceService.getPerformanceHistory()
+                ]);
+                setPerformanceData(perfData?.week || []);
+                setRepassageData(repassData?.week || []);
             } catch (err) {
-                console.error('Error fetching directeur charts data:', err);
+                console.error('Error fetching charts data:', err);
             } finally {
                 setChartsLoading(false);
             }
@@ -208,57 +205,46 @@ const DashboardDirecteur = () => {
         if (settings.autoRefresh && !loading) {
             const timer = setInterval(async () => {
                 try {
-                    const [globalStats, managersStats, performanceHistory, progressData, goalData] = await Promise.all([
-                        directeurSpaceService.getGlobalStats(),
-                        directeurSpaceService.getManagersStats(),
-                        directeurSpaceService.getPerformanceHistory(),
+                    const [dashboardData, chartsData, progressData, goalData] = await Promise.all([
+                        directeurSpaceService.getCurrentGlobalGoal(),
+                        Promise.all([
+                            directeurSpaceService.getPerformanceHistory(),
+                            directeurSpaceService.getPerformanceHistory()
+                        ]),
                         directeurSpaceService.getCommerciauxStats(),
-                        assignmentGoalsService.getCurrentGlobalGoal()
+                        directeurSpaceService.getCurrentGlobalGoal()
                     ]);
                     
-                    // Trouver le meilleur manager basé sur le taux de conversion
-                    const meilleurManager = managersStats.length > 0 
-                        ? managersStats.reduce((best: any, current: any) => 
-                            (current.tauxConversion || 0) > (best.tauxConversion || 0) ? current : best
-                          )
-                        : null;
-                    
-                    // Calculer le taux de conclusion moyen des managers
-                    const tauxConclusionMoyen = managersStats.length > 0
-                        ? managersStats.reduce((sum: number, manager: any) => sum + (manager.tauxConversion || 0), 0) / managersStats.length
-                        : 0;
-                    
-                    // Transformer les données pour correspondre au format attendu par le frontend
-                    const dashboardData = {
+                    // Adapter les données pour correspondre au format attendu
+                    const adaptedDashboardData = {
                         stats: {
-                            contratsSignes: globalStats.totalContrats || 0,
-                            rdvPris: globalStats.totalRdv || 0,
-                            tauxSignature: globalStats.tauxConversion || 0,
-                            perfMoyenne: globalStats.tauxConversion || 0
+                            contratsSignes: dashboardData.totalContrats || 0,
+                            rdvPris: dashboardData.totalRdv || 0,
+                            tauxSignature: dashboardData.tauxConversion || 0,
+                            perfMoyenne: dashboardData.tauxConversion || 0
                         },
                         managerStats: {
-                            meilleurManager: meilleurManager ? `${meilleurManager.prenom} ${meilleurManager.nom}` : "Aucun manager",
-                            tauxConclusionMoyen: Math.round(tauxConclusionMoyen * 100) / 100,
-                            rdvMoyen: Math.round((globalStats.totalRdv || 0) / (globalStats.totalManagers || 1)),
-                            effectifTotal: globalStats.totalManagers || 0
+                            meilleurManager: 'N/A',
+                            tauxConclusionMoyen: dashboardData.tauxConversion || 0,
+                            rdvMoyen: Math.round(dashboardData.totalRdv / Math.max(dashboardData.totalManagers, 1)),
+                            effectifTotal: dashboardData.totalManagers || 0
                         },
-                        activiteRecente: [] // Pour l'instant, retourner un tableau vide
+                        activiteRecente: []
                     };
-                    
-                    const chartsData = [
-                        performanceHistory[chartPeriod as keyof typeof performanceHistory] || [],
-                        [] // Repassage chart - pas encore implémenté
-                    ];
-                    
-                    setDashboardData(dashboardData);
-                    setPerformanceData(chartsData[0]);
-                    setRepassageData(chartsData[1]);
-                    setCommercialsProgress(progressData);
-                    setCurrentGlobalGoal(goalData);
+
+                    setDashboardData(adaptedDashboardData);
+                    setPerformanceData(chartsData[0]?.week || []);
+                    setRepassageData(chartsData[1]?.week || []);
+                    setCommercialsProgress(progressData || []);
+                    setCurrentGlobalGoal(goalData || {
+                    goal: 0,
+                    startDate: new Date().toISOString(),
+                    endDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString()
+                });
                     // Déclencher le rafraîchissement des assignations
                     setAssignmentRefreshTrigger(prev => prev + 1);
                 } catch (err) {
-                    console.error('Error refreshing directeur dashboard data:', err);
+                    console.error('Error refreshing dashboard data:', err);
                 }
             }, settings.refreshInterval * 60 * 1000);
             return () => clearInterval(timer);
@@ -304,14 +290,14 @@ const DashboardDirecteur = () => {
     }
 
     return (
-        <div className="space-y-8 bg-gradient-to-br from-white via-purple-50/60 to-purple-100/30 p-4 sm:p-6 rounded-2xl border border-purple-100">
-            <div className="flex flex-wrap gap-4 justify-between items-center animate-in fade-in duration-500 border-b border-purple-100/70 pb-4">
+        <div className="space-y-8 bg-gradient-to-br from-white via-blue-50/60 to-blue-100/30 p-4 sm:p-6 rounded-2xl border border-blue-100">
+            <div className="flex flex-wrap gap-4 justify-between items-center animate-in fade-in duration-500 border-b border-blue-100/70 pb-4">
                 <div className="flex items-center gap-3">
-                  <div className="h-10 w-10 rounded-xl bg-purple-600/90 text-white flex items-center justify-center shadow-lg">
+                  <div className="h-10 w-10 rounded-xl bg-blue-600/90 text-white flex items-center justify-center shadow-lg">
                     <BarChart3 className="h-5 w-5"/>
                   </div>
                   <div>
-                    <h2 className="text-xl sm:text-2xl font-semibold text-zinc-900">Vue d'ensemble - Directeur</h2>
+                    <h2 className="text-xl sm:text-2xl font-semibold text-zinc-900">Vue d’ensemble</h2>
                     <p className="text-sm text-zinc-600">{getTimeFilterLabel(settings.defaultTimeFilter)}</p>
                   </div>
                 </div>
@@ -319,10 +305,10 @@ const DashboardDirecteur = () => {
                   <Button 
                     variant="outline" 
                     size="sm" 
-                    className="!border-purple-200 !text-purple-700 hover:!bg-purple-50 hover:!border-purple-300 focus:!ring-purple-500" 
+                    className="!border-blue-200 !text-blue-700 hover:!bg-blue-50 hover:!border-blue-300 focus:!ring-blue-500" 
                     style={{
-                      borderColor: '#e9d5ff',
-                      color: '#7c3aed',
+                      borderColor: '#bfdbfe',
+                      color: '#1d4ed8',
                     }}
                     onClick={handleManualRefresh}
                     disabled={loading}
@@ -454,21 +440,21 @@ const DashboardDirecteur = () => {
             
             {/* Filtres pour les graphiques */}
             {settings.chartVisibility.showChartsSection && (
-            <section className="backdrop-blur bg-white/90 rounded-2xl p-6 shadow-lg border border-purple-100">
+            <section className="backdrop-blur bg-white/90 rounded-2xl p-6 shadow-lg border border-blue-100">
                 <div className="flex items-center justify-between mb-4">
                     <h3 className="text-lg font-semibold text-gray-900">Analyses de Performance</h3>
                     <div className="flex items-center gap-2">
                         <button
                           onClick={() => setChartPeriod('week')}
-                          className={`px-3 py-1.5 rounded-full text-sm border transition-all ${chartPeriod==='week' ? 'bg-purple-600 text-white border-purple-600 shadow-sm' : 'bg-white text-purple-700 border-purple-200 hover:bg-purple-50'}`}
+                          className={`px-3 py-1.5 rounded-full text-sm border transition-all ${chartPeriod==='week' ? 'bg-blue-600 text-white border-blue-600 shadow-sm' : 'bg-white text-blue-700 border-blue-200 hover:bg-blue-50'}`}
                         >Semaine</button>
                         <button
                           onClick={() => setChartPeriod('month')}
-                          className={`px-3 py-1.5 rounded-full text-sm border transition-all ${chartPeriod==='month' ? 'bg-purple-600 text-white border-purple-600 shadow-sm' : 'bg-white text-purple-700 border-purple-200 hover:bg-purple-50'}`}
+                          className={`px-3 py-1.5 rounded-full text-sm border transition-all ${chartPeriod==='month' ? 'bg-blue-600 text-white border-blue-600 shadow-sm' : 'bg-white text-blue-700 border-blue-200 hover:bg-blue-50'}`}
                         >Mois</button>
                         <button
                           onClick={() => setChartPeriod('year')}
-                          className={`px-3 py-1.5 rounded-full text-sm border transition-all ${chartPeriod==='year' ? 'bg-purple-600 text-white border-purple-600 shadow-sm' : 'bg-white text-purple-700 border-purple-200 hover:bg-purple-50'}`}
+                          className={`px-3 py-1.5 rounded-full text-sm border transition-all ${chartPeriod==='year' ? 'bg-blue-600 text-white border-blue-600 shadow-sm' : 'bg-white text-blue-700 border-blue-200 hover:bg-blue-50'}`}
                         >Année</button>
                     </div>
                 </div>
@@ -485,10 +471,10 @@ const DashboardDirecteur = () => {
                 ) : (
                     <div className="grid gap-6 md:grid-cols-2">
                         {settings.chartVisibility.showPerformanceChart && performanceData && (
-                            <Card className="bg-white/90 border border-purple-100 shadow-sm rounded-2xl">
+                            <Card className="bg-white/90 border border-blue-100 shadow-sm rounded-2xl">
                                 <CardHeader>
-                                    <CardTitle>Performance de mes Équipes - {chartPeriod === 'week' ? 'Par Jour' : chartPeriod === 'month' ? 'Par Semaine' : 'Par Mois'}</CardTitle>
-                                    <CardDescription>Activité de mes managers et commerciaux</CardDescription>
+                                    <CardTitle>Performance Globale - {chartPeriod === 'week' ? 'Par Jour' : chartPeriod === 'month' ? 'Par Semaine' : 'Par Mois'}</CardTitle>
+                                    <CardDescription>Activité de tous les commerciaux combinés</CardDescription>
                                 </CardHeader>
                                 <CardContent className="h-80">
                                     <GenericBarChart
@@ -496,7 +482,7 @@ const DashboardDirecteur = () => {
                                         data={performanceData}
                                         xAxisDataKey="periode"
                                         bars={[
-                                            { dataKey: 'Portes Visitées', fill: '#8b5cf6', name: 'Portes Visitées' },
+                                            { dataKey: 'Portes Visitées', fill: '#3b82f6', name: 'Portes Visitées' },
                                             { dataKey: 'Contrats Signés', fill: '#10b981', name: 'Contrats Signés' },
                                             { dataKey: 'RDV Pris', fill: '#f59e0b', name: 'RDV Pris' }
                                         ]}
@@ -506,17 +492,17 @@ const DashboardDirecteur = () => {
                         )}
 
                         {settings.chartVisibility.showRepassageChart && repassageData && (
-                            <Card className="bg-white/90 border border-purple-100 shadow-sm rounded-2xl">
+                            <Card className="bg-white/90 border border-blue-100 shadow-sm rounded-2xl">
                                 <CardHeader>
                                     <CardTitle>Efficacité des Repassages - {chartPeriod === 'week' ? 'Par Jour' : chartPeriod === 'month' ? 'Par Semaine' : 'Par Mois'}</CardTitle>
-                                    <CardDescription>Repassages de mes équipes convertis en contrats</CardDescription>
+                                    <CardDescription>Nombre de repassages qui ont abouti à un contrat signé</CardDescription>
                                 </CardHeader>
                                 <CardContent className="h-80">
                                     <GenericLineChart
                                         data={repassageData}
                                         xAxisDataKey="periode"
                                         lines={[
-                                            { dataKey: 'Repassages convertis en contrats', stroke: '#a855f7', name: 'Repassages convertis' }
+                                            { dataKey: 'Repassages convertis en contrats', stroke: '#8b5cf6', name: 'Repassages convertis' }
                                         ]}
                                     />
                                 </CardContent>
@@ -529,14 +515,14 @@ const DashboardDirecteur = () => {
             
             {/* Progress des commerciaux vers l'objectif global */}
             {settings.statsVisibility.showCommercialsProgress && (
-            <section className="backdrop-blur bg-white/90 rounded-2xl p-6 shadow-lg border border-purple-100">
+            <section className="backdrop-blur bg-white/90 rounded-2xl p-6 shadow-lg border border-blue-100">
                 <div className="flex items-center justify-between mb-4">
                     <div>
                         <h3 className="text-lg font-semibold text-gray-900">Contribution à l'Objectif Global</h3>
                         {commercialsProgress && (
                             <div className="text-sm text-gray-600 mt-1">
                                 {commercialsProgress.globalGoal > 0 ? (
-                                    <>Objectif global: <span className="font-semibold text-purple-600">{commercialsProgress.globalGoal} contrats</span></>
+                                    <>Objectif global: <span className="font-semibold text-blue-600">{commercialsProgress.globalGoal} contrats</span></>
                                 ) : (
                                     <span className="font-semibold text-amber-600">Aucun objectif global défini</span>
                                 )}
@@ -559,4 +545,4 @@ const DashboardDirecteur = () => {
     );
 };
 
-export default DashboardDirecteur;
+export default DashboardAdmin;

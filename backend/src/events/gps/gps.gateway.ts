@@ -52,7 +52,7 @@ export class GpsGateway implements OnGatewayConnection, OnGatewayDisconnect {
     if (commercialId) {
       this.commercialSockets.delete(commercialId);
       
-      // Ne pas supprimer immédiatement les données GPS, attendre un délai
+      // Ne pas supprimer immédiatement les données GPS, attendre un délai réduit
       const offlineTimer = setTimeout(() => {
         console.log(`📍 Commercial ${commercialId} marqué comme hors ligne après délai`);
         this.commercialLocations.delete(commercialId);
@@ -62,10 +62,10 @@ export class GpsGateway implements OnGatewayConnection, OnGatewayDisconnect {
           console.error('Erreur lors de la diffusion de déconnexion:', error);
           this.server.to('gps-tracking').emit('commercialOffline', commercialId);
         });
-      }, 30000); // 30 secondes de délai
+      }, 15000); // 15 secondes de délai (réduit de 30s)
       
       this.offlineTimers.set(commercialId, offlineTimer);
-      console.log(`📍 Commercial ${commercialId} déconnecté, délai de 30s avant marquage hors ligne`);
+      console.log(`📍 Commercial ${commercialId} déconnecté, délai de 15s avant marquage hors ligne`);
     }
   }
 

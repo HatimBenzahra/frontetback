@@ -1,9 +1,13 @@
 import { Injectable, ForbiddenException, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { AssignmentGoalsService } from '../assignment-goals/assignment-goals.service';
 
 @Injectable()
 export class DirecteurSpaceService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private assignmentGoalsService: AssignmentGoalsService
+  ) {}
 
   // Récupérer tous les managers d'un directeur
   async getDirecteurManagers(directeurId: string) {
@@ -459,5 +463,169 @@ export class DirecteurSpaceService {
     });
 
     return !!equipe;
+  }
+
+  // === MÉTHODES POUR LES ASSIGNATIONS ET OBJECTIFS ===
+
+  // Récupérer l'objectif global actuel
+  async getCurrentGlobalGoal() {
+    return this.assignmentGoalsService.getCurrentGlobalGoal();
+  }
+
+  // Définir un nouvel objectif global (pour le directeur)
+  async setGlobalGoal(goal: number, startDate?: Date, durationMonths?: number) {
+    return this.assignmentGoalsService.setGlobalGoal(goal, startDate, durationMonths);
+  }
+
+  // Récupérer l'historique des assignations pour un directeur
+  async getDirecteurAssignmentHistory(directeurId: string) {
+    // Vérifier que le directeur existe
+    const directeur = await this.prisma.directeur.findUnique({
+      where: { id: directeurId }
+    });
+
+    if (!directeur) {
+      throw new NotFoundException(`Directeur with ID ${directeurId} not found`);
+    }
+
+    // Récupérer toutes les assignations liées aux managers, équipes et commerciaux de ce directeur
+    const managers = await this.prisma.manager.findMany({
+      where: { directeurId },
+      select: { id: true }
+    });
+
+    const equipes = await this.prisma.equipe.findMany({
+      where: {
+        manager: { directeurId }
+      },
+      select: { id: true }
+    });
+
+    const commerciaux = await this.prisma.commercial.findMany({
+      where: {
+        equipe: {
+          manager: { directeurId }
+        }
+      },
+      select: { id: true }
+    });
+
+    const managerIds = managers.map(m => m.id);
+    const equipeIds = equipes.map(e => e.id);
+    const commercialIds = commerciaux.map(c => c.id);
+
+    // Récupérer l'historique des assignations
+    const assignments = await this.prisma.zoneAssignmentHistory.findMany({
+      where: {
+        OR: [
+          { assignedToType: 'MANAGER', assignedToId: { in: managerIds } },
+          { assignedToType: 'EQUIPE', assignedToId: { in: equipeIds } },
+          { assignedToType: 'COMMERCIAL', assignedToId: { in: commercialIds } }
+        ]
+      },
+      orderBy: { createdAt: 'desc' },
+      include: { zone: true }
+    });
+
+    // Enrichir les assignations avec les noms
+    const enrichedAssignments = await Promise.all(
+      assignments.map(async (assignment) => {
+        let assigneeName = '';
+
+        switch (assignment.assignedToType) {
+          case 'COMMERCIAL':
+            const commercial = await this.prisma.commercial.findUnique({
+              where: { id: assignment.assignedToId },
+              select: { nom: true, prenom: true },
+            });
+            assigneeName = commercial ? `${commercial.prenom} ${commercial.nom}` : 'Commercial inconnu';
+            break;
+          case 'EQUIPE':
+            const equipe = await this.prisma.equipe.findUnique({
+              where: { id: assignment.assignedToId },
+              select: { nom: true }
+            });
+            assigneeName = equipe ? `Équipe ${equipe.nom}` : 'Équipe inconnue';
+            break;
+          case 'MANAGER':
+            const manager = await this.prisma.manager.findUnique({
+              where: { id: assignment.assignedToId },
+              select: { nom: true, prenom: true }
+            });
+            assigneeName = manager ? `${manager.prenom} ${manager.nom}` : 'Manager inconnu';
+            break;
+        }
+
+        return {
+          id: assignment.id,
+          zoneId: assignment.zoneId,
+          zoneName: assignment.zone?.nom,
+          assignedToType: assignment.assignedToType,
+          assignedToId: assignment.assignedToId,
+          assigneeName,
+          assignedByUserId: assignment.assignedByUserId,
+          assignedByUserName: assignment.assignedByUserName || 'Système',
+          startDate: assignment.startDate,
+          endDate: assignment.endDate,
+          createdAt: assignment.createdAt,
+        };
+      })
+    );
+
+    return enrichedAssignments;
+  }
+
+  // Récupérer les assignations avec statut pour un directeur
+  async getDirecteurAssignmentsWithStatus(directeurId: string) {
+    const assignments = await this.getDirecteurAssignmentHistory(directeurId);
+    const now = new Date();
+
+    const enrichedAssignments = assignments.map(assignment => {
+      const endDate = assignment.endDate || new Date();
+      const isActive = assignment.startDate <= now && endDate > now;
+      const isFuture = assignment.startDate > now;
+      const isExpired = endDate <= now;
+
+      let status = 'expired';
+      let timeInfo = '';
+
+      if (isFuture) {
+        status = 'future';
+        const daysUntilStart = Math.ceil((assignment.startDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+        timeInfo = `Commence dans ${daysUntilStart} jour(s)`;
+      } else if (isActive) {
+        status = 'active';
+        const daysUntilEnd = Math.ceil((endDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+        timeInfo = `Se termine dans ${daysUntilEnd} jour(s)`;
+      } else {
+        status = 'expired';
+        const daysSinceEnd = Math.ceil((now.getTime() - endDate.getTime()) / (1000 * 60 * 60 * 24));
+        timeInfo = `Terminée depuis ${daysSinceEnd} jour(s)`;
+      }
+
+      return {
+        ...assignment,
+        status,
+        timeInfo
+      };
+    });
+
+    // Grouper par statut
+    const grouped = {
+      active: enrichedAssignments.filter(a => a.status === 'active'),
+      future: enrichedAssignments.filter(a => a.status === 'future'),
+      expired: enrichedAssignments.filter(a => a.status === 'expired')
+    };
+
+    return {
+      assignments: enrichedAssignments,
+      grouped,
+      summary: {
+        total: enrichedAssignments.length,
+        active: grouped.active.length,
+        future: grouped.future.length,
+        expired: grouped.expired.length
+      }
+    };
   }
 }

@@ -23,13 +23,13 @@ class LocationService {
   private lastMovementCheck: number = 0;
   private positionHistory: LocationData[] = [];
   
-  // Seuils adaptatifs selon mouvement
-  private readonly MOVING_TIME_INTERVAL = 10000;     // 10s si mouvement
-  private readonly STATIONARY_TIME_INTERVAL = 60000; // 60s si immobile
-  private readonly MIN_DISTANCE_MOVING = 10;         // 10m si mouvement
-  private readonly MIN_DISTANCE_STATIONARY = 20;     // 20m si immobile
-  private readonly SPEED_THRESHOLD = 0.5;           // 0.5 m/s = seuil mouvement
-  private readonly MAX_ACCURACY = 100;              // Précision max acceptable
+  // Seuils adaptatifs selon mouvement (réduits pour plus de réactivité)
+  private readonly MOVING_TIME_INTERVAL = 5000;      // 5s si mouvement (réduit de 10s)
+  private readonly STATIONARY_TIME_INTERVAL = 30000; // 30s si immobile (réduit de 60s)
+  private readonly MIN_DISTANCE_MOVING = 5;          // 5m si mouvement (réduit de 10m)
+  private readonly MIN_DISTANCE_STATIONARY = 10;     // 10m si immobile (réduit de 20m)
+  private readonly SPEED_THRESHOLD = 0.3;           // 0.3 m/s = seuil mouvement (réduit)
+  private readonly MAX_ACCURACY = 150;              // Précision max acceptable (augmentée)
 
   constructor() {
     this.initializeSocket();
@@ -171,10 +171,10 @@ class LocationService {
           this.handleLocationError(error);
         },
         {
-          // Options optimisées et précision limitée
-          enableHighAccuracy: false,
-          timeout: 30000,
-          maximumAge: 120000,
+          // Options optimisées pour plus de réactivité
+          enableHighAccuracy: true,  // Haute précision pour éviter les positions fantômes
+          timeout: 20000,           // Timeout réduit pour plus de réactivité
+          maximumAge: 60000,        // Cache réduit pour des positions plus fraîches
         }
       );
 
@@ -392,19 +392,19 @@ class LocationService {
     // Arrêter le heartbeat existant s'il y en a un
     this.stopHeartbeat();
 
-    // Heartbeat adaptatif selon mouvement
+    // Heartbeat adaptatif selon mouvement (plus fréquent)
     this.heartbeatInterval = setInterval(() => {
       if (this.socket?.connected && this.commercialId && this.lastPosition) {
         const now = Date.now();
-        // Heartbeat plus fréquent si immobile (rassurer l'admin)
-        const heartbeatThreshold = this.isMoving ? 120000 : 60000; // 2min si mouvement, 1min si immobile
+        // Heartbeat plus fréquent pour assurer la visibilité
+        const heartbeatThreshold = this.isMoving ? 60000 : 30000; // 1min si mouvement, 30s si immobile
         
         if (now - this.lastPositionSent > heartbeatThreshold) {
           this.sendLocationUpdate(this.lastPosition, true);
           console.log(`💓 Heartbeat GPS envoyé (${this.isMoving ? 'mouvement' : 'immobile'})`);
         }
       }
-    }, 60000); // Vérification toutes les minutes
+    }, 30000); // Vérification toutes les 30 secondes
 
     console.log('💓 Heartbeat GPS démarré (adaptatif)');
   }

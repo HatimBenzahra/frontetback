@@ -8,6 +8,6 @@ import { PrismaModule } from '../prisma/prisma.module';
   imports: [PrismaModule],
   controllers: [AssignmentGoalsController],
   providers: [AssignmentGoalsService], // AssignmentSchedulerService temporairement désactivé
-  exports: [], // AssignmentSchedulerService temporairement désactivé
+  exports: [AssignmentGoalsService], // Export du service pour les autres modules
 })
 export class AssignmentGoalsModule {}

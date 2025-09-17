@@ -1,7 +1,7 @@
 import { useEffect, useState, useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui-admin/card';
 import { AlertCircle } from 'lucide-react';
-import { assignmentGoalsService } from '@/services/assignment-goals.service';
+import { directeurSpaceService } from '@/services/directeur-space.service';
 
 interface CountdownCardProps {
   currentGlobalGoal?: { goal: number; startDate: string; endDate: string } | null;
@@ -48,7 +48,7 @@ export const CountdownCard = ({
   const loadZoneAssignments = async () => {
     try {
       setLoadingZoneData(true);
-      const assignmentHistory = await assignmentGoalsService.getAssignmentHistory();
+      const assignmentHistory = await directeurSpaceService.getAssignmentHistory();
       
       if (assignmentHistory && assignmentHistory.length > 0) {
         // Trouver l'assignation avec la date de fin la plus proche dans le futur

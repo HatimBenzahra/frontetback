@@ -60,6 +60,14 @@ export const adminService = {
   },
 
   /**
+   * Update a commercial
+   */
+  async updateCommercial(id: string, data: Partial<CreateCommercialWithAuthDto>) {
+    const response = await adminApi.patch(`/commerciaux/${id}`, data);
+    return response.data;
+  },
+
+  /**
    * Delete a commercial (removes from both Keycloak and database)
    */
   async deleteCommercial(id: string) {

@@ -210,6 +210,32 @@ class DirecteurSpaceService {
     const response = await axios.get(`${API_BASE_URL}/directeur-space/statistics/performance-history`);
     return response.data;
   }
+
+  // Objectifs globaux
+  async getCurrentGlobalGoal(): Promise<any> {
+    const response = await axios.get(`${API_BASE_URL}/directeur-space/global-goal`);
+    return response.data;
+  }
+
+  async setGlobalGoal(goal: number, startDate?: Date, durationMonths?: number): Promise<any> {
+    const response = await axios.post(`${API_BASE_URL}/directeur-space/global-goal`, {
+      goal,
+      startDate,
+      durationMonths
+    });
+    return response.data;
+  }
+
+  // Assignations
+  async getAssignmentHistory(): Promise<any[]> {
+    const response = await axios.get(`${API_BASE_URL}/directeur-space/assignments/history`);
+    return response.data;
+  }
+
+  async getAssignmentsWithStatus(): Promise<any> {
+    const response = await axios.get(`${API_BASE_URL}/directeur-space/assignments/status`);
+    return response.data;
+  }
 }
 
 export const directeurSpaceService = new DirecteurSpaceService();

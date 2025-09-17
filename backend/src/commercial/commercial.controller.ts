@@ -29,7 +29,7 @@ interface AuthRequest extends Request {
 
 @Controller('commerciaux')
 @UseGuards(JwtAuthGuard, RolesGuard)
-@Roles('admin', 'manager', 'commercial')
+@Roles('admin', 'manager', 'commercial', 'directeur')
 export class CommercialController {
   constructor(private readonly commercialService: CommercialService) {}
 

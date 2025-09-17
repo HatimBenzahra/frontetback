@@ -25,7 +25,7 @@ const EquipesPage = () => {
   const navigate = useNavigate();
   const [equipes, setEquipes] = useState<DirecteurEquipe[]>([]);
   const [loading, setLoading] = useState(true);
-  const [searchTerm, setSearchTerm] = useState('');
+  const [searchTerm, setSearchTerm] = useState('')
 
   useEffect(() => {
     const loadEquipes = async () => {
