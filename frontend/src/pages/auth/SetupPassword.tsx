@@ -162,6 +162,7 @@ export default function SetupPassword() {
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     placeholder="Minimum 8 caractères"
+                    autoComplete="new-password"
                     className="pl-12 pr-14 h-14 bg-gray-50/80 border-gray-200 rounded-xl focus:border-blue-500 focus:bg-white transition-all duration-200 focus:ring-2 focus:ring-blue-100 text-base font-medium"
                     required
                     disabled={isLoading}
@@ -196,6 +197,7 @@ export default function SetupPassword() {
                     placeholder="Retapez votre mot de passe"
                     className="pl-12 pr-14 h-14 bg-gray-50/80 border-gray-200 rounded-xl focus:border-blue-500 focus:bg-white transition-all duration-200 focus:ring-2 focus:ring-blue-100 text-base font-medium"
                     required
+                    autoComplete="new-password"
                     disabled={isLoading}
                   />
                   <button

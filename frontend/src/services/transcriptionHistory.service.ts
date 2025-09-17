@@ -63,7 +63,7 @@ class TranscriptionHistoryService {
       // Récupérer le token d'authentification
       const token = localStorage.getItem('access_token');
 
-      const response = await fetch(`${this.baseUrl}/api/transcription-history/commercials/${params}`, {
+      const response = await fetch(`${this.baseUrl}/api/transcription-history?${params}`, {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json',

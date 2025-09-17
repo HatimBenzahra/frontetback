@@ -7,7 +7,7 @@ import { ScrollArea } from '@/components/ui-admin/scroll-area';
 import { Modal } from '@/components/ui-admin/Modal';
 import { Badge } from '@/components/ui-admin/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui-admin/select';
-import { ArrowLeft, RefreshCw, Copy, Download, Calendar, Clock, Building2, User, Filter, Activity, FileText, ChevronLeft, ChevronRight } from 'lucide-react';
+import { ArrowLeft, RefreshCw, Copy, Download, Calendar, Building2, User, Filter, Activity, FileText, ChevronLeft, ChevronRight, Trash2, MoreVertical } from 'lucide-react';
 import { type TranscriptionSession, transcriptionHistoryService } from '@/services/transcriptionHistory.service';
 import { immeubleService, type ImmeubleDetailsFromApi } from '@/services/immeuble.service';
 import { API_BASE_URL } from '@/config';
@@ -53,6 +53,12 @@ const CommercialTranscriptionPage = () => {
   // État pour le loading du refresh
   const [isRefreshing, setIsRefreshing] = useState(false);
 
+  // États pour la suppression
+  const [deletingSessionId, setDeletingSessionId] = useState<string | null>(null);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState<string | null>(null);
+  const [showBulkDeleteConfirm, setShowBulkDeleteConfirm] = useState(false);
+  const [isBulkDeleting, setIsBulkDeleting] = useState(false);
+
   // États pour la pagination
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage] = useState(10);
@@ -87,6 +93,54 @@ const CommercialTranscriptionPage = () => {
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url; a.download = filename; a.click(); URL.revokeObjectURL(url);
+  };
+
+  // Fonction de suppression d'une session
+  const handleDeleteSession = async (sessionId: string) => {
+    try {
+      setDeletingSessionId(sessionId);
+      await transcriptionHistoryService.deleteTranscriptionSession(sessionId);
+      
+      // Mettre à jour la liste locale
+      setSessions(prevSessions => prevSessions.filter(session => session.id !== sessionId));
+      
+      // Fermer la modal si la session supprimée était ouverte
+      if (openSession?.id === sessionId) {
+        setOpenSession(null);
+        setOpenSessionBuilding(null);
+      }
+      
+      console.log('✅ Session supprimée avec succès:', sessionId);
+    } catch (error) {
+      console.error('❌ Erreur lors de la suppression de la session:', error);
+    } finally {
+      setDeletingSessionId(null);
+      setShowDeleteConfirm(null);
+    }
+  };
+
+  // Fonction de suppression en masse
+  const handleBulkDelete = async () => {
+    try {
+      setIsBulkDeleting(true);
+      const deletePromises = sessions.map(session => 
+        transcriptionHistoryService.deleteTranscriptionSession(session.id)
+      );
+      
+      await Promise.all(deletePromises);
+      
+      // Vider la liste
+      setSessions([]);
+      setOpenSession(null);
+      setOpenSessionBuilding(null);
+      
+      console.log('✅ Toutes les sessions supprimées avec succès');
+    } catch (error) {
+      console.error('❌ Erreur lors de la suppression en masse:', error);
+    } finally {
+      setIsBulkDeleting(false);
+      setShowBulkDeleteConfirm(false);
+    }
   };
 
   // Fonction pour gérer le loading IA
@@ -489,13 +543,13 @@ const CommercialTranscriptionPage = () => {
     }
   }, [loadCommercialInfo, loadHistory, socket]);
 
-  // Polling pour recharger l'historique
+  // Polling pour recharger l'historique (optimisé)
   useEffect(() => {
     if (aiProcessingSessions.size > 0) {
       const interval = setInterval(() => {
         console.log('🔄 Polling pour sessions en traitement IA...');
         loadHistory();
-      }, 2000);
+      }, 10000); // Réduit de 2s à 10s pour éviter le spam
 
       return () => clearInterval(interval);
     }
@@ -578,8 +632,15 @@ const CommercialTranscriptionPage = () => {
                 {commercialInfo?.name || `Commercial ${commercialId}`}
               </h1>
               <p className="text-gray-600 mt-1">
-                Transcriptions en temps réel et historique
-                <span className="text-xs text-gray-400 ml-2">(Ctrl+R pour actualiser)</span>
+                <div className="flex items-center gap-3">
+                  <span>Transcriptions en temps réel et historique</span>
+                  <span className="text-xs text-gray-400">(Ctrl+R pour actualiser)</span>
+                  {sessions.length > 0 && (
+                    <Badge variant="secondary" className="bg-blue-100 text-blue-800 text-xs">
+                      {sessions.length} session{sessions.length > 1 ? 's' : ''}
+                    </Badge>
+                  )}
+                </div>
               </p>
             </div>
           </div>
@@ -593,6 +654,18 @@ const CommercialTranscriptionPage = () => {
               <RefreshCw className={`h-4 w-4 ${isRefreshing ? 'animate-spin' : ''}`} />
               {isRefreshing ? 'Actualisation...' : 'Actualiser'}
             </Button>
+            
+            {sessions.length > 0 && (
+              <Button
+                onClick={() => setShowBulkDeleteConfirm(true)}
+                disabled={isBulkDeleting}
+                variant="outline"
+                className="gap-2 bg-red-50/80 backdrop-blur-sm border-red-200 hover:bg-red-100 text-red-700 hover:text-red-800 disabled:opacity-50"
+              >
+                <Trash2 className={`h-4 w-4 ${isBulkDeleting ? 'animate-pulse' : ''}`} />
+                {isBulkDeleting ? 'Suppression...' : 'Vider tout'}
+              </Button>
+            )}
           </div>
         </div>
 
@@ -762,28 +835,82 @@ const CommercialTranscriptionPage = () => {
                         return (
                           <div
                             key={session.id}
-                            className={`p-4 hover:bg-gradient-to-r hover:from-blue-50 hover:to-indigo-50 rounded-xl cursor-pointer transition-all duration-300 group border border-transparent hover:border-blue-200 hover:shadow-md ${
-                              isAiProcessing ? 'bg-gradient-to-r from-yellow-50 to-orange-50 border-yellow-200' : ''
+                            className={`p-4 hover:bg-gradient-to-r hover:from-blue-50 hover:to-indigo-50 rounded-xl transition-all duration-300 group border border-transparent hover:border-blue-200 hover:shadow-lg relative transform hover:scale-[1.02] ${
+                              isAiProcessing ? 'bg-gradient-to-r from-yellow-50 to-orange-50 border-yellow-200 shadow-md' : 'bg-white/80 backdrop-blur-sm'
                             }`}
-                            onClick={() => {
-                              setOpenSession(session);
-                              if (session.building_id) {
-                                setLoadingBuilding(true);
-                                immeubleService.getImmeubleDetails(session.building_id)
-                                  .then(building => setOpenSessionBuilding(building))
-                                  .catch(() => setOpenSessionBuilding(null))
-                                  .finally(() => setLoadingBuilding(false));
-                              } else {
-                                setOpenSessionBuilding(null);
-                              }
-                            }}
                           >
+                            {/* Bouton de suppression */}
+                            <div className="absolute top-3 right-3 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+                              {showDeleteConfirm === session.id ? (
+                                <div className="flex items-center gap-2 bg-white rounded-lg shadow-lg border border-red-200 p-2">
+                                  <span className="text-xs text-red-600 font-medium">Supprimer ?</span>
+                                  <Button
+                                    size="sm"
+                                    variant="destructive"
+                                    className="h-6 w-6 p-0"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      handleDeleteSession(session.id);
+                                    }}
+                                    disabled={deletingSessionId === session.id}
+                                  >
+                                    {deletingSessionId === session.id ? (
+                                      <div className="w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                                    ) : (
+                                      <Trash2 className="h-3 w-3" />
+                                    )}
+                                  </Button>
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    className="h-6 w-6 p-0"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      setShowDeleteConfirm(null);
+                                    }}
+                                  >
+                                    ×
+                                  </Button>
+                                </div>
+                              ) : (
+                                <Button
+                                  size="sm"
+                                  variant="ghost"
+                                  className="h-8 w-8 p-0 hover:bg-red-50 hover:text-red-600"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setShowDeleteConfirm(session.id);
+                                  }}
+                                >
+                                  <MoreVertical className="h-4 w-4" />
+                                </Button>
+                              )}
+                            </div>
+
+                            {/* Contenu de la session */}
+                            <div
+                              className="cursor-pointer"
+                              onClick={() => {
+                                setOpenSession(session);
+                                if (session.building_id) {
+                                  setLoadingBuilding(true);
+                                  immeubleService.getImmeubleDetails(session.building_id)
+                                    .then(building => setOpenSessionBuilding(building))
+                                    .catch(() => setOpenSessionBuilding(null))
+                                    .finally(() => setLoadingBuilding(false));
+                                } else {
+                                  setOpenSessionBuilding(null);
+                                }
+                              }}
+                            >
                             <div className="flex items-start gap-3">
-                              <div className="p-1.5 bg-blue-100 rounded-lg flex-shrink-0">
+                              <div className={`p-2 rounded-lg flex-shrink-0 ${
+                                isAiProcessing ? 'bg-orange-100' : 'bg-blue-100'
+                              }`}>
                                 {isAiProcessing ? (
-                                  <div className="animate-spin h-3 w-3 border-2 border-orange-500 border-t-transparent rounded-full" />
+                                  <div className="animate-spin h-4 w-4 border-2 border-orange-500 border-t-transparent rounded-full" />
                                 ) : (
-                                  <Clock className="h-3 w-3 text-blue-600" />
+                                  <FileText className="h-4 w-4 text-blue-600" />
                                 )}
                               </div>
                               <div className="flex-1 min-w-0">
@@ -821,11 +948,23 @@ const CommercialTranscriptionPage = () => {
                                     </span>
                                   </div>
                                 ) : (
-                                  <p className="text-sm text-gray-700 line-clamp-3 group-hover:text-gray-900 transition-colors">
-                                    {displayTranscript || 'Aucune transcription'}
-                                  </p>
+                                  <div className="text-sm text-gray-700 group-hover:text-gray-900 transition-colors">
+                                    {displayTranscript ? (
+                                      <p className="line-clamp-3 leading-relaxed">
+                                        {displayTranscript}
+                                      </p>
+                                    ) : (
+                                      <p className="text-gray-500 italic">Aucune transcription disponible</p>
+                                    )}
+                                    {displayTranscript && displayTranscript.length > 200 && (
+                                      <p className="text-xs text-blue-600 mt-1 font-medium">
+                                        Cliquer pour voir la transcription complète
+                                      </p>
+                                    )}
+                                  </div>
                                 )}
                               </div>
+                            </div>
                             </div>
                           </div>
                                                  );
@@ -1117,6 +1256,57 @@ const CommercialTranscriptionPage = () => {
           </div>
         )}
       </Modal>
+
+      {/* Modal de confirmation pour suppression en masse */}
+      {showBulkDeleteConfirm && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-6">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="p-2 bg-red-100 rounded-lg">
+                <Trash2 className="h-6 w-6 text-red-600" />
+              </div>
+              <div>
+                <h3 className="text-lg font-semibold text-gray-900">Supprimer toutes les sessions</h3>
+                <p className="text-sm text-gray-600">Cette action est irréversible</p>
+              </div>
+            </div>
+            
+            <p className="text-gray-700 mb-6">
+              Êtes-vous sûr de vouloir supprimer toutes les <strong>{sessions.length}</strong> sessions de transcription ? 
+              Cette action ne peut pas être annulée.
+            </p>
+            
+            <div className="flex items-center gap-3 justify-end">
+              <Button
+                variant="outline"
+                onClick={() => setShowBulkDeleteConfirm(false)}
+                disabled={isBulkDeleting}
+                className="px-6"
+              >
+                Annuler
+              </Button>
+              <Button
+                variant="destructive"
+                onClick={handleBulkDelete}
+                disabled={isBulkDeleting}
+                className="px-6 gap-2"
+              >
+                {isBulkDeleting ? (
+                  <>
+                    <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                    Suppression...
+                  </>
+                ) : (
+                  <>
+                    <Trash2 className="h-4 w-4" />
+                    Supprimer tout
+                  </>
+                )}
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

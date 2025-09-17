@@ -168,6 +168,7 @@ const Login = () => {
                     className="pl-12 pr-14 h-14 bg-gray-50/80 border-gray-200 rounded-xl focus:border-blue-500 focus:bg-white transition-all duration-200 focus:ring-2 focus:ring-blue-100 text-base font-medium"
                     required
                     disabled={isLoading}
+                    autoComplete="current-password"
                   />
                   <button
                     type="button"
