@@ -267,7 +267,7 @@ const ManagerTranscriptionsPage = () => {
     return (
       <button
         key={c.name}
-        onClick={() => handleSelectCommercial(c.name)}
+        onClick={() => handleSelectCommercial(c.id)}
         className={`w-full text-left rounded-lg p-4 transition-all duration-300 hover:shadow-md hover:scale-[1.02] border-2 hover:${statusBg} ${borderColor} hover:border-opacity-60 commercial-card`}
       >
         <div className="flex items-start justify-between">

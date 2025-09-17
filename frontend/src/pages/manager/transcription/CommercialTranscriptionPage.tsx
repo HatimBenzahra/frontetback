@@ -7,7 +7,7 @@ import { ScrollArea } from '@/components/ui-admin/scroll-area';
 import { Modal } from '@/components/ui-admin/Modal';
 import { Badge } from '@/components/ui-admin/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui-admin/select';
-import { ArrowLeft, RefreshCw, Copy, Download, Calendar, Clock, Building2, User, Filter, Activity, FileText, ChevronLeft, ChevronRight } from 'lucide-react';
+import { ArrowLeft, RefreshCw, Copy, Download, Calendar, Building2, User, Filter, Activity, FileText, ChevronLeft, ChevronRight, Trash2, MoreVertical } from 'lucide-react';
 import { API_BASE_URL } from '@/config';
 
 type TranscriptionSession = {
@@ -59,6 +59,12 @@ const ManagerCommercialTranscriptionPage = () => {
   // État pour le loading du refresh
   const [isRefreshing, setIsRefreshing] = useState(false);
 
+  // États pour la suppression
+  const [deletingSessionId, setDeletingSessionId] = useState<string | null>(null);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState<string | null>(null);
+  const [showBulkDeleteConfirm, setShowBulkDeleteConfirm] = useState(false);
+  const [isBulkDeleting, setIsBulkDeleting] = useState(false);
+
   // États pour la pagination
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage] = useState(10);
@@ -93,6 +99,72 @@ const ManagerCommercialTranscriptionPage = () => {
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url; a.download = filename; a.click(); URL.revokeObjectURL(url);
+  };
+
+  // Fonction de suppression d'une session
+  const handleDeleteSession = async (sessionId: string) => {
+    try {
+      setDeletingSessionId(sessionId);
+      
+      const token = localStorage.getItem('access_token');
+      const response = await fetch(`${BASE}/api/transcription-history/${sessionId}`, {
+        method: 'DELETE',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token && { 'Authorization': `Bearer ${token}` }),
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error(`Erreur HTTP: ${response.status}`);
+      }
+      
+      // Mettre à jour la liste locale
+      setSessions(prevSessions => prevSessions.filter(session => session.id !== sessionId));
+      
+      // Fermer la modal si la session supprimée était ouverte
+      if (openSession?.id === sessionId) {
+        setOpenSession(null);
+      }
+      
+      console.log('✅ Session supprimée avec succès:', sessionId);
+    } catch (error) {
+      console.error('❌ Erreur lors de la suppression de la session:', error);
+    } finally {
+      setDeletingSessionId(null);
+      setShowDeleteConfirm(null);
+    }
+  };
+
+  // Fonction de suppression en masse
+  const handleBulkDelete = async () => {
+    try {
+      setIsBulkDeleting(true);
+      const token = localStorage.getItem('access_token');
+      
+      const deletePromises = sessions.map(session => 
+        fetch(`${BASE}/api/transcription-history/${session.id}`, {
+          method: 'DELETE',
+          headers: {
+            'Content-Type': 'application/json',
+            ...(token && { 'Authorization': `Bearer ${token}` }),
+          },
+        })
+      );
+      
+      await Promise.all(deletePromises);
+      
+      // Vider la liste
+      setSessions([]);
+      setOpenSession(null);
+      
+      console.log('✅ Toutes les sessions supprimées avec succès');
+    } catch (error) {
+      console.error('❌ Erreur lors de la suppression en masse:', error);
+    } finally {
+      setIsBulkDeleting(false);
+      setShowBulkDeleteConfirm(false);
+    }
   };
 
   // DB: historique des sessions du commercial pour ce manager
@@ -436,10 +508,15 @@ const ManagerCommercialTranscriptionPage = () => {
               <h1 className="text-3xl font-bold text-gray-900">
                 {commercialInfo?.name || `Commercial ${commercialId}`}
               </h1>
-              <p className="text-gray-600 mt-1">
-                Transcriptions en temps réel et historique
-                <span className="text-xs text-gray-400 ml-2">(Ctrl+R pour actualiser)</span>
-              </p>
+              <div className="flex items-center gap-3 mt-1">
+                <span className="text-gray-600">Transcriptions en temps réel et historique</span>
+                <span className="text-xs text-gray-400">(Ctrl+R pour actualiser)</span>
+                {sessions.length > 0 && (
+                  <Badge variant="secondary" className="bg-blue-100 text-blue-800 text-xs">
+                    {sessions.length} session{sessions.length > 1 ? 's' : ''}
+                  </Badge>
+                )}
+              </div>
             </div>
           </div>
           <div className="flex items-center gap-2">
@@ -452,6 +529,18 @@ const ManagerCommercialTranscriptionPage = () => {
             <RefreshCw className={`h-4 w-4 ${isRefreshing ? 'animate-spin' : ''}`} />
             {isRefreshing ? 'Actualisation...' : 'Actualiser'}
           </Button>
+          
+          {sessions.length > 0 && (
+            <Button
+              onClick={() => setShowBulkDeleteConfirm(true)}
+              disabled={isBulkDeleting}
+              variant="outline"
+              className="gap-2 bg-red-50/80 backdrop-blur-sm border-red-200 hover:bg-red-100 text-red-700 hover:text-red-800 disabled:opacity-50"
+            >
+              <Trash2 className={`h-4 w-4 ${isBulkDeleting ? 'animate-pulse' : ''}`} />
+              {isBulkDeleting ? 'Suppression...' : 'Vider tout'}
+            </Button>
+          )}
           </div>
         </div>
 
@@ -623,12 +712,64 @@ const ManagerCommercialTranscriptionPage = () => {
                       return (
                   <div
                     key={session.id}
-                          className="p-4 hover:bg-gradient-to-r hover:from-blue-50 hover:to-indigo-50 rounded-xl cursor-pointer transition-all duration-300 group border border-transparent hover:border-blue-200 hover:shadow-md"
-                    onClick={() => setOpenSession(session)}
+                          className="p-4 hover:bg-gradient-to-r hover:from-blue-50 hover:to-indigo-50 rounded-xl transition-all duration-300 group border border-transparent hover:border-blue-200 hover:shadow-lg relative transform hover:scale-[1.02] bg-white/80 backdrop-blur-sm"
                   >
+                    {/* Bouton de suppression */}
+                    <div className="absolute top-3 right-3 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+                      {showDeleteConfirm === session.id ? (
+                        <div className="flex items-center gap-2 bg-white rounded-lg shadow-lg border border-red-200 p-2">
+                          <span className="text-xs text-red-600 font-medium">Supprimer ?</span>
+                          <Button
+                            size="sm"
+                            variant="destructive"
+                            className="h-6 w-6 p-0"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleDeleteSession(session.id);
+                            }}
+                            disabled={deletingSessionId === session.id}
+                          >
+                            {deletingSessionId === session.id ? (
+                              <div className="w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                            ) : (
+                              <Trash2 className="h-3 w-3" />
+                            )}
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="h-6 w-6 p-0"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setShowDeleteConfirm(null);
+                            }}
+                          >
+                            ×
+                          </Button>
+                        </div>
+                      ) : (
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          className="h-8 w-8 p-0 hover:bg-red-50 hover:text-red-600"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setShowDeleteConfirm(session.id);
+                          }}
+                        >
+                          <MoreVertical className="h-4 w-4" />
+                        </Button>
+                      )}
+                    </div>
+
+                    {/* Contenu de la session */}
+                    <div
+                      className="cursor-pointer"
+                      onClick={() => setOpenSession(session)}
+                    >
                           <div className="flex items-start gap-3">
-                            <div className="p-1.5 bg-blue-100 rounded-lg flex-shrink-0">
-                              <Clock className="h-3 w-3 text-blue-600" />
+                            <div className="p-2 bg-blue-100 rounded-lg flex-shrink-0">
+                              <FileText className="h-4 w-4 text-blue-600" />
                         </div>
                             <div className="flex-1 min-w-0">
                               <div className="flex items-center gap-2 mb-1">
@@ -647,11 +788,23 @@ const ManagerCommercialTranscriptionPage = () => {
                                   <span className="ml-2">- Portes: {session.visited_doors.join(', ')}</span>
                           )}
                         </div>
-                              <p className="text-sm text-gray-700 line-clamp-3 group-hover:text-gray-900 transition-colors">
-                                {displayTranscript || 'Aucune transcription'}
-                        </p>
-                      </div>
-                    </div>
+                              <div className="text-sm text-gray-700 group-hover:text-gray-900 transition-colors">
+                                {displayTranscript ? (
+                                  <p className="line-clamp-3 leading-relaxed">
+                                    {displayTranscript}
+                                  </p>
+                                ) : (
+                                  <p className="text-gray-500 italic">Aucune transcription disponible</p>
+                                )}
+                                {displayTranscript && displayTranscript.length > 200 && (
+                                  <p className="text-xs text-blue-600 mt-1 font-medium">
+                                    Cliquer pour voir la transcription complète
+                                  </p>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                        </div>
                         </div>
                       );
                     })}
@@ -933,6 +1086,57 @@ const ManagerCommercialTranscriptionPage = () => {
           </div>
         )}
       </Modal>
+
+      {/* Modal de confirmation pour suppression en masse */}
+      {showBulkDeleteConfirm && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-6">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="p-2 bg-red-100 rounded-lg">
+                <Trash2 className="h-6 w-6 text-red-600" />
+              </div>
+              <div>
+                <h3 className="text-lg font-semibold text-gray-900">Supprimer toutes les sessions</h3>
+                <p className="text-sm text-gray-600">Cette action est irréversible</p>
+              </div>
+            </div>
+            
+            <p className="text-gray-700 mb-6">
+              Êtes-vous sûr de vouloir supprimer toutes les <strong>{sessions.length}</strong> sessions de transcription ? 
+              Cette action ne peut pas être annulée.
+            </p>
+            
+            <div className="flex items-center gap-3 justify-end">
+              <Button
+                variant="outline"
+                onClick={() => setShowBulkDeleteConfirm(false)}
+                disabled={isBulkDeleting}
+                className="px-6"
+              >
+                Annuler
+              </Button>
+              <Button
+                variant="destructive"
+                onClick={handleBulkDelete}
+                disabled={isBulkDeleting}
+                className="px-6 gap-2"
+              >
+                {isBulkDeleting ? (
+                  <>
+                    <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                    Suppression...
+                  </>
+                ) : (
+                  <>
+                    <Trash2 className="h-4 w-4" />
+                    Supprimer tout
+                  </>
+                )}
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
