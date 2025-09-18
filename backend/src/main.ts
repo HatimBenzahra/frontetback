@@ -30,18 +30,8 @@ async function bootstrap() {
     const server = app.getHttpServer();
     server.setTimeout(0); // Désactiver le timeout pour les WebSockets
 
-    // Initialiser le service d'événements global avec le serveur IO
-    try {
-      const eventEmitterService = app.get('EventEmitterService');
-      if (eventEmitterService && typeof eventEmitterService.setIoServer === 'function') {
-        // Récupérer l'instance du serveur IO depuis Socket.IO
-        const io = require('socket.io')(server);
-        eventEmitterService.setIoServer(io);
-        console.log('📡 Service d\'événements global initialisé avec le serveur IO');
-      }
-    } catch (error) {
-      console.warn('⚠️ Impossible d\'initialiser le service d\'événements global:', error.message);
-    }
+    // Le serveur WebSocket est géré automatiquement par NestJS @WebSocketGateway
+    console.log('📡 WebSocket server géré par NestJS');
 
     const port = process.env.API_PORT ?? 3000;
     await app.listen(port, '0.0.0.0');

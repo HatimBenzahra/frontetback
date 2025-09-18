@@ -60,6 +60,28 @@ export class CentralizedConfig {
   }
 
   /**
+   * Vérifie si une IP appartient à un réseau privé
+   */
+  private static isPrivateNetwork(ip: string): boolean {
+    try {
+      const ipNum = this.ipToNumber(ip);
+
+      // 192.168.0.0/16
+      if ((ipNum & 0xFFFF0000) === 0xC0A80000) return true;
+
+      // 10.0.0.0/8
+      if ((ipNum & 0xFF000000) === 0x0A000000) return true;
+
+      // 172.16.0.0/12
+      if ((ipNum & 0xFFF00000) === 0xAC100000) return true;
+
+      return false;
+    } catch (error) {
+      return false;
+    }
+  }
+
+  /**
    * Extrait l'IP d'une URL
    */
   private static extractIpFromUrl(url: string): string | null {
@@ -101,25 +123,41 @@ export class CentralizedConfig {
 
   /**
    * Fonction de validation CORS centralisée
-   * ⚠️  UNIQUEMENT basée sur les variables d'environnement
+   * Plus permissive pour le développement
    */
   static corsOriginValidator = (origin: string | undefined, callback: (err: Error | null, allow?: boolean) => void) => {
     // Autoriser les requêtes sans origine (apps mobiles, curl)
     if (!origin) return callback(null, true);
-    
+
     const allowed = this.getAllowedOrigins();
-    
+
     // Vérifier si l'origine est dans la liste autorisée
     if (allowed.includes(origin)) {
       return callback(null, true);
     }
-    
+
     // Vérifier si l'IP appartient aux réseaux autorisés (configurable via .env)
     const ip = this.extractIpFromUrl(origin);
     if (ip && this.isIpInAllowedNetworks(ip)) {
       return callback(null, true);
     }
-    
+
+    // Mode développement : autoriser localhost et réseaux privés
+    if (process.env.NODE_ENV !== 'production') {
+      if (ip) {
+        // Autoriser localhost sous toutes ses formes
+        if (ip === 'localhost' || ip === '127.0.0.1' || ip === '::1') {
+          return callback(null, true);
+        }
+
+        // Autoriser les réseaux privés (192.168.x.x, 10.x.x.x, 172.16-31.x.x)
+        if (this.isPrivateNetwork(ip)) {
+          return callback(null, true);
+        }
+      }
+    }
+
+    console.warn(`CORS: Origin non autorisée: ${origin}`);
     return callback(new Error('Not allowed by CORS'));
   };
 

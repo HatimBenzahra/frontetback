@@ -9,12 +9,13 @@ export const useSocket = (buildingId?: string) => {
   useEffect(() => {
     const SERVER_HOST = import.meta.env.VITE_SERVER_HOST || window.location.hostname;
     const isDevelopment = SERVER_HOST === 'localhost' || SERVER_HOST === '127.0.0.1' || SERVER_HOST.startsWith('192.168.');
-    
-    // Force HTTPS for consistency with backend SSL configuration
+
+    // Utiliser HTTP/HTTPS selon le protocole de la page actuelle ou forcer HTTPS si spécifié
+    const protocol = window.location.protocol === 'https:' || import.meta.env.VITE_FORCE_HTTPS === 'true' ? 'https' : 'http';
     const socketUrl = isDevelopment
-      ? `https://${SERVER_HOST}:${import.meta.env.VITE_API_PORT || '3000'}`
-      : `https://${SERVER_HOST}`;
-    
+      ? `${protocol}://${SERVER_HOST}:${import.meta.env.VITE_API_PORT || '3000'}`
+      : `${protocol}://${SERVER_HOST}`;
+
     // Get auth token from localStorage
     const token = localStorage.getItem('access_token');
     
@@ -31,7 +32,7 @@ export const useSocket = (buildingId?: string) => {
       }
 
       socketRef.current = io(socketUrl, {
-        secure: true,
+        secure: protocol === 'https',
         transports: ['polling', 'websocket'], // Start with polling for better compatibility
         reconnection: true,
         reconnectionAttempts: 5,
@@ -39,7 +40,9 @@ export const useSocket = (buildingId?: string) => {
         reconnectionDelayMax: 5000,
         timeout: 20000,
         forceNew: true,
-        rejectUnauthorized: false, // Accept self-signed certificates
+        rejectUnauthorized: false, // Accept self-signed certificates in development
+        upgrade: true,
+        rememberUpgrade: false,
         auth: {
           token: token
         },
