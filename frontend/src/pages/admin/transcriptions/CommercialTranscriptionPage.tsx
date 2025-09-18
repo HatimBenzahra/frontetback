@@ -61,7 +61,7 @@ const CommercialTranscriptionPage = () => {
 
   // États pour la pagination
   const [currentPage, setCurrentPage] = useState(1);
-  const [itemsPerPage] = useState(10);
+  const [itemsPerPage] = useState(5);
 
   const [liveMaxChars] = useState<number>(8000);
   const [isPageLoaded, setIsPageLoaded] = useState(false);
