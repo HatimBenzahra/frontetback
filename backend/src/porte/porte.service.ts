@@ -5,13 +5,15 @@ import { UpdatePorteDto } from './dto/update-porte.dto';
 import { PorteStatut, ActivityActionType } from '@prisma/client';
 import { PortesGateway } from '../events/portes/portes.gateway';
 import { ActivityFeedService } from '../activity-feed/activity-feed.service';
+import { EventsGateway } from '../events/events.gateway';
 
 @Injectable()
 export class PorteService {
   constructor(
     private prisma: PrismaService, 
     private portesGateway: PortesGateway,
-    private activityFeedService: ActivityFeedService
+    private activityFeedService: ActivityFeedService,
+    private eventsGateway: EventsGateway
   ) {}
 
   async create(createPorteDto: CreatePorteDto) {
@@ -79,6 +81,14 @@ export class PorteService {
             assigneeId: updatedPorte.assigneeId,
             timestamp: new Date().toISOString()
           });
+
+          // 🔗 LIER LA PORTE À LA SESSION DE TRANSCRIPTION ACTIVE
+          // Si un commercial est en train de faire de la prospection, lier cette porte à sa session
+          if (updatedPorte.assigneeId) {
+            const doorLabel = `Étage ${updatedPorte.etage} - ${updatedPorte.numeroPorte}`;
+            this.eventsGateway.linkDoorToActiveSession(updatedPorte.assigneeId, doorLabel);
+            console.log(`🔗 Porte ${doorLabel} liée à la session active du commercial ${updatedPorte.assigneeId}`);
+          }
         }
 
         // Si l'assignation a changé (mode duo), émettre un événement spécifique

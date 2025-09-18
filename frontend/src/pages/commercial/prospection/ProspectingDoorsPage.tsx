@@ -30,18 +30,75 @@ import {
 import { useSocket } from '@/hooks/useSocket';
 
 
+type SpeechRecognitionConstructor = new () => SpeechRecognitionInstance;
+
+interface SpeechRecognitionInstance {
+  lang: string;
+  continuous: boolean;
+  interimResults: boolean;
+  maxAlternatives?: number;
+  start: () => void;
+  stop: () => void;
+  abort?: () => void;
+  onresult: ((event: SpeechRecognitionEventLike) => void) | null;
+  onerror: ((event: SpeechRecognitionErrorEventLike) => void) | null;
+  onend: (() => void) | null;
+}
+
+interface SpeechRecognitionEventLike {
+  resultIndex: number;
+  results: SpeechRecognitionResultLike[];
+}
+
+interface SpeechRecognitionResultLike {
+  isFinal: boolean;
+  length: number;
+  [index: number]: SpeechRecognitionAlternativeLike | undefined;
+}
+
+interface SpeechRecognitionAlternativeLike {
+  transcript: string;
+}
+
+interface SpeechRecognitionErrorEventLike {
+  error: string;
+}
+
+const getSpeechRecognition = (): SpeechRecognitionInstance | null => {
+  if (typeof window === 'undefined') {
+    return null;
+  }
+  const ctor = (window as unknown as {
+    SpeechRecognition?: SpeechRecognitionConstructor;
+    webkitSpeechRecognition?: SpeechRecognitionConstructor;
+  }).SpeechRecognition || (window as unknown as {
+    SpeechRecognition?: SpeechRecognitionConstructor;
+    webkitSpeechRecognition?: SpeechRecognitionConstructor;
+  }).webkitSpeechRecognition;
+  if (!ctor) {
+    return null;
+  }
+  try {
+    return new ctor();
+  } catch (error) {
+    console.error('Failed to create SpeechRecognition instance:', error);
+    return null;
+  }
+};
+
+
 const ProspectingDoorsPage = () => {
     const {buildingId } = useParams<{ buildingId: string }>();
     const navigate = useNavigate();
     const { user } = useAuth();
     const layoutControls = useOutletContext<LayoutControls>();
     const socket = useSocket(buildingId);
+    const [building, setBuilding] = useState<ImmeubleDetailsFromApi | null>(null);
     // Audio streaming state
     const [isMicOn, setIsMicOn] = useState(false);
     const localStreamRef = useRef<MediaStream | null>(null);
-    const mediaRecorderRef = useRef<MediaRecorder | null>(null);
-    const deepgramWsRef = useRef<WebSocket | null>(null);
-    const [isDgLive, setIsDgLive] = useState(false);
+    const recognitionRef = useRef<SpeechRecognitionInstance | null>(null);
+    const isMicOnRef = useRef(false);
     const activeDoorIdRef = useRef<string | null>(null);
     const activeDoorLabelRef = useRef<string | null>(null);
     // const [activeDoorId, setActiveDoorId] = useState<string | null>(null);
@@ -139,18 +196,20 @@ const ProspectingDoorsPage = () => {
             localStreamRef.current.getTracks().forEach(t => t.stop());
             localStreamRef.current = null;
         }
-        // Stop media recorder and server-side transcription / Deepgram WS
-        try { mediaRecorderRef.current?.stop(); } catch {}
-        mediaRecorderRef.current = null;
-        try { deepgramWsRef.current?.close(); } catch {}
-        deepgramWsRef.current = null;
-        setIsDgLive(false);
+        if (recognitionRef.current) {
+            const recognition = recognitionRef.current;
+            recognition.onend = null;
+            try { recognition.stop(); } catch {}
+            if (typeof recognition.abort === 'function') {
+                try { recognition.abort(); } catch {}
+            }
+        }
+        recognitionRef.current = null;
         if (socket && user?.id) {
             socket.emit('transcription_stop', { commercial_id: user.id });
-        }
-        if (socket && user?.id) {
             socket.emit('stop_streaming', { commercial_id: user.id });
         }
+        isMicOnRef.current = false;
         setIsMicOn(false);
     }, [socket, user?.id]);
 
@@ -180,124 +239,99 @@ const ProspectingDoorsPage = () => {
             const stream = await navigator.mediaDevices.getUserMedia({
                 audio: {
                     // Optimisations pour maximiser la capture
-                    echoCancellation: false, // Désactiver pour capturer plus de sons
-                    noiseSuppression: false, // Désactiver pour ne pas filtrer les voix
-                    autoGainControl: false, // Désactiver pour capturer les sons faibles
+                    echoCancellation: false,
+                    noiseSuppression: false,
+                    autoGainControl: false,
                     channelCount: 1,
-                    sampleRate: 48000, // Haute qualité
-                    // Nouvelles optimisations
-                    latency: 0, // Latence minimale
-                    volume: 1.0, // Volume maximum
-                    // Contraintes avancées pour maximiser la sensibilité
-                    sampleSize: 16, // Qualité audio optimale
-                    // Désactiver les filtres qui pourraient masquer des sons
+                    sampleRate: 48000,
+                    latency: 0,
+                    volume: 1.0,
+                    sampleSize: 16,
                     suppressLocalAudioPlayback: false,
                 } as MediaTrackConstraints,
             });
-            
+
             // Optimiser la capture audio pour maximiser la sensibilité
             optimizeAudioCapture(stream);
-            
+
             localStreamRef.current = stream;
+            isMicOnRef.current = true;
             setIsMicOn(true);
-            socket.emit('start_streaming', { 
-                commercial_id: user.id, 
+            socket.emit('start_streaming', {
+                commercial_id: user.id,
                 commercial_info: { name: user.name || user.nom || 'Commercial' },
                 building_id: buildingId,
                 building_name: building ? `${building.adresse}, ${building.ville}` : `Immeuble ${buildingId}`
             });
 
-            // Essayer Deepgram WebSocket côté navigateur pour obtenir du live
-            const dgKey = import.meta.env.VITE_DEEPGRAM_API_KEY as string | undefined;
-            const dgUrl = 'wss://api.deepgram.com/v1/listen?language=fr&interim_results=true&punctuate=true';
-            let useProxy = true;
-            if (dgKey && typeof WebSocket !== 'undefined') {
-                try {
-                    const ws = new WebSocket(dgUrl, ['token', dgKey]);
-                    deepgramWsRef.current = ws;
-                    ws.onopen = () => {
-                        setIsDgLive(true);
-                        // Start recorder and send chunks to Deepgram directly
-                        const mimeType = 'audio/webm;codecs=opus';
-                        const recorder = new MediaRecorder(stream, { mimeType });
-                        mediaRecorderRef.current = recorder;
-                        recorder.addEventListener('dataavailable', async (e: BlobEvent) => {
-                            if (!e.data || e.data.size === 0 || ws.readyState !== ws.OPEN) return;
-                            try { ws.send(await e.data.arrayBuffer()); } catch {}
-                        });
-                        recorder.start(250); // Envoi plus fréquent pour capturer plus de sons
-                    };
-                    ws.onmessage = (event) => {
-                        try {
-                            const msg = JSON.parse(event.data as string);
-                            const alt = msg?.channel?.alternatives?.[0];
-                            const transcript: string = alt?.transcript || '';
-                            const is_final: boolean = !!msg?.is_final;
-                            if (transcript) {
-                                // Éviter les doublons : ne pas ajouter de \n pour les transcriptions finales
-                                // car elles contiennent déjà le texte complet
-                                socket.emit('transcription_update', {
-                                    commercial_id: user.id,
-                                    transcript: transcript, // Suppression du \n conditionnel
-                                    is_final,
-                                    timestamp: new Date().toISOString(),
-                                    door_id: activeDoorIdRef.current || undefined,
-                                    door_label: activeDoorLabelRef.current || undefined,
-                                });
-                            }
-                        } catch {}
-                    };
-                    ws.onerror = () => { /* fallback below on close */ };
-                    ws.onclose = () => {
-                        if (isDgLive) return; // closed after stop
-                        // fallback to proxy if failed to keep open
-                        try { mediaRecorderRef.current?.stop(); } catch {}
-                        mediaRecorderRef.current = null;
-                        setupProxyRecorder(stream);
-                    };
-                    useProxy = false;
-                } catch (e) {
-                    console.warn('Deepgram WS failed, using proxy REST fallback');
-                }
+            socket.emit('transcription_start', {
+                commercial_id: user.id,
+                building_id: buildingId,
+                building_name: building ? `${building.adresse}, ${building.ville}` : `Immeuble ${buildingId}`,
+                source: 'browser-speech'
+            });
+
+            const recognition = getSpeechRecognition();
+            if (!recognition) {
+                toast.error('La reconnaissance vocale n\'est pas supportée par ce navigateur.');
+                return;
             }
 
-            // Fallback: proxy mode via backend
-            if (useProxy) {
-                setupProxyRecorder(stream);
+            recognition.lang = 'fr-FR';
+            recognition.continuous = true;
+            recognition.interimResults = true;
+            recognition.maxAlternatives = 1;
+
+            recognition.onresult = (event: SpeechRecognitionEventLike) => {
+                for (let i = event.resultIndex; i < event.results.length; i += 1) {
+                    const result = event.results[i];
+                    const alternative = result[0];
+                    const transcript = alternative?.transcript?.trim();
+                    if (!transcript) continue;
+                    const isFinal = !!result.isFinal;
+                    socket.emit('transcription_update', {
+                        commercial_id: user.id,
+                        transcript,
+                        is_final: isFinal,
+                        timestamp: new Date().toISOString(),
+                        door_id: activeDoorIdRef.current || undefined,
+                        door_label: activeDoorLabelRef.current || undefined,
+                    });
+                }
+            };
+
+            recognition.onerror = (event: SpeechRecognitionErrorEventLike) => {
+                console.error('Speech recognition error:', event);
+                if (event.error === 'not-allowed' || event.error === 'service-not-allowed') {
+                    toast.error('Autorisez l\'utilisation du micro pour la transcription.');
+                    stopStreaming();
+                }
+            };
+
+            recognition.onend = () => {
+                if (!isMicOnRef.current) {
+                    return;
+                }
+                try {
+                    recognition.start();
+                } catch (error) {
+                    console.error('Failed to restart speech recognition:', error);
+                }
+            };
+
+            recognitionRef.current = recognition;
+
+            try {
+                recognition.start();
+            } catch (error) {
+                console.error('Failed to start speech recognition:', error);
+                toast.error('Impossible de démarrer la reconnaissance vocale.');
+                recognitionRef.current = null;
             }
         } catch (err) {
             console.error('Failed to start audio capture:', err);
         }
-    }, [socket, user?.id, user?.name, user?.nom]);
-
-    const setupProxyRecorder = (stream: MediaStream) => {
-        if (!socket || !user?.id) return;
-        setIsDgLive(false);
-        socket.emit('transcription_start', {
-            commercial_id: user.id,
-            building_id: buildingId,
-            building_name: building ? `${building.adresse}, ${building.ville}` : `Immeuble ${buildingId}`,
-            mime_type: 'audio/webm;codecs=opus',
-        });
-        const mimeType = 'audio/webm;codecs=opus';
-        const recorder = new MediaRecorder(stream, { mimeType });
-        mediaRecorderRef.current = recorder;
-        recorder.addEventListener('dataavailable', async (e: BlobEvent) => {
-            if (!e.data || e.data.size === 0) return;
-            try {
-                const buf = await e.data.arrayBuffer();
-                socket.emit('transcription_audio_chunk', {
-                    commercial_id: user.id,
-                    door_id: activeDoorIdRef.current || undefined,
-                    door_label: activeDoorLabelRef.current || undefined,
-                    chunk: buf,
-                });
-            } catch (err) {
-                console.error('Erreur envoi chunk audio:', err);
-            }
-        });
-        recorder.start(250); // Envoi plus fréquent pour capturer plus de sons
-    };
+    }, [socket, user?.id, user?.name, user?.nom, buildingId, building, stopStreaming]);
 
     // Stop audio on unmount if still active + sauvegarde d'urgence
     useEffect(() => {
@@ -339,7 +373,6 @@ const ProspectingDoorsPage = () => {
         };
       }, [layoutControls]);
 
-    const [building, setBuilding] = useState<ImmeubleDetailsFromApi | null>(null);
     const [portes, setPortes] = useState<Porte[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [isModalOpen, setIsModalOpen] = useState(false);

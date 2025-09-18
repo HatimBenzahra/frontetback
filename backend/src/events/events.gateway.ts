@@ -1,8 +1,6 @@
 import { WebSocketGateway, WebSocketServer, SubscribeMessage, OnGatewayConnection, OnGatewayDisconnect } from '@nestjs/websockets';
 import { Server, Socket } from 'socket.io';
 import { UseGuards } from '@nestjs/common';
-import * as https from 'https';
-import { IncomingMessage, RequestOptions } from 'http';
 import { TranscriptionHistoryService } from '../transcription-history/transcription-history.service';
 import { CommercialService } from '../manager-space/commercial/commercial.service';
 import { WsAuthGuard } from '../auth/ws-auth.guard';
@@ -62,15 +60,6 @@ export class EventsGateway implements OnGatewayConnection, OnGatewayDisconnect {
   // Gestion des sessions de transcription
   private activeTranscriptionSessions = new Map<string, TranscriptionSession>(); // commercialId -> session en cours
   private transcriptionHistory: TranscriptionSession[] = []; // Historique des sessions
-
-  // Deepgram streaming (server-side) state per commercial
-  private dgStreams = new Map<string, {
-    req: import('http').ClientRequest;
-    res: IncomingMessage | null;
-    startedAt: number;
-    lastDoorId?: string;
-    lastDoorLabel?: string;
-  }>();
 
   // Minimal per-session per-door aggregation (in-memory)
   private sessionDoorTexts = new Map<string, Map<string, string>>(); // sessionId -> (doorId -> text)
@@ -320,6 +309,8 @@ export class EventsGateway implements OnGatewayConnection, OnGatewayDisconnect {
         duration: session.duration_seconds,
         transcript_length: session.full_transcript.length
       });
+
+      this.sessionDoorTexts.delete(session.id);
       
       // Sauvegarder en base de données de façon persistante AVEC traitement IA (sauvegarde finale)
       try {
@@ -455,6 +446,25 @@ export class EventsGateway implements OnGatewayConnection, OnGatewayDisconnect {
     return currentText + separator + cleanNewText;
   }
 
+  /**
+   * 🔗 Lier une porte à la session de transcription active d'un commercial
+   */
+  linkDoorToActiveSession(commercialId: string, doorLabel: string) {
+    const session = this.activeTranscriptionSessions.get(commercialId);
+    if (session) {
+      if (!session.visited_doors) {
+        session.visited_doors = [];
+      }
+      // N'ajouter que si cette porte n'est pas déjà dans la liste
+      if (!session.visited_doors.includes(doorLabel)) {
+        session.visited_doors.push(doorLabel);
+        console.log(`🔗 Porte ${doorLabel} ajoutée à la session ${session.id} du commercial ${commercialId}`);
+      }
+    } else {
+      console.log(`⚠️ Aucune session active trouvée pour le commercial ${commercialId} - porte ${doorLabel} non liée`);
+    }
+  }
+
   @SubscribeMessage('transcription_update')
   @UseGuards(WsRolesGuard)
   @Roles('commercial')
@@ -510,7 +520,7 @@ export class EventsGateway implements OnGatewayConnection, OnGatewayDisconnect {
     this.server.to('audio-streaming').emit('transcription_update', data);
   }
 
-  // ---- Server-side Deepgram streaming (receive audio chunks from client) ----
+  // ---- Browser-based transcription coordination ----
 
   @SubscribeMessage('transcription_start')
   @UseGuards(WsRolesGuard)
@@ -519,23 +529,12 @@ export class EventsGateway implements OnGatewayConnection, OnGatewayDisconnect {
     commercial_id: string;
     building_id?: string;
     building_name?: string;
-    mime_type?: string; // e.g. 'audio/webm;codecs=opus'
+    source?: string;
   }) {
-    const apiKey = process.env.DEEPGRAM_API_KEY;
-    if (!apiKey) {
-      console.error('❌ DEEPGRAM_API_KEY is not set in backend env');
-      client.emit('transcription_error', { message: 'Deepgram API key is missing on server' });
-      return;
-    }
-
-    // Créer ou récupérer la session de transcription active
     let session = this.activeTranscriptionSessions.get(data.commercial_id);
     if (!session) {
       const sessionId = `${data.commercial_id}_${Date.now()}`;
-      
-      // Récupérer le vrai nom du commercial depuis la base de données
       const commercialName = await this.transcriptionHistoryService.getCommercialName(data.commercial_id);
-      
       session = {
         id: sessionId,
         commercial_id: data.commercial_id,
@@ -548,107 +547,13 @@ export class EventsGateway implements OnGatewayConnection, OnGatewayDisconnect {
         building_name: data.building_name,
       };
       this.activeTranscriptionSessions.set(data.commercial_id, session);
-      console.log(`📝 Session de transcription créée via transcription_start pour ${data.commercial_id} (${commercialName}):`, sessionId);
-    } else if (data.building_name && !session.building_name) {
-      // Mettre à jour le nom de l'immeuble si il n'était pas défini
-      session.building_name = data.building_name;
-      session.building_id = data.building_id;
-    }
-
-    const mime = data.mime_type || 'audio/webm;codecs=opus';
-    try {
-      // Close existing stream if any
-      const existing = this.dgStreams.get(data.commercial_id);
-      if (existing) {
-        try { existing.req.end(); } catch {}
+      console.log(`📝 Session de transcription initialisée pour ${data.commercial_id} (${commercialName}) via ${data.source || 'navigateur'}`);
+    } else {
+      if (data.building_name && !session.building_name) {
+        session.building_name = data.building_name;
+        session.building_id = data.building_id;
       }
-      const params = new URLSearchParams({
-        language: 'fr',
-        punctuate: 'true',
-        interim_results: 'true',
-        diarize: 'false',
-      }).toString();
-      const options: RequestOptions = {
-        method: 'POST',
-        host: 'api.deepgram.com',
-        path: `/v1/listen?${params}`,
-        headers: {
-          'Authorization': `Token ${apiKey}`,
-          'Content-Type': mime,
-          'Transfer-Encoding': 'chunked',
-        },
-      };
-      const req = https.request(options, (res: IncomingMessage) => {
-        res.setEncoding('utf8');
-        let buffer = '';
-        res.on('data', (chunk: string) => {
-          buffer += chunk;
-          // Deepgram sends newline-delimited JSON; split safely
-          let idx: number;
-          while ((idx = buffer.indexOf('\n')) >= 0) {
-            const line = buffer.slice(0, idx).trim();
-            buffer = buffer.slice(idx + 1);
-            if (!line) continue;
-            try {
-              const msg = JSON.parse(line);
-              const alt = msg?.channel?.alternatives?.[0];
-              const transcript: string = alt?.transcript ?? '';
-              const is_final: boolean = !!msg?.is_final;
-              if (transcript) {
-                const now = new Date().toISOString();
-                // Use last known door id and label for this stream (may be updated by chunk messages)
-                const state = this.dgStreams.get(data.commercial_id);
-                const door_id = state?.lastDoorId;
-                const door_label = state?.lastDoorLabel;
-                this.handleTranscriptionUpdate(client, {
-                  commercial_id: data.commercial_id,
-                  transcript: transcript + (is_final ? '\n' : ''),
-                  is_final,
-                  timestamp: now,
-                  door_id,
-                  door_label,
-                });
-              }
-            } catch (e) {
-              // Non-JSON lines or partial fragments, ignore
-            }
-          }
-        });
-        res.on('error', (err) => {
-          console.error('❌ Deepgram response error:', err);
-          client.emit('transcription_error', { message: 'Deepgram response error' });
-        });
-      });
-      req.on('error', (err) => {
-        console.error('❌ Deepgram request error:', err);
-        client.emit('transcription_error', { message: 'Deepgram connection error' });
-      });
-      this.dgStreams.set(data.commercial_id, { req, res: null, startedAt: Date.now() });
-      console.log(`🎧 Deepgram streaming started for ${data.commercial_id}`);
-    } catch (e) {
-      console.error('❌ Failed to start Deepgram streaming:', e);
-      client.emit('transcription_error', { message: 'Failed to start Deepgram streaming' });
-    }
-  }
-
-  @SubscribeMessage('transcription_audio_chunk')
-  @UseGuards(WsRolesGuard)
-  @Roles('commercial')
-  handleTranscriptionAudioChunk(client: Socket, data: {
-    commercial_id: string;
-    door_id?: string;
-    door_label?: string;
-    chunk: ArrayBuffer | Buffer | Uint8Array;
-  }) {
-    const state = this.dgStreams.get(data.commercial_id);
-    if (!state) return;
-    if (data.door_id) state.lastDoorId = data.door_id;
-    if (data.door_label) state.lastDoorLabel = data.door_label;
-    try {
-      const buf = Buffer.isBuffer(data.chunk) ? data.chunk : Buffer.from(data.chunk as ArrayBuffer);
-      state.req.write(buf);
-    } catch (e) {
-      console.error('❌ Error forwarding audio chunk to Deepgram:', e);
+      console.log(`🎧 Transcription mise à jour pour ${data.commercial_id} (source: ${data.source || 'navigateur'})`);
     }
   }
 
@@ -656,13 +561,11 @@ export class EventsGateway implements OnGatewayConnection, OnGatewayDisconnect {
   @UseGuards(WsRolesGuard)
   @Roles('commercial')
   handleTranscriptionStop(client: Socket, data: { commercial_id: string }) {
-    const state = this.dgStreams.get(data.commercial_id);
-    if (!state) return;
-    try {
-      state.req.end();
-    } catch {}
-    this.dgStreams.delete(data.commercial_id);
-    console.log(`🛑 Deepgram streaming stopped for ${data.commercial_id}`);
+    console.log(`🛑 Transcription arrêtée côté navigateur pour ${data.commercial_id}`);
+    const session = this.activeTranscriptionSessions.get(data.commercial_id);
+    if (session) {
+      this.sessionDoorTexts.delete(session.id);
+    }
   }
 
   sendToRoom(room: string, event: string, data: any) {

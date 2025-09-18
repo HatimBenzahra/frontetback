@@ -61,13 +61,7 @@ FORMAT STRICT - RESPECTER EXACTEMENT :
 RÈGLES DE FORMATAGE OBLIGATOIRES :
 - TOUJOURS une ligne vide entre chaque interlocuteur
 - Chaque changement d'interlocuteur = nouvelle ligne vide
-- FORMAT EXACT À RESPECTER :
-
-**Commercial :** Bonjour, je vous propose notre offre.
-
-**Prospect :** Ça m'intéresse.
-
-**Commercial :** Parfait, je vous envoie les détails.
+- FORMAT EXACT À RESPECTER : **Interlocuteur :** [texte original corrigé]
 
 IMPORTANT : 
 - Reste fidèle au contenu original
