@@ -1,14 +1,86 @@
-import { Settings, BarChart3, Activity, Clock, Eye, Palette, Zap, Timer, Layers, ListOrdered } from 'lucide-react';
+import { Settings, BarChart3, Activity, Clock, Eye, Palette, Zap, Timer, Layers, ListOrdered, Archive, Database } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui-admin/card';
 import { Label } from '@/components/ui-admin/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui-admin/select';
 import { Checkbox } from '@/components/ui-admin/checkbox';
+import { Input } from '@/components/ui-admin/input';
 import { useDashboardSettings } from '@/hooks/useDashboardSettings';
 import { TimeFilterType } from '@/types/dashboard-settings';
 import { AdminPageSkeleton } from '@/components/ui-admin/AdminPageSkeleton';
+import { useState, useCallback, useEffect } from 'react';
+import { API_BASE_URL } from '@/config';
 
 const ParametresPage = () => {
   const { settings, updateSettings, isLoading } = useDashboardSettings();
+
+  // États pour les seuils de backup
+  const [backupSettings, setBackupSettings] = useState({
+    maxSessions: 1000,
+    maxSizeMB: 50,
+    keepRecentSessions: 100
+  });
+  const [isSavingBackupSettings, setIsSavingBackupSettings] = useState(false);
+
+  // Fonctions pour les paramètres de backup
+  const saveBackupSettings = useCallback(async () => {
+    try {
+      setIsSavingBackupSettings(true);
+      const token = localStorage.getItem('access_token');
+
+      const response = await fetch(`${API_BASE_URL}/api/transcription-history/update-backup-settings`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token && { 'Authorization': `Bearer ${token}` })
+        },
+        body: JSON.stringify(backupSettings)
+      });
+
+      if (response.ok) {
+        alert('Paramètres de sauvegarde mis à jour avec succès !');
+      } else {
+        throw new Error('Erreur lors de la sauvegarde');
+      }
+    } catch (error) {
+      console.error('Erreur sauvegarde paramètres backup:', error);
+      alert('Erreur lors de la sauvegarde des paramètres');
+    } finally {
+      setIsSavingBackupSettings(false);
+    }
+  }, [backupSettings]);
+
+  const updateBackupSetting = useCallback((key: string, value: number) => {
+    setBackupSettings(prev => ({ ...prev, [key]: value }));
+  }, []);
+
+  // Charger les paramètres au montage du composant
+  useEffect(() => {
+    const loadBackupSettings = async () => {
+      try {
+        const token = localStorage.getItem('access_token');
+
+        const response = await fetch(`${API_BASE_URL}/api/transcription-history/backup-settings`, {
+          headers: {
+            'Content-Type': 'application/json',
+            ...(token && { 'Authorization': `Bearer ${token}` })
+          }
+        });
+
+        if (response.ok) {
+          const result = await response.json();
+          if (result.success && result.settings) {
+            setBackupSettings(result.settings);
+          }
+        }
+      } catch (error) {
+        console.error('Erreur chargement paramètres backup:', error);
+      } finally {
+        // Chargement terminé
+      }
+    };
+
+    loadBackupSettings();
+  }, []);
 
   if (isLoading) {
     return <AdminPageSkeleton hasHeader hasCards cardsCount={3} />;
@@ -322,10 +394,114 @@ const ParametresPage = () => {
               </div>
             </div>
 
-
           </CardContent>
         </Card>
 
+        {/* Backup Settings */}
+        <Card className="bg-white/80 backdrop-blur-sm border-white/20 shadow-xl">
+          <CardHeader className="bg-gradient-to-r from-orange-500/10 to-red-500/10 rounded-t-lg">
+            <CardTitle className="flex items-center gap-3 text-slate-800">
+              <div className="p-2 bg-gradient-to-br from-orange-500 to-red-600 rounded-lg text-white">
+                <Archive className="h-5 w-5" />
+              </div>
+              Paramètres d'Archivage Automatique
+            </CardTitle>
+            <CardDescription className="text-slate-600">
+              Configurez les seuils de déclenchement de l'archivage automatique des transcriptions
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-6 p-6">
+
+            {/* Seuils de déclenchement */}
+            <div className="bg-gradient-to-br from-orange-50 to-red-50 rounded-xl p-6 border border-orange-200/50">
+              <div className="flex items-center gap-2 mb-6">
+                <Database className="h-5 w-5 text-orange-600" />
+                <h3 className="text-lg font-semibold text-slate-800">Seuils de déclenchement</h3>
+              </div>
+              <div className="grid gap-6 md:grid-cols-2">
+                <div className="space-y-3">
+                  <Label className="text-slate-700 font-medium">Nombre maximum de sessions</Label>
+                  <Input
+                    type="number"
+                    value={backupSettings.maxSessions}
+                    onChange={(e) => updateBackupSetting('maxSessions', parseInt(e.target.value) || 1000)}
+                    className="bg-white border-slate-200 hover:border-orange-300 transition-colors"
+                    min="100"
+                    max="10000"
+                  />
+                  <p className="text-xs text-slate-500">
+                    Déclenche l'archivage automatique lorsque ce nombre est atteint
+                  </p>
+                </div>
+
+                <div className="space-y-3">
+                  <Label className="text-slate-700 font-medium">Taille maximum estimée (MB)</Label>
+                  <Input
+                    type="number"
+                    value={backupSettings.maxSizeMB}
+                    onChange={(e) => updateBackupSetting('maxSizeMB', parseInt(e.target.value) || 50)}
+                    className="bg-white border-slate-200 hover:border-orange-300 transition-colors"
+                    min="10"
+                    max="1000"
+                  />
+                  <p className="text-xs text-slate-500">
+                    Estimation basée sur la taille moyenne des transcriptions
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            {/* Paramètres de conservation */}
+            <div className="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-xl p-6 border border-blue-200/50">
+              <div className="flex items-center gap-2 mb-6">
+                <Timer className="h-5 w-5 text-blue-600" />
+                <h3 className="text-lg font-semibold text-slate-800">Conservation des données</h3>
+              </div>
+              <div className="space-y-3">
+                <Label className="text-slate-700 font-medium">Sessions récentes à conserver</Label>
+                <Input
+                  type="number"
+                  value={backupSettings.keepRecentSessions}
+                  onChange={(e) => updateBackupSetting('keepRecentSessions', parseInt(e.target.value) || 100)}
+                  className="bg-white border-slate-200 hover:border-blue-300 transition-colors max-w-xs"
+                  min="50"
+                  max="500"
+                />
+                <p className="text-xs text-slate-500">
+                  Nombre de sessions récentes à toujours garder en base de données (par sécurité)
+                </p>
+              </div>
+            </div>
+
+            {/* Actions */}
+            <div className="flex justify-end pt-4">
+              <button
+                onClick={saveBackupSettings}
+                disabled={isSavingBackupSettings}
+                className="px-6 py-2 bg-gradient-to-r from-orange-500 to-red-600 text-white rounded-lg hover:from-orange-600 hover:to-red-700 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:ring-offset-2 transition-all duration-200 disabled:opacity-50 font-medium shadow-lg"
+              >
+                {isSavingBackupSettings ? 'Sauvegarde...' : 'Sauvegarder les paramètres'}
+              </button>
+            </div>
+
+            {/* Informations importantes */}
+            <div className="bg-gradient-to-r from-amber-50 to-yellow-50 rounded-lg p-4 border border-amber-200">
+              <div className="flex gap-3">
+                <Archive className="h-5 w-5 text-amber-600 mt-0.5" />
+                <div className="space-y-2 text-sm">
+                  <h4 className="font-semibold text-amber-800">Information importante</h4>
+                  <ul className="list-disc list-inside text-amber-700 space-y-1">
+                    <li>L'archivage automatique se déclenche après chaque nouvelle transcription sauvegardée</li>
+                    <li>Les données sont sauvegardées au format PDF sur S3 avant suppression</li>
+                    <li>Les sessions les plus récentes sont toujours conservées en base</li>
+                    <li>Cette opération est irréversible une fois l'archivage effectué</li>
+                  </ul>
+                </div>
+              </div>
+            </div>
+
+          </CardContent>
+        </Card>
 
       </div>
     </div>

@@ -98,4 +98,18 @@ export class TranscriptionHistoryController {
     console.log('🔄 Vérification auto-backup demandée');
     return this.transcriptionHistoryService.checkAutoBackup();
   }
+
+  @Post('update-backup-settings')
+  @Roles('admin')
+  async updateBackupSettings(@Body() settings: { maxSessions: number; maxSizeMB: number; keepRecentSessions: number }) {
+    console.log('⚙️ Mise à jour paramètres backup:', settings);
+    return this.transcriptionHistoryService.updateBackupSettings(settings);
+  }
+
+  @Get('backup-settings')
+  @Roles('admin')
+  async getBackupSettings() {
+    console.log('🔍 Récupération paramètres backup');
+    return this.transcriptionHistoryService.getBackupSettings();
+  }
 } 

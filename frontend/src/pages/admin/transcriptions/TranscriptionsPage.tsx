@@ -80,7 +80,6 @@ const TranscriptionsPage = () => {
   const [isBackingUp, setIsBackingUp] = useState(false);
   const [showSuccessModal, setShowSuccessModal] = useState(false);
   const [backupResult, setBackupResult] = useState<any>(null);
-  const [autoBackupInfo, setAutoBackupInfo] = useState<any>(null);
 
   const BASE = API_BASE_URL;
 
@@ -121,7 +120,6 @@ const TranscriptionsPage = () => {
       if (response.ok) {
         const result = await response.json();
         if (result.success && result.isAutoBackup) {
-          setAutoBackupInfo(result);
           setBackupResult(result);
           setShowSuccessModal(true);
           // Recharger les données car des sessions ont été supprimées

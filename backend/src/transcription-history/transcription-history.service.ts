@@ -23,6 +23,13 @@ export interface TranscriptionSession {
 export class TranscriptionHistoryService {
   private processingSessions = new Set<string>(); // Protection contre le traitement multiple
 
+  // Paramètres de backup configurables
+  private backupSettings = {
+    maxSessions: 1000,
+    maxSizeMB: 50,
+    keepRecentSessions: 100
+  };
+
   constructor(
     private prisma: PrismaService,
     private textProcessingService: TextProcessingService,
@@ -423,30 +430,75 @@ export class TranscriptionHistoryService {
   }
 
   /**
+   * Met à jour les paramètres de backup
+   */
+  async updateBackupSettings(settings: { maxSessions: number; maxSizeMB: number; keepRecentSessions: number }) {
+    try {
+      // Valider les paramètres
+      if (settings.maxSessions < 100 || settings.maxSessions > 10000) {
+        throw new Error('Le nombre maximum de sessions doit être entre 100 et 10000');
+      }
+      if (settings.maxSizeMB < 10 || settings.maxSizeMB > 1000) {
+        throw new Error('La taille maximum doit être entre 10 et 1000 MB');
+      }
+      if (settings.keepRecentSessions < 50 || settings.keepRecentSessions > 500) {
+        throw new Error('Le nombre de sessions à conserver doit être entre 50 et 500');
+      }
+
+      this.backupSettings = { ...settings };
+      console.log('✅ Paramètres backup mis à jour:', this.backupSettings);
+
+      return {
+        success: true,
+        settings: this.backupSettings,
+        message: 'Paramètres mis à jour avec succès'
+      };
+    } catch (error) {
+      console.error('❌ Erreur mise à jour paramètres backup:', error);
+      return {
+        success: false,
+        error: error.message
+      };
+    }
+  }
+
+  /**
+   * Récupère les paramètres de backup actuels
+   */
+  async getBackupSettings() {
+    return {
+      success: true,
+      settings: this.backupSettings
+    };
+  }
+
+  /**
    * Vérifie si un backup automatique est nécessaire
    */
   async checkAutoBackup() {
     try {
-      const MAX_SESSIONS = 1000; // Limite de sessions
-      const MAX_SIZE_MB = 50;    // Limite en MB (estimation texte)
-
       const totalSessions = await this.prisma.transcriptionSession.count();
 
-      if (totalSessions >= MAX_SESSIONS) {
-        console.log(`🔄 Auto-backup déclenché: ${totalSessions} sessions (limite: ${MAX_SESSIONS})`);
+      if (totalSessions >= this.backupSettings.maxSessions) {
+        console.log(`🔄 Auto-backup déclenché: ${totalSessions} sessions (limite: ${this.backupSettings.maxSessions})`);
         const result = await this.backupToS3(true); // Auto-backup
         return result;
       }
 
       // Vérifier la taille approximative (estimation : 1KB par session en moyenne)
       const estimatedSizeMB = totalSessions * 1 / 1024; // Estimation grossière
-      if (estimatedSizeMB >= MAX_SIZE_MB) {
-        console.log(`🔄 Auto-backup déclenché: ~${estimatedSizeMB.toFixed(1)}MB (limite: ${MAX_SIZE_MB}MB)`);
+      if (estimatedSizeMB >= this.backupSettings.maxSizeMB) {
+        console.log(`🔄 Auto-backup déclenché: ~${estimatedSizeMB.toFixed(1)}MB (limite: ${this.backupSettings.maxSizeMB}MB)`);
         const result = await this.backupToS3(true); // Auto-backup
         return result;
       }
 
-      return { autoBackupNeeded: false, totalSessions, estimatedSizeMB };
+      return {
+        autoBackupNeeded: false,
+        totalSessions,
+        estimatedSizeMB,
+        currentSettings: this.backupSettings
+      };
     } catch (error) {
       console.error('❌ Erreur vérification auto-backup:', error);
       return { error: error.message };
@@ -671,11 +723,11 @@ export class TranscriptionHistoryService {
     try {
       console.log(`🧹 Suppression de ${sessionIds.length} sessions de la DB...`);
 
-      // Garder les 100 sessions les plus récentes par sécurité
+      // Garder les sessions les plus récentes selon la configuration
       const recentSessions = await this.prisma.transcriptionSession.findMany({
         select: { id: true },
         orderBy: { start_time: 'desc' },
-        take: 100
+        take: this.backupSettings.keepRecentSessions
       });
 
       const recentIds = recentSessions.map(s => s.id);
@@ -694,7 +746,7 @@ export class TranscriptionHistoryService {
         }
       });
 
-      console.log(`✅ ${deleteResult.count} sessions supprimées, ${recentIds.length} récentes conservées`);
+      console.log(`✅ ${deleteResult.count} sessions supprimées, ${recentIds.length} récentes conservées (limite: ${this.backupSettings.keepRecentSessions})`);
 
       return {
         deleted: deleteResult.count,
