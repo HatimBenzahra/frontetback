@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui-admin/
 import { Button } from '@/components/ui-admin/button';
 import { Input } from '@/components/ui-admin/input';
 import { Badge } from '@/components/ui-admin/badge';
-import { RefreshCw, Search, User, Mic, MicOff } from 'lucide-react';
+import { RefreshCw, Search, User, Mic, MicOff, FileText } from 'lucide-react';
 import { API_BASE_URL } from '@/config';
 
 // Styles pour l'animation de slide
@@ -75,6 +75,9 @@ const TranscriptionsPage = () => {
   // État pour le loading du refresh
   const [isRefreshing, setIsRefreshing] = useState(false);
 
+  // État pour la sauvegarde S3
+  const [isBackingUp, setIsBackingUp] = useState(false);
+
   const BASE = API_BASE_URL;
 
   // DB: commerciaux
@@ -129,15 +132,15 @@ const TranscriptionsPage = () => {
     try {
       setIsRefreshing(true);
       console.log('🔄 Rafraîchissement complet des données...');
-      
+
       // Recharger les commerciaux
       await loadAllCommercials();
-      
+
       // Demander le statut des commerciaux via WebSocket
       if (socket) {
         socket.emit('request_commercials_status');
       }
-      
+
       console.log('✅ Rafraîchissement terminé');
     } catch (error) {
       console.error('❌ Erreur lors du rafraîchissement:', error);
@@ -145,6 +148,38 @@ const TranscriptionsPage = () => {
       setIsRefreshing(false);
     }
   }, [loadAllCommercials, socket]);
+
+  // Fonction de sauvegarde S3
+  const backupToS3 = useCallback(async () => {
+    try {
+      setIsBackingUp(true);
+      console.log('☁️ Début sauvegarde S3...');
+
+      const token = localStorage.getItem('access_token');
+      const response = await fetch(`${BASE}/api/transcription-history/backup-to-s3`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token && { 'Authorization': `Bearer ${token}` })
+        }
+      });
+
+      if (response.ok) {
+        const result = await response.json();
+        console.log('✅ Sauvegarde PDF S3 réussie:', result);
+        alert(`Sauvegarde PDF S3 effectuée avec succès!\n\n📄 ${result.transcriptionsCount} transcriptions sauvegardées\n📁 Fichier: ${result.fileName}\n📊 Taille: ${Math.round(result.backupSize / 1024)} KB`);
+      } else {
+        const error = await response.json();
+        console.error('❌ Erreur sauvegarde PDF S3:', error);
+        alert(`Erreur lors de la sauvegarde PDF S3: ${error.message || 'Erreur inconnue'}`);
+      }
+    } catch (error) {
+      console.error('❌ Erreur sauvegarde PDF S3:', error);
+      alert(`Erreur lors de la sauvegarde PDF S3: ${(error as Error).message || 'Erreur de connexion'}`);
+    } finally {
+      setIsBackingUp(false);
+    }
+  }, [BASE]);
 
   // Raccourci clavier pour le refresh (Ctrl+R ou Cmd+R)
   useEffect(() => {
@@ -307,6 +342,15 @@ const TranscriptionsPage = () => {
             </p>
           </div>
           <div className="flex items-center gap-2">
+            <Button
+              onClick={backupToS3}
+              disabled={isBackingUp}
+              variant="outline"
+              className="gap-2 bg-red-50/80 backdrop-blur-sm border-red-200 hover:bg-red-100 disabled:opacity-50 text-red-700"
+            >
+              <FileText className={`h-4 w-4 ${isBackingUp ? 'animate-pulse' : ''}`} />
+              {isBackingUp ? 'Génération PDF...' : 'Enregistrer au Cloud'}
+            </Button>
             <Button
               onClick={refreshAllData}
               disabled={isRefreshing}

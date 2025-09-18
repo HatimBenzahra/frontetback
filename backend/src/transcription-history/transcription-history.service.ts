@@ -4,6 +4,7 @@ import { Injectable, Inject } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { TextProcessingService } from '../text-processing/text-processing.service';
 import { EventEmitterService } from '../events/event-emitter.service';
+import { S3Client, PutObjectCommand } from '@aws-sdk/client-s3';
 
 export interface TranscriptionSession {
   id: string;
@@ -416,5 +417,206 @@ export class TranscriptionHistoryService {
     }
   }
 
+  /**
+   * Sauvegarde toutes les transcriptions vers S3 en format PDF
+   */
+  async backupToS3() {
+    try {
+      console.log('🗄️ Début de la sauvegarde S3 des transcriptions (PDF)');
+
+      // Configuration S3
+      const s3Client = new S3Client({
+        region: process.env.AWS_REGION || 'eu-west-3',
+        credentials: {
+          accessKeyId: process.env.AWS_ACCESS_KEY_ID!,
+          secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY!
+        }
+      });
+
+      // Récupérer toutes les transcriptions
+      const transcriptions = await this.prisma.transcriptionSession.findMany({
+        orderBy: { start_time: 'desc' }
+      });
+
+      console.log(`📊 ${transcriptions.length} transcriptions à sauvegarder`);
+
+      if (transcriptions.length === 0) {
+        return {
+          success: true,
+          message: 'Aucune transcription à sauvegarder',
+          count: 0
+        };
+      }
+
+      // Générer le PDF
+      const pdfBuffer = await this.generateTranscriptionsPdf(transcriptions);
+
+      // Nom du fichier avec timestamp
+      const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+      const fileName = `transcriptions-backup-${timestamp}.pdf`;
+
+      // Upload vers S3
+      const command = new PutObjectCommand({
+        Bucket: process.env.AWS_S3_BUCKET!,
+        Key: `backups/transcriptions/${fileName}`,
+        Body: pdfBuffer,
+        ContentType: 'application/pdf',
+        Metadata: {
+          'backup-type': 'transcriptions-pdf',
+          'session-count': transcriptions.length.toString(),
+          'exported-at': new Date().toISOString()
+        }
+      });
+
+      await s3Client.send(command);
+
+      console.log(`✅ Sauvegarde PDF S3 terminée: ${fileName}`);
+
+      return {
+        success: true,
+        message: `Sauvegarde PDF S3 effectuée avec succès`,
+        fileName,
+        transcriptionsCount: transcriptions.length,
+        backupSize: pdfBuffer.length
+      };
+
+    } catch (error) {
+      console.error('❌ Erreur sauvegarde PDF S3:', error);
+      return {
+        success: false,
+        error: error.message,
+        message: 'Erreur lors de la sauvegarde PDF S3'
+      };
+    }
+  }
+
+  /**
+   * Génère un PDF de toutes les transcriptions
+   */
+  private async generateTranscriptionsPdf(sessions: any[]): Promise<Buffer> {
+    const PDFDocument = require('pdfkit');
+    const doc = new PDFDocument({ margin: 40 });
+    const chunks: Buffer[] = [];
+
+    return await new Promise<Buffer>((resolve, reject) => {
+      doc.on('data', (chunk: Buffer) => chunks.push(chunk));
+      doc.on('end', () => resolve(Buffer.concat(chunks)));
+      doc.on('error', reject);
+
+      const pageWidth = doc.page.width - doc.page.margins.left - doc.page.margins.right;
+      const left = doc.page.margins.left;
+
+      // En-tête du document
+      doc.fontSize(24).fillColor('#0f172a').text('Sauvegarde des Transcriptions', left, doc.y);
+      doc.moveDown(0.5);
+      doc.fontSize(12).fillColor('#6b7280')
+         .text(`Générée le: ${new Date().toLocaleString('fr-FR')}`)
+         .text(`Total: ${sessions.length} session${sessions.length !== 1 ? 's' : ''}`);
+      doc.moveDown(1);
+
+      // Grouper par commercial
+      const sessionsByCommercial = new Map();
+      sessions.forEach(session => {
+        const name = session.commercial_name || `Commercial ${session.commercial_id}`;
+        if (!sessionsByCommercial.has(name)) {
+          sessionsByCommercial.set(name, []);
+        }
+        sessionsByCommercial.get(name).push(session);
+      });
+
+      // Parcourir chaque commercial
+      sessionsByCommercial.forEach((commercialSessions, commercialName) => {
+        // Section commercial
+        if (doc.y > doc.page.height - 150) {
+          doc.addPage();
+        }
+
+        doc.fontSize(16).fillColor('#1f2937')
+           .text(`Commercial: ${commercialName}`, left, doc.y);
+        doc.fontSize(10).fillColor('#6b7280')
+           .text(`${commercialSessions.length} session${commercialSessions.length !== 1 ? 's' : ''}`);
+        doc.moveDown(0.5);
+
+        // Tracer une ligne
+        doc.strokeColor('#e5e7eb').lineWidth(1)
+           .moveTo(left, doc.y).lineTo(left + pageWidth, doc.y).stroke();
+        doc.moveDown(0.5);
+
+        // Parcourir les sessions du commercial
+        commercialSessions.forEach((session: any, index: number) => {
+          // Vérifier si on a assez d'espace
+          if (doc.y > doc.page.height - 200) {
+            doc.addPage();
+          }
+
+          const start = this.fmtDateTime(session.start_time);
+          const end = this.fmtDateTime(session.end_time);
+          const duration = this.fmtDuration(session.duration_seconds);
+          const building = session.building_name ? `Batiment: ${session.building_name}` : '';
+          const doors = session.visited_doors && session.visited_doors.length > 0
+            ? `Portes: ${session.visited_doors.join(', ')}`
+            : '';
+
+          // Titre session
+          doc.fontSize(12).fillColor('#374151')
+             .text(`Session ${index + 1}`, left, doc.y, { continued: true });
+          doc.fillColor('#6b7280')
+             .text(`  •  ${start} → ${end}  •  ${duration}`);
+
+          // Informations bâtiment/portes
+          if (building || doors) {
+            doc.fontSize(10).fillColor('#9ca3af')
+               .text([building, doors].filter(Boolean).join('  '), left + 10);
+          }
+
+          // Transcription
+          if (session.full_transcript) {
+            doc.moveDown(0.3);
+            const transcript = session.full_transcript.trim();
+            if (transcript) {
+              // Limiter à 500 caractères pour éviter des pages trop longues
+              const truncated = transcript.length > 500
+                ? transcript.substring(0, 500) + '...'
+                : transcript;
+
+              doc.fontSize(9).fillColor('#4b5563')
+                 .text(`Transcription: ${truncated}`, left + 10, doc.y, {
+                   width: pageWidth - 20,
+                   align: 'justify'
+                 });
+            }
+          }
+
+          doc.moveDown(0.8);
+        });
+
+        doc.moveDown(1);
+      });
+
+      // Pied de page final
+      doc.fontSize(8).fillColor('#9ca3af')
+         .text(`Fin du document - ${sessions.length} sessions sauvegardées`,
+               left, doc.page.height - 60, { align: 'center' });
+
+      doc.end();
+    });
+  }
+
+  private fmtDateTime = (d: any) => {
+    try {
+      const date = d instanceof Date ? d : new Date(d);
+      return date.toLocaleString('fr-FR');
+    } catch {
+      return String(d ?? '');
+    }
+  };
+
+  private fmtDuration = (sec: number) => {
+    const s = Math.max(0, Math.floor(sec || 0));
+    const h = Math.floor(s / 3600);
+    const m = Math.floor((s % 3600) / 60);
+    const r = s % 60;
+    return h > 0 ? `${h}h${m.toString().padStart(2, '0')}` : `${m}m${r.toString().padStart(2, '0')}`;
+  };
 
 } 

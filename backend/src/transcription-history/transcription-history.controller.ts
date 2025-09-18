@@ -70,18 +70,25 @@ export class TranscriptionHistoryController {
   }
 
   @Post('process-chunk')
-  async processLiveChunk(@Body() data: { 
-    chunk: string; 
-    committed?: string; 
-    isFinal?: boolean; 
-    maxChars?: number 
+  async processLiveChunk(@Body() data: {
+    chunk: string;
+    committed?: string;
+    isFinal?: boolean;
+    maxChars?: number
   }) {
     console.log('⚡ Traitement chunk live:', data.chunk.length, 'caractères, final:', data.isFinal);
     return this.transcriptionHistoryService.processLiveChunk(
-      data.chunk, 
-      data.committed || '', 
-      data.isFinal || false, 
+      data.chunk,
+      data.committed || '',
+      data.isFinal || false,
       data.maxChars || 8000
     );
+  }
+
+  @Post('backup-to-s3')
+  @Roles('admin')
+  async backupTranscriptionsToS3() {
+    console.log('🗄️ Sauvegarde S3 des transcriptions demandée');
+    return this.transcriptionHistoryService.backupToS3();
   }
 } 
