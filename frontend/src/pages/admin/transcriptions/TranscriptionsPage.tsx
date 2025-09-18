@@ -5,7 +5,8 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui-admin/
 import { Button } from '@/components/ui-admin/button';
 import { Input } from '@/components/ui-admin/input';
 import { Badge } from '@/components/ui-admin/badge';
-import { RefreshCw, Search, User, Mic, MicOff, FileText } from 'lucide-react';
+import { Modal } from '@/components/ui-admin/Modal';
+import { RefreshCw, Search, User, Mic, MicOff, Archive, CloudUpload } from 'lucide-react';
 import { API_BASE_URL } from '@/config';
 
 // Styles pour l'animation de slide
@@ -77,6 +78,9 @@ const TranscriptionsPage = () => {
 
   // État pour la sauvegarde S3
   const [isBackingUp, setIsBackingUp] = useState(false);
+  const [showSuccessModal, setShowSuccessModal] = useState(false);
+  const [backupResult, setBackupResult] = useState<any>(null);
+  const [autoBackupInfo, setAutoBackupInfo] = useState<any>(null);
 
   const BASE = API_BASE_URL;
 
@@ -102,9 +106,38 @@ const TranscriptionsPage = () => {
     }
   }, [BASE]);
 
+  // Fonction de vérification auto-backup
+  const checkAutoBackup = useCallback(async () => {
+    try {
+      const token = localStorage.getItem('access_token');
+      const response = await fetch(`${BASE}/api/transcription-history/check-auto-backup`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token && { 'Authorization': `Bearer ${token}` })
+        }
+      });
+
+      if (response.ok) {
+        const result = await response.json();
+        if (result.success && result.isAutoBackup) {
+          setAutoBackupInfo(result);
+          setBackupResult(result);
+          setShowSuccessModal(true);
+          // Recharger les données car des sessions ont été supprimées
+          loadAllCommercials();
+        }
+      }
+    } catch (error) {
+      console.error('❌ Erreur vérification auto-backup:', error);
+    }
+  }, [BASE, loadAllCommercials]);
+
   useEffect(() => {
     loadAllCommercials();
-  }, [loadAllCommercials]);
+    // Vérifier l'auto-backup au chargement
+    checkAutoBackup();
+  }, [loadAllCommercials, checkAutoBackup]);
 
   // WebSocket: listeners pour les statuts des commerciaux
   useEffect(() => {
@@ -167,7 +200,8 @@ const TranscriptionsPage = () => {
       if (response.ok) {
         const result = await response.json();
         console.log('✅ Sauvegarde PDF S3 réussie:', result);
-        alert(`Sauvegarde PDF S3 effectuée avec succès!\n\n📄 ${result.transcriptionsCount} transcriptions sauvegardées\n📁 Fichier: ${result.fileName}\n📊 Taille: ${Math.round(result.backupSize / 1024)} KB`);
+        setBackupResult(result);
+        setShowSuccessModal(true);
       } else {
         const error = await response.json();
         console.error('❌ Erreur sauvegarde PDF S3:', error);
@@ -346,10 +380,13 @@ const TranscriptionsPage = () => {
               onClick={backupToS3}
               disabled={isBackingUp}
               variant="outline"
-              className="gap-2 bg-red-50/80 backdrop-blur-sm border-red-200 hover:bg-red-100 disabled:opacity-50 text-red-700"
+              className="gap-2 bg-gradient-to-r from-purple-50 to-blue-50 backdrop-blur-sm border-purple-200 hover:from-purple-100 hover:to-blue-100 disabled:opacity-50 text-purple-700 font-medium shadow-sm"
             >
-              <FileText className={`h-4 w-4 ${isBackingUp ? 'animate-pulse' : ''}`} />
-              {isBackingUp ? 'Génération PDF...' : 'Enregistrer au Cloud'}
+              <div className="flex items-center gap-1">
+                <Archive className={`h-4 w-4 ${isBackingUp ? 'animate-bounce' : ''}`} />
+                <CloudUpload className={`h-3 w-3 ${isBackingUp ? 'animate-pulse' : ''}`} />
+              </div>
+              {isBackingUp ? 'Archivage en cours...' : 'Archiver vers S3 (PDF)'}
             </Button>
             <Button
               onClick={refreshAllData}
@@ -362,6 +399,72 @@ const TranscriptionsPage = () => {
             </Button>
           </div>
         </div>
+
+        {/* Modal de succès */}
+        <Modal
+          isOpen={showSuccessModal}
+          onClose={() => setShowSuccessModal(false)}
+          title={backupResult?.isAutoBackup ? "Archivage automatique effectué !" : "Archivage réussi !"}
+          variant="success"
+          size="md"
+        >
+          <div className="space-y-4">
+            <div className="text-center">
+              <div className="mx-auto flex items-center justify-center h-16 w-16 rounded-full bg-green-100 mb-4">
+                <Archive className="h-8 w-8 text-green-600" />
+              </div>
+              <p className="text-lg font-medium text-gray-900 mb-2">
+                {backupResult?.isAutoBackup ? "Archivage automatique terminé !" : "Archivage S3 effectué avec succès !"}
+              </p>
+              <p className="text-sm text-gray-600">
+                {backupResult?.isAutoBackup
+                  ? "La limite de sessions a été atteinte. Archivage et nettoyage automatiques effectués."
+                  : "Vos transcriptions ont été sauvegardées dans le cloud."
+                }
+              </p>
+            </div>
+
+            {backupResult && (
+              <div className="bg-gray-50 rounded-lg p-4 space-y-2">
+                <div className="flex justify-between items-center">
+                  <span className="text-sm font-medium text-gray-700">Transcriptions archivées:</span>
+                  <span className="text-sm text-gray-900">{backupResult.transcriptionsCount}</span>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-sm font-medium text-gray-700">Fichier PDF:</span>
+                  <span className="text-sm text-gray-900 font-mono">{backupResult.fileName}</span>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-sm font-medium text-gray-700">Taille:</span>
+                  <span className="text-sm text-gray-900">{Math.round(backupResult.backupSize / 1024)} KB</span>
+                </div>
+
+                {backupResult.isAutoBackup && backupResult.cleanupResult && (
+                  <>
+                    <div className="border-t border-gray-200 my-2"></div>
+                    <div className="flex justify-between items-center">
+                      <span className="text-sm font-medium text-orange-700">Sessions supprimées:</span>
+                      <span className="text-sm text-orange-900">{backupResult.cleanupResult.deleted}</span>
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <span className="text-sm font-medium text-blue-700">Sessions conservées:</span>
+                      <span className="text-sm text-blue-900">{backupResult.cleanupResult.kept}</span>
+                    </div>
+                  </>
+                )}
+              </div>
+            )}
+
+            <div className="flex justify-center pt-2">
+              <Button
+                onClick={() => setShowSuccessModal(false)}
+                className="bg-green-600 hover:bg-green-700 text-white"
+              >
+                {backupResult?.isAutoBackup ? "Compris !" : "Parfait !"}
+              </Button>
+            </div>
+          </div>
+        </Modal>
 
         {/* Liste des commerciaux en haut */}
         <Card className="shadow-xl border-0 bg-white/95 backdrop-blur-sm mb-6">

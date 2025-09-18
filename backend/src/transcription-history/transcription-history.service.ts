@@ -61,7 +61,12 @@ export class TranscriptionHistoryService {
 
       console.log('Session transcription sauvegardée (texte original):', savedSession.id);
       
-      // 2. Si il y a du texte et qu'on ne skip pas l'IA, lancer le traitement IA en arrière-plan
+      // 2. Vérifier si un auto-backup est nécessaire après chaque sauvegarde
+      this.checkAutoBackup().catch(error => {
+        console.error('❌ Erreur vérification auto-backup:', error);
+      });
+
+      // 3. Si il y a du texte et qu'on ne skip pas l'IA, lancer le traitement IA en arrière-plan
       if (!skipAI && session.full_transcript && session.full_transcript.trim().length > 50) {
         // Vérifier si la session n'est pas déjà en cours de traitement
         if (!this.processingSessions.has(session.id)) {
@@ -418,9 +423,40 @@ export class TranscriptionHistoryService {
   }
 
   /**
+   * Vérifie si un backup automatique est nécessaire
+   */
+  async checkAutoBackup() {
+    try {
+      const MAX_SESSIONS = 1000; // Limite de sessions
+      const MAX_SIZE_MB = 50;    // Limite en MB (estimation texte)
+
+      const totalSessions = await this.prisma.transcriptionSession.count();
+
+      if (totalSessions >= MAX_SESSIONS) {
+        console.log(`🔄 Auto-backup déclenché: ${totalSessions} sessions (limite: ${MAX_SESSIONS})`);
+        const result = await this.backupToS3(true); // Auto-backup
+        return result;
+      }
+
+      // Vérifier la taille approximative (estimation : 1KB par session en moyenne)
+      const estimatedSizeMB = totalSessions * 1 / 1024; // Estimation grossière
+      if (estimatedSizeMB >= MAX_SIZE_MB) {
+        console.log(`🔄 Auto-backup déclenché: ~${estimatedSizeMB.toFixed(1)}MB (limite: ${MAX_SIZE_MB}MB)`);
+        const result = await this.backupToS3(true); // Auto-backup
+        return result;
+      }
+
+      return { autoBackupNeeded: false, totalSessions, estimatedSizeMB };
+    } catch (error) {
+      console.error('❌ Erreur vérification auto-backup:', error);
+      return { error: error.message };
+    }
+  }
+
+  /**
    * Sauvegarde toutes les transcriptions vers S3 en format PDF
    */
-  async backupToS3() {
+  async backupToS3(isAutoBackup = false) {
     try {
       console.log('🗄️ Début de la sauvegarde S3 des transcriptions (PDF)');
 
@@ -472,12 +508,21 @@ export class TranscriptionHistoryService {
 
       console.log(`✅ Sauvegarde PDF S3 terminée: ${fileName}`);
 
+      // Si c'est un auto-backup et que la sauvegarde a réussi, nettoyer la DB
+      let cleanupResult = null;
+      if (isAutoBackup) {
+        console.log('🧹 Nettoyage automatique de la DB après backup réussi...');
+        cleanupResult = await this.cleanupAfterBackup(transcriptions.map(t => t.id));
+      }
+
       return {
         success: true,
         message: `Sauvegarde PDF S3 effectuée avec succès`,
         fileName,
         transcriptionsCount: transcriptions.length,
-        backupSize: pdfBuffer.length
+        backupSize: pdfBuffer.length,
+        isAutoBackup,
+        cleanupResult
       };
 
     } catch (error) {
@@ -618,5 +663,53 @@ export class TranscriptionHistoryService {
     const r = s % 60;
     return h > 0 ? `${h}h${m.toString().padStart(2, '0')}` : `${m}m${r.toString().padStart(2, '0')}`;
   };
+
+  /**
+   * Nettoie les transcriptions de la DB après backup réussi
+   */
+  private async cleanupAfterBackup(sessionIds: string[]) {
+    try {
+      console.log(`🧹 Suppression de ${sessionIds.length} sessions de la DB...`);
+
+      // Garder les 100 sessions les plus récentes par sécurité
+      const recentSessions = await this.prisma.transcriptionSession.findMany({
+        select: { id: true },
+        orderBy: { start_time: 'desc' },
+        take: 100
+      });
+
+      const recentIds = recentSessions.map(s => s.id);
+      const toDelete = sessionIds.filter(id => !recentIds.includes(id));
+
+      if (toDelete.length === 0) {
+        console.log('⚠️ Aucune session ancienne à supprimer (toutes récentes)');
+        return { deleted: 0, kept: sessionIds.length };
+      }
+
+      const deleteResult = await this.prisma.transcriptionSession.deleteMany({
+        where: {
+          id: {
+            in: toDelete
+          }
+        }
+      });
+
+      console.log(`✅ ${deleteResult.count} sessions supprimées, ${recentIds.length} récentes conservées`);
+
+      return {
+        deleted: deleteResult.count,
+        kept: sessionIds.length - deleteResult.count,
+        totalProcessed: sessionIds.length
+      };
+
+    } catch (error) {
+      console.error('❌ Erreur nettoyage DB:', error);
+      return {
+        error: error.message,
+        deleted: 0,
+        kept: sessionIds.length
+      };
+    }
+  }
 
 } 

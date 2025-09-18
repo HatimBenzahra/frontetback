@@ -91,4 +91,11 @@ export class TranscriptionHistoryController {
     console.log('🗄️ Sauvegarde S3 des transcriptions demandée');
     return this.transcriptionHistoryService.backupToS3();
   }
+
+  @Post('check-auto-backup')
+  @Roles('admin')
+  async checkAutoBackup() {
+    console.log('🔄 Vérification auto-backup demandée');
+    return this.transcriptionHistoryService.checkAutoBackup();
+  }
 } 
