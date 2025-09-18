@@ -206,12 +206,23 @@ export class TranscriptionHistoryService {
     try {
       console.log('Suppression session transcription:', id);
       
+      // Vérifier que la session existe avant de la supprimer
+      const existingSession = await this.prisma.transcriptionSession.findUnique({
+        where: { id },
+        select: { id: true, commercial_id: true }
+      });
+      
+      if (!existingSession) {
+        console.log('Session non trouvée, peut-être déjà supprimée:', id);
+        return { success: true, message: 'Session déjà supprimée' };
+      }
+      
       await this.prisma.transcriptionSession.delete({
         where: { id },
       });
       
-      console.log('Session transcription supprimée');
-      return { success: true };
+      console.log(`Session transcription supprimée: ${id} (commercial: ${existingSession.commercial_id})`);
+      return { success: true, commercialId: existingSession.commercial_id };
     } catch (error) {
       console.error('Erreur suppression session:', error);
       throw error;

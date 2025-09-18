@@ -101,7 +101,7 @@ const CommercialTranscriptionPage = () => {
       setDeletingSessionId(sessionId);
       await transcriptionHistoryService.deleteTranscriptionSession(sessionId);
       
-      // Mettre à jour la liste locale
+      // Mettre à jour la liste locale immédiatement
       setSessions(prevSessions => prevSessions.filter(session => session.id !== sessionId));
       
       // Fermer la modal si la session supprimée était ouverte
@@ -110,9 +110,16 @@ const CommercialTranscriptionPage = () => {
         setOpenSessionBuilding(null);
       }
       
+      // Recharger les données pour s'assurer de la synchronisation
+      setTimeout(() => {
+        loadHistory();
+      }, 500);
+      
       console.log('✅ Session supprimée avec succès:', sessionId);
     } catch (error) {
       console.error('❌ Erreur lors de la suppression de la session:', error);
+      // En cas d'erreur, recharger les données pour restaurer l'état correct
+      loadHistory();
     } finally {
       setDeletingSessionId(null);
       setShowDeleteConfirm(null);
@@ -129,14 +136,21 @@ const CommercialTranscriptionPage = () => {
       
       await Promise.all(deletePromises);
       
-      // Vider la liste
+      // Vider la liste immédiatement
       setSessions([]);
       setOpenSession(null);
       setOpenSessionBuilding(null);
       
+      // Recharger les données pour s'assurer de la synchronisation
+      setTimeout(() => {
+        loadHistory();
+      }, 500);
+      
       console.log('✅ Toutes les sessions supprimées avec succès');
     } catch (error) {
       console.error('❌ Erreur lors de la suppression en masse:', error);
+      // En cas d'erreur, recharger les données pour restaurer l'état correct
+      loadHistory();
     } finally {
       setIsBulkDeleting(false);
       setShowBulkDeleteConfirm(false);
@@ -201,46 +215,14 @@ const CommercialTranscriptionPage = () => {
           (a: TranscriptionSession, b: TranscriptionSession) => new Date(b.start_time).getTime() - new Date(a.start_time).getTime()
         );
         
-        // Dédupliquer les sessions en gardant la plus récente (avec traitement IA si disponible)
-        const deduplicatedSessions = rawList.reduce((acc, current) => {
-          // Créer une clé unique basée sur commercial_id, building_id et timestamp (à la minute près)
-          const sessionKey = `${current.commercial_id}_${current.building_id || 'no-building'}_${new Date(current.start_time).toISOString().substring(0, 16)}`;
-          
-          const existing = acc.find(session => {
-            const existingKey = `${session.commercial_id}_${session.building_id || 'no-building'}_${new Date(session.start_time).toISOString().substring(0, 16)}`;
-            return existingKey === sessionKey;
-          });
-          
-          if (!existing) {
-            acc.push(current);
-          } else {
-            // Si on trouve une session existante, garder celle qui a le traitement IA (si disponible)
-            const currentHasAI = current.full_transcript?.includes('**Commercial :**');
-            const existingHasAI = existing.full_transcript?.includes('**Commercial :**');
-            
-            if (currentHasAI && !existingHasAI) {
-              // Remplacer par la version avec IA
-              const index = acc.indexOf(existing);
-              acc[index] = current;
-              console.log('🔄 Session remplacée par version IA:', current.id);
-            } else if (!currentHasAI && existingHasAI) {
-              // Garder la version avec IA existante
-              console.log('🔄 Session gardée (version IA existante):', existing.id);
-            } else {
-              // Si les deux ont ou n'ont pas l'IA, garder la plus récente
-              if (new Date(current.start_time) > new Date(existing.start_time)) {
-                const index = acc.indexOf(existing);
-                acc[index] = current;
-                console.log('🔄 Session remplacée par version plus récente:', current.id);
-              }
-            }
-          }
-          
-          return acc;
-        }, [] as TranscriptionSession[]);
+        // Dédupliquer les sessions en gardant seulement les sessions uniques par ID
+        // (supprimer les doublons éventuels mais garder toutes les sessions distinctes)
+        const uniqueSessions = rawList.filter((session, index, self) => 
+          index === self.findIndex(s => s.id === session.id)
+        );
         
-        console.log('Sessions après déduplication:', deduplicatedSessions.length, 'sur', rawList.length, 'originales');
-        setSessions(deduplicatedSessions);
+        console.log('Sessions après déduplication:', uniqueSessions.length, 'sur', rawList.length, 'originales');
+        setSessions(uniqueSessions);
         // Reset à la première page quand on charge de nouvelles données
         setCurrentPage(1);
       } else {

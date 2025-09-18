@@ -169,7 +169,7 @@ export class CentralizedConfig {
       origin: this.corsOriginValidator,
       methods: 'GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS',
       credentials: true,
-      allowedHeaders: ['Content-Type', 'Authorization', 'Accept'],
+      allowedHeaders: ['Content-Type', 'Authorization', 'Accept', 'Cache-Control', 'Pragma'],
       preflightContinue: false,
       optionsSuccessStatus: 204,
     };

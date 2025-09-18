@@ -6,6 +6,7 @@ import { Button } from '@/components/ui-admin/button';
 import { Input } from '@/components/ui-admin/input';
 import { Badge } from '@/components/ui-admin/badge';
 import { Modal } from '@/components/ui-admin/Modal';
+import PageHeader from '@/components/ui-admin/PageHeader';
 import { RefreshCw, Search, User, Mic, MicOff, Archive, CloudUpload } from 'lucide-react';
 import { API_BASE_URL } from '@/config';
 
@@ -34,18 +35,6 @@ const slideStyles = `
   .commercial-card:active {
     transform: translateY(0);
     transition: all 0.1s ease-in-out;
-  }
-  
-  /* Animation d'entrée pour la nouvelle page */
-  .page-enter {
-    opacity: 0;
-    transform: translateX(100%);
-  }
-  
-  .page-enter-active {
-    opacity: 1;
-    transform: translateX(0);
-    transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
   }
 `;
 
@@ -84,18 +73,22 @@ const TranscriptionsPage = () => {
   const BASE = API_BASE_URL;
 
   // DB: commerciaux
-  const loadAllCommercials = useCallback(async () => {
+  const loadAllCommercials = useCallback(async (forceRefresh = false) => {
     try {
       const token = localStorage.getItem('access_token');
-      const response = await fetch(`${BASE}/api/transcription-history/commercials`, {
+      const url = `${BASE}/api/transcription-history/commercials${forceRefresh ? `?t=${Date.now()}` : ''}`;
+      const response = await fetch(url, {
         headers: {
           'Content-Type': 'application/json',
+          'Cache-Control': 'no-cache',
+          'Pragma': 'no-cache',
           ...(token && { 'Authorization': `Bearer ${token}` })
         }
       });
       if (response.ok) {
         const data = await response.json();
         const commercials = data.commercials || [];
+        console.log(`📊 Commerciaux chargés: ${commercials.length} avec sessions`);
         setAllCommercials(commercials);
       } else {
         console.error('Erreur chargement commerciaux DB:', response.status);
@@ -123,7 +116,7 @@ const TranscriptionsPage = () => {
           setBackupResult(result);
           setShowSuccessModal(true);
           // Recharger les données car des sessions ont été supprimées
-          loadAllCommercials();
+          loadAllCommercials(true);
         }
       }
     } catch (error) {
@@ -136,6 +129,17 @@ const TranscriptionsPage = () => {
     // Vérifier l'auto-backup au chargement
     checkAutoBackup();
   }, [loadAllCommercials, checkAutoBackup]);
+
+  // Rafraîchir les données quand l'utilisateur revient sur la page (focus)
+  useEffect(() => {
+    const handleFocus = () => {
+      console.log('🔄 Page refocusée, rafraîchissement des données...');
+      loadAllCommercials(true);
+    };
+
+    window.addEventListener('focus', handleFocus);
+    return () => window.removeEventListener('focus', handleFocus);
+  }, [loadAllCommercials]);
 
   // WebSocket: listeners pour les statuts des commerciaux
   useEffect(() => {
@@ -164,13 +168,16 @@ const TranscriptionsPage = () => {
       setIsRefreshing(true);
       console.log('🔄 Rafraîchissement complet des données...');
 
-      // Recharger les commerciaux
-      await loadAllCommercials();
+      // Forcer le rechargement des commerciaux avec cache busting
+      await loadAllCommercials(true);
 
       // Demander le statut des commerciaux via WebSocket
       if (socket) {
         socket.emit('request_commercials_status');
       }
+
+      // Petite attente pour s'assurer que les données sont bien mises à jour
+      await new Promise(resolve => setTimeout(resolve, 500));
 
       console.log('✅ Rafraîchissement terminé');
     } catch (error) {
@@ -365,14 +372,10 @@ const TranscriptionsPage = () => {
       <div className="min-h-screen bg-gradient-to-br from-gray-50 to-blue-50 p-6 transcriptions-container transition-all duration-300 ease-in-out">
       <div className="max-w-7xl mx-auto space-y-6">
         {/* Header */}
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-3xl font-bold text-gray-900">Transcriptions</h1>
-            <p className="text-gray-600 mt-1">
-              Gestion et consultation des sessions de transcription
-              <span className="text-xs text-gray-400 ml-2">(Ctrl+R pour actualiser)</span>
-            </p>
-          </div>
+        <PageHeader
+          title="Transcriptions"
+          description="Gestion et consultation des sessions de transcription (Ctrl+R pour actualiser)"
+        >
           <div className="flex items-center gap-2">
             <Button
               onClick={backupToS3}
@@ -396,7 +399,7 @@ const TranscriptionsPage = () => {
               {isRefreshing ? 'Actualisation...' : 'Actualiser'}
             </Button>
           </div>
-        </div>
+        </PageHeader>
 
         {/* Modal de succès */}
         <Modal
