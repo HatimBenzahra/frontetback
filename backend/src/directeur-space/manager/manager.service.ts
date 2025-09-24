@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
 import { DirecteurSpaceService } from '../directeur-space.service';
 
@@ -24,7 +24,7 @@ export class ManagerService {
     // Vérifier l'accès au manager
     const hasAccess = await this.directeurSpaceService.verifyDirecteurManagerAccess(directeurId, managerId);
     if (!hasAccess) {
-      throw new Error(`Manager with ID ${managerId} is not accessible by directeur ${directeurId} or does not exist`);
+      throw new NotFoundException(`Manager with ID ${managerId} not found`);
     }
 
     // Récupérer les équipes du manager
@@ -55,7 +55,7 @@ export class ManagerService {
     // Vérifier l'accès au manager
     const hasAccess = await this.directeurSpaceService.verifyDirecteurManagerAccess(directeurId, managerId);
     if (!hasAccess) {
-      throw new Error(`Manager with ID ${managerId} is not accessible by directeur ${directeurId} or does not exist`);
+      throw new NotFoundException(`Manager with ID ${managerId} not found`);
     }
 
     // Récupérer les commerciaux du manager
@@ -98,7 +98,7 @@ export class ManagerService {
     // Vérifier l'accès au manager
     const hasAccess = await this.directeurSpaceService.verifyDirecteurManagerAccess(directeurId, managerId);
     if (!hasAccess) {
-      throw new Error(`Manager with ID ${managerId} is not accessible by directeur ${directeurId} or does not exist`);
+      throw new NotFoundException(`Manager with ID ${managerId} not found`);
     }
 
     // Récupérer les statistiques du manager
@@ -166,7 +166,7 @@ export class ManagerService {
     // Vérifier l'accès au manager
     const hasAccess = await this.directeurSpaceService.verifyDirecteurManagerAccess(directeurId, managerId);
     if (!hasAccess) {
-      throw new Error(`Manager with ID ${managerId} is not accessible by directeur ${directeurId} or does not exist`);
+      throw new NotFoundException(`Manager with ID ${managerId} not found`);
     }
 
     // Récupérer l'historique de performance (exemple pour les 12 derniers mois)

@@ -31,7 +31,7 @@ export const DirecteurNavContent = ({ isCollapsed, onLinkClick }: DirecteurNavCo
               variant={isActive ? 'secondary' : 'ghost'}
               className={`w-full justify-start gap-3 h-10 transition-colors duration-200 ${
                 isActive
-                  ? 'bg-[hsl(var(--winvest-orange-clair))] text-[hsl(var(--winvest-orange-nuit))] hover:bg-[hsl(var(--winvest-orange-clair))]'
+                  ? 'bg-[hsl(var(--winvest-blue-clair))] text-[hsl(var(--winvest-blue-nuit))] hover:bg-[hsl(var(--winvest-blue-clair))]'
                   : 'hover:bg-zinc-100 text-black'
               }`}
             >

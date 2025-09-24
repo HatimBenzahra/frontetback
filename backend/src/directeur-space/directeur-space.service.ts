@@ -417,16 +417,11 @@ export class DirecteurSpaceService {
 
   // Vérifier si un directeur a accès à un manager
   async verifyDirecteurManagerAccess(directeurId: string, managerId: string): Promise<boolean> {
-    const directeur = await this.prisma.directeur.findUnique({
-      where: { id: directeurId }
-    });
-
-    if (!directeur) {
-      return false;
-    }
-
     const manager = await this.prisma.manager.findUnique({
-      where: { id: managerId }
+      where: { 
+        id: managerId,
+        directeurId: directeurId
+      }
     });
 
     return !!manager;
@@ -434,16 +429,15 @@ export class DirecteurSpaceService {
 
   // Vérifier si un directeur a accès à un commercial
   async verifyDirecteurCommercialAccess(directeurId: string, commercialId: string): Promise<boolean> {
-    const directeur = await this.prisma.directeur.findUnique({
-      where: { id: directeurId }
-    });
-
-    if (!directeur) {
-      return false;
-    }
-
     const commercial = await this.prisma.commercial.findUnique({
-      where: { id: commercialId }
+      where: { 
+        id: commercialId,
+        equipe: {
+          manager: {
+            directeurId: directeurId
+          }
+        }
+      }
     });
 
     return !!commercial;
@@ -451,16 +445,13 @@ export class DirecteurSpaceService {
 
   // Vérifier si un directeur a accès à une équipe
   async verifyDirecteurEquipeAccess(directeurId: string, equipeId: string): Promise<boolean> {
-    const directeur = await this.prisma.directeur.findUnique({
-      where: { id: directeurId }
-    });
-
-    if (!directeur) {
-      return false;
-    }
-
     const equipe = await this.prisma.equipe.findUnique({
-      where: { id: equipeId }
+      where: { 
+        id: equipeId,
+        manager: {
+          directeurId: directeurId
+        }
+      }
     });
 
     return !!equipe;

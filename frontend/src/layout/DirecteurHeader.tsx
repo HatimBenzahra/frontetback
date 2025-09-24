@@ -14,7 +14,7 @@ const DirecteurHeader = () => {
   const { breadcrumbs } = useBreadcrumb();
 
   return (
-    <header className="sticky top-0 z-10 flex h-16 items-center justify-between gap-4 border-b border-b-[hsl(var(--winvest-orange-moyen))] bg-[hsl(var(--winvest-orange-moyen))] px-4 text-white sm:px-6">
+    <header className="sticky top-0 z-10 flex h-16 items-center justify-between gap-4 border-b border-b-[hsl(var(--winvest-blue-moyen))] bg-[hsl(var(--winvest-blue-moyen))] px-4 text-white sm:px-6">
       {/* Section de gauche : Menu hamburger, titre et breadcrumb */}
       <div className="flex items-center gap-4">
         <div className="lg:hidden">
@@ -47,7 +47,7 @@ const DirecteurHeader = () => {
         </div>
         
         {/* Titre mobile */}
-        <h1 className="text-xl md:text-2xl font-bold md:hidden">Espace Directeur</h1>
+        <h1 className="text-xl font-bold md:hidden">Espace Directeur</h1>
       </div>
       
       {/* Section de droite : Date, Heure et Menu Utilisateur */}

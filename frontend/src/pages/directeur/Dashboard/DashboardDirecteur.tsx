@@ -54,7 +54,7 @@ const ActivityBadge = ({ type }: { type: string }) => {
 
 
 
-const DashboardAdmin = () => {
+const DashboardDirecteur = () => {
     const { settings } = useDashboardSettings();
     const [dashboardData, setDashboardData] = useState<any>(null);
     const [loading, setLoading] = useState(true);
@@ -545,4 +545,4 @@ const DashboardAdmin = () => {
     );
 };
 
-export default DashboardAdmin;
+export default DashboardDirecteur;

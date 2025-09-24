@@ -20,6 +20,46 @@ const routeBreadcrumbMap: { [key: string]: BreadcrumbItem[] } = {
     { label: 'Espace admin' },
     { label: 'Tableau de Bord' }
   ],
+  '/directeur': [
+    { label: 'Espace Directeur' },
+    { label: 'Tableau de Bord' }
+  ],
+  '/directeur/dashboard': [
+    { label: 'Espace Directeur' },
+    { label: 'Tableau de Bord' }
+  ],
+  '/directeur/managers': [
+    { label: 'Espace Directeur' },
+    { label: 'Managers' }
+  ],
+  '/directeur/equipes': [
+    { label: 'Espace Directeur' },
+    { label: 'Équipes' }
+  ],
+  '/directeur/commerciaux': [
+    { label: 'Espace Directeur' },
+    { label: 'Commerciaux' }
+  ],
+  '/directeur/objectifs': [
+    { label: 'Espace Directeur' },
+    { label: 'Objectifs' }
+  ],
+  '/directeur/statistiques': [
+    { label: 'Espace Directeur' },
+    { label: 'Statistiques' }
+  ],
+  '/directeur/analytics': [
+    { label: 'Espace Directeur' },
+    { label: 'Analytics' }
+  ],
+  '/directeur/rapports': [
+    { label: 'Espace Directeur' },
+    { label: 'Rapports' }
+  ],
+  '/directeur/parametres': [
+    { label: 'Espace Directeur' },
+    { label: 'Paramètres' }
+  ],
   '/admin/managers': [
     { label: 'Espace admin' },
     { label: 'Managers' }
@@ -77,7 +117,11 @@ export const BreadcrumbProvider = ({ children }: { children: ReactNode }) => {
   const location = useLocation();
 
   const updateBreadcrumbsFromPath = (path: string) => {
-    const defaultBreadcrumbs = [{ label: 'Espace admin' }];
+    // Déterminer l'espace par défaut selon le chemin
+    const isDirecteurSpace = path.startsWith('/directeur');
+    const defaultBreadcrumbs = isDirecteurSpace 
+      ? [{ label: 'Espace Directeur' }]
+      : [{ label: 'Espace admin' }];
     const pathBreadcrumbs = routeBreadcrumbMap[path] || defaultBreadcrumbs;
     setBreadcrumbs(pathBreadcrumbs);
   };
