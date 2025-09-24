@@ -8,6 +8,7 @@ import { Roles } from '../auth/roles.decorator';
 interface AuthRequest extends Request {
   user: {
     managerId: string;
+    directeurId: string;
     userId: string;
     roles: string[];
     email: string;
@@ -124,7 +125,7 @@ export class AssignmentGoalsController {
 
   @Get('admin/assignments-status')
   async getAllAssignmentsWithStatus(@Request() req: AuthRequest) {
-    const { roles, managerId } = req.user;
+    const { roles, managerId, directeurId } = req.user;
     
     if (roles.includes('admin')) {
       // Admin voit toutes les assignations
@@ -139,7 +140,9 @@ export class AssignmentGoalsController {
       return this.assignmentGoalsService.getAllAssignmentsWithStatus();
     }
     else if (roles.includes('directeur')) {
-      // Directeur voit toutes les assignations
+      // Directeur voit seulement les assignations de ses managers/commerciaux
+      // Note: Cette logique devrait être déplacée vers le service directeur
+      // Pour l'instant, on utilise la logique globale mais cela devrait être modifié
       return this.assignmentGoalsService.getAllAssignmentsWithStatus();
     }
     else if (roles.includes('backoffice')) {
