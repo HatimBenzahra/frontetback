@@ -1,19 +1,15 @@
 // src/layout/DirecteurNavContent.tsx
 import { NavLink } from 'react-router-dom';
 import { Button } from '@/components/ui-admin/button';
-import { Users, BarChart3, Settings, LayoutDashboard, Building2, Target, TrendingUp, FileText, UserCheck } from 'lucide-react';
+import { Users, BarChart3, LayoutDashboard, Building2, UserCheck } from 'lucide-react';
 
 // Liens spécifiques au directeur
 const directeurNavLinks = [
   { to: '/directeur', text: 'Tableau de Bord', icon: LayoutDashboard }, 
   { to: '/directeur/managers', text: 'Managers', icon: UserCheck },
-  { to: '/directeur/equipes', text: 'Équipes', icon: Users },
   { to: '/directeur/commerciaux', text: 'Commerciaux', icon: Building2 },
-  { to: '/directeur/objectifs', text: 'Objectifs', icon: Target },
+  { to: '/directeur/equipes', text: 'Équipes', icon: Users },
   { to: '/directeur/statistiques', text: 'Statistiques', icon: BarChart3 },
-  { to: '/directeur/analytics', text: 'Analytics', icon: TrendingUp },
-  { to: '/directeur/rapports', text: 'Rapports', icon: FileText },
-  { to: '/directeur/parametres', text: 'Paramètres', icon: Settings },
 ];
 
 interface DirecteurNavContentProps {

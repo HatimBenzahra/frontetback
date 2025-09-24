@@ -15,8 +15,7 @@ import {
   Award,
 } from 'lucide-react';
 
-import { statisticsService } from '@/services/statistics.service';
-import { directeurSpaceService } from '@/services/directeur-space.service';
+import { directeurSpaceService, type CommercialStats } from '@/services/directeur-space.service';
 
 import StatCard from '@/components/ui-admin/StatCard';
 import { GenericPieChart } from '@/components/charts/GenericPieChart';
@@ -39,7 +38,6 @@ import { AdminPageSkeleton } from '@/components/ui-admin/AdminPageSkeleton';
 
 import type {
   HistoryEntry,
-  CommercialStats,
   CommercialDetails,
 } from '@/types/types';
 
@@ -88,17 +86,12 @@ const CommercialDetailsPage = () => {
     const fetchData = async () => {
       try {
         setLoading(true);
-        const [statsData, historyData, commercialData] = await Promise.all([
-          statisticsService.getStatsForCommercial(id),
-          statisticsService.getCommercialHistory(id),
+        const [statsData, commercialData] = await Promise.all([
+          directeurSpaceService.getCommercialStats(id),
           directeurSpaceService.getCommercial(id),
         ]);
 
-        const formattedHistory: HistoryEntry[] = historyData.map((entry: any) => ({
-          ...entry,
-          // fallback conservé
-          immeubleId: entry.immeubleId || entry.id,
-        }));
+        const formattedHistory: HistoryEntry[] = []; // Placeholder since we don't have history data yet
 
         if (!abort.signal.aborted) {
           setStats(statsData);
@@ -125,10 +118,12 @@ const CommercialDetailsPage = () => {
 
   const pieData = useMemo(() => {
     if (!stats) return [];
-    return Object.entries(stats.repartitionStatuts).map(([name, value]) => ({
-      name,
-      value: value as number,
-    }));
+    return [
+      { name: "Contrats", value: stats.totalContracts },
+      { name: "RDV", value: stats.totalRdv },
+      { name: "Refus", value: stats.totalRefus },
+      { name: "Absents", value: stats.totalAbsents }
+    ];
   }, [stats]);
 
   const handleBackClick = useCallback(() => {
@@ -180,7 +175,7 @@ const CommercialDetailsPage = () => {
               {/* Avatar plus petit */}
               <div className="relative">
                 <div className="w-16 h-16 bg-gradient-to-br from-white/20 to-white/10 rounded-xl flex items-center justify-center text-white font-bold text-xl backdrop-blur-sm border border-white/30">
-                  {stats.commercialInfo.prenom[0]}{stats.commercialInfo.nom[0]}
+                  {commercial?.prenom[0]}{commercial?.nom[0]}
                 </div>
                 <div className="absolute -top-1 -right-1 w-6 h-6 bg-yellow-400 rounded-full flex items-center justify-center">
                   <Award className="h-3 w-3 text-yellow-800" />
@@ -190,7 +185,7 @@ const CommercialDetailsPage = () => {
               {/* Informations du commercial */}
               <div>
                 <h1 className="text-2xl font-bold tracking-tight mb-1">
-                  {stats.commercialInfo.prenom} {stats.commercialInfo.nom}
+                  {commercial?.prenom} {commercial?.nom}
                 </h1>
                 <div className="flex items-center gap-3 text-orange-100 text-sm">
                   <div className="flex items-center gap-1">
@@ -213,7 +208,7 @@ const CommercialDetailsPage = () => {
               <div className="bg-white/10 backdrop-blur-sm rounded-lg p-3 border border-white/20 min-w-[80px]">
                 <div className="text-center">
                   <div className="text-xl font-bold text-white">
-                    {stats.kpis.contratsSignes || 0}
+                    {stats.totalContracts || 0}
                   </div>
                   <div className="text-orange-100 text-xs">Contrats</div>
                 </div>
@@ -222,7 +217,7 @@ const CommercialDetailsPage = () => {
               <div className="bg-white/10 backdrop-blur-sm rounded-lg p-3 border border-white/20 min-w-[80px]">
                 <div className="text-center">
                   <div className="text-xl font-bold text-white">
-                    {stats.kpis.rdvPris || 0}
+                    {stats.totalRdv || 0}
                   </div>
                   <div className="text-orange-100 text-xs">RDV</div>
                 </div>
@@ -231,7 +226,7 @@ const CommercialDetailsPage = () => {
               <div className="bg-white/10 backdrop-blur-sm rounded-lg p-3 border border-white/20 min-w-[80px]">
                 <div className="text-center">
                   <div className="text-xl font-bold text-white">
-                    {Math.round((stats.kpis.tauxDeConversion || 0) * 100) / 100}%
+                    {Math.round((stats.conversionRate || 0) * 100) / 100}%
                   </div>
                   <div className="text-orange-100 text-xs">Taux</div>
                 </div>
@@ -272,9 +267,9 @@ const CommercialDetailsPage = () => {
       </Card>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        <StatCard title="Immeubles Visitées" value={stats.kpis.immeublesVisites} Icon={Building} />
-        <StatCard title="Portes Visitées" value={stats.kpis.portesVisitees} Icon={DoorOpen} />
-        <StatCard title="Contrats Signés" value={stats.kpis.contratsSignes} Icon={Handshake} />
+        <StatCard title="Immeubles Visitées" value={stats.totalProspections} Icon={Building} />
+        <StatCard title="Portes Visitées" value={stats.totalPortes} Icon={DoorOpen} />
+        <StatCard title="Contrats Signés" value={stats.totalContracts} Icon={Handshake} />
 
         <TooltipProvider>
           <Tooltip>
@@ -282,7 +277,7 @@ const CommercialDetailsPage = () => {
               <div className="cursor-help">
                 <StatCard
                   title="Taux de Conversion"
-                  value={stats.kpis.tauxDeConversion}
+                  value={stats.conversionRate}
                   Icon={Target}
                   suffix="%"
                 />
