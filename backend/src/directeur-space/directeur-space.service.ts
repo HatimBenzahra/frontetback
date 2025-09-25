@@ -284,6 +284,8 @@ export class DirecteurSpaceService {
 
   // Récupérer toutes les zones d'un directeur
   async getDirecteurZones(directeurId: string) {
+    console.log(`🔍 Recherche des zones pour directeur: ${directeurId}`);
+    
     // Vérifier que le directeur existe
     const directeur = await this.prisma.directeur.findUnique({
       where: { id: directeurId }
@@ -293,14 +295,41 @@ export class DirecteurSpaceService {
       throw new NotFoundException(`Directeur with ID ${directeurId} not found`);
     }
 
-    // Récupérer toutes les zones
+    // Récupérer les IDs des commerciaux du directeur pour filtrer les zones
+    const commercialIds = await this.getDirecteurCommercialIds(directeurId);
+    const managerIds = await this.getDirecteurManagerIds(directeurId);
+    const equipeIds = await this.getDirecteurEquipeIds(directeurId);
+
+    console.log(`Filtrage zones avec ${commercialIds.length} commerciaux, ${managerIds.length} managers, ${equipeIds.length} équipes`);
+
+    // Récupérer seulement les zones assignées aux commerciaux, managers ou équipes de ce directeur
     const zones = await this.prisma.zone.findMany({
+      where: {
+        OR: [
+          // Zones assignées aux commerciaux du directeur
+          { commerciaux: { some: { commercialId: { in: commercialIds } } } },
+          // Zones assignées aux managers du directeur
+          { managerId: { in: managerIds } },
+          // Zones assignées aux équipes du directeur
+          { equipeId: { in: equipeIds } },
+          // Zones sans assignation spécifique mais dans l'aire du directeur
+          { AND: [
+            { managerId: null },
+            { equipeId: null },
+            { commerciaux: { none: {} } }
+          ]}
+        ]
+      },
       include: {
         commerciaux: {
           include: {
             commercial: {
               include: {
-                equipe: true
+                equipe: {
+                  include: {
+                    manager: true
+                  }
+                }
               }
             }
           }
@@ -310,15 +339,45 @@ export class DirecteurSpaceService {
           include: {
             manager: true
           }
-        }
+        },
+        manager: true
       }
     });
 
-    return zones;
+    // Filtrer côté application pour s'assurer que seules les zones pertinentes sont retournées
+    const filteredZones = zones.filter(zone => {
+      // Zone assignée à un manager du directeur
+      if (zone.managerId && managerIds.includes(zone.managerId)) {
+        return true;
+      }
+      
+      // Zone assignée à une équipe du directeur
+      if (zone.equipeId && equipeIds.includes(zone.equipeId)) {
+        return true;
+      }
+      
+      // Zone assignée à des commerciaux du directeur
+      if (zone.commerciaux.some(zc => commercialIds.includes(zc.commercialId))) {
+        return true;
+      }
+      
+      // Zone sans assignation spécifique - peut être assignée par le directeur
+      if (!zone.managerId && !zone.equipeId && zone.commerciaux.length === 0) {
+        return true;
+      }
+      
+      return false;
+    });
+
+    console.log(`${filteredZones.length} zones trouvées pour directeur ${directeurId}`);
+
+    return filteredZones;
   }
 
   // Récupérer tous les immeubles d'un directeur
   async getDirecteurImmeubles(directeurId: string) {
+    console.log(`🔍 Recherche des immeubles pour directeur: ${directeurId}`);
+    
     // Vérifier que le directeur existe
     const directeur = await this.prisma.directeur.findUnique({
       where: { id: directeurId }
@@ -328,13 +387,33 @@ export class DirecteurSpaceService {
       throw new NotFoundException(`Directeur with ID ${directeurId} not found`);
     }
 
-    // Récupérer tous les immeubles
+    // Récupérer les IDs des commerciaux du directeur pour filtrer les immeubles
+    const commercialIds = await this.getDirecteurCommercialIds(directeurId);
+    const zoneIds = await this.getDirecteurZoneIds(directeurId);
+
+    console.log(`Filtrage immeubles avec ${commercialIds.length} commerciaux et ${zoneIds.length} zones`);
+
+    // Récupérer seulement les immeubles liés aux commerciaux ou zones du directeur
     const immeubles = await this.prisma.immeuble.findMany({
+      where: {
+        OR: [
+          // Immeubles avec des prospecteurs appartenant au directeur
+          { prospectors: { some: { id: { in: commercialIds } } } },
+          // Immeubles avec des historiques de prospection par les commerciaux du directeur
+          { historiques: { some: { commercialId: { in: commercialIds } } } },
+          // Immeubles dans les zones assignées au directeur
+          { zoneId: { in: zoneIds } }
+        ]
+      },
       include: {
         zone: true,
         prospectors: {
           include: {
-            equipe: true
+            equipe: {
+              include: {
+                manager: true
+              }
+            }
           }
         },
         portes: true,
@@ -342,7 +421,11 @@ export class DirecteurSpaceService {
           include: {
             commercial: {
               include: {
-                equipe: true
+                equipe: {
+                  include: {
+                    manager: true
+                  }
+                }
               }
             }
           },
@@ -353,11 +436,35 @@ export class DirecteurSpaceService {
       }
     });
 
-    return immeubles;
+    // Filtrer côté application pour s'assurer que seuls les immeubles pertinents sont retournés
+    const filteredImmeubles = immeubles.filter(immeuble => {
+      // Immeuble avec prospecteurs du directeur
+      if (immeuble.prospectors.some(p => commercialIds.includes(p.id))) {
+        return true;
+      }
+      
+      // Immeuble avec historiques du directeur
+      if (immeuble.historiques.some(h => commercialIds.includes(h.commercialId))) {
+        return true;
+      }
+      
+      // Immeuble dans zone du directeur
+      if (immeuble.zoneId && zoneIds.includes(immeuble.zoneId)) {
+        return true;
+      }
+      
+      return false;
+    });
+
+    console.log(`${filteredImmeubles.length} immeubles trouvés pour directeur ${directeurId}`);
+
+    return filteredImmeubles;
   }
 
   // Récupérer tous les historiques de prospection d'un directeur
   async getDirecteurHistoriques(directeurId: string) {
+    console.log(`🔍 Recherche des historiques pour directeur: ${directeurId}`);
+    
     // Vérifier que le directeur existe
     const directeur = await this.prisma.directeur.findUnique({
       where: { id: directeurId }
@@ -367,8 +474,16 @@ export class DirecteurSpaceService {
       throw new NotFoundException(`Directeur with ID ${directeurId} not found`);
     }
 
-    // Récupérer tous les historiques
+    // Récupérer les IDs des commerciaux du directeur pour filtrer les historiques
+    const commercialIds = await this.getDirecteurCommercialIds(directeurId);
+
+    console.log(`Filtrage historiques avec ${commercialIds.length} commerciaux`);
+
+    // Récupérer seulement les historiques des commerciaux du directeur
     const historiques = await this.prisma.historiqueProspection.findMany({
+      where: {
+        commercialId: { in: commercialIds }
+      },
       include: {
         commercial: {
           include: {
@@ -391,11 +506,21 @@ export class DirecteurSpaceService {
       }
     });
 
+    console.log(`${historiques.length} historiques trouvés pour directeur ${directeurId}`);
+
     return historiques;
   }
 
   // Récupérer toutes les transcriptions d'un directeur
-  async getDirecteurTranscriptions(directeurId: string) {
+  async getDirecteurTranscriptions(directeurId: string, options: {
+    commercialId?: string;
+    buildingId?: string;
+    limit?: number;
+    startDate?: Date;
+    endDate?: Date;
+  } = {}) {
+    console.log(`🔍 Recherche des transcriptions pour directeur: ${directeurId}`);
+    
     // Vérifier que le directeur existe
     const directeur = await this.prisma.directeur.findUnique({
       where: { id: directeurId }
@@ -405,12 +530,47 @@ export class DirecteurSpaceService {
       throw new NotFoundException(`Directeur with ID ${directeurId} not found`);
     }
 
-    // Récupérer toutes les transcriptions
+    // Récupérer les IDs des commerciaux du directeur pour filtrer les transcriptions
+    const commercialIds = await this.getDirecteurCommercialIds(directeurId);
+
+    console.log(`Filtrage transcriptions avec ${commercialIds.length} commerciaux`);
+
+    // Construire les conditions de filtre
+    const whereConditions: any = {
+      commercial_id: { in: commercialIds }
+    };
+
+    // Filtres optionnels
+    if (options.commercialId) {
+      // Vérifier que le commercial appartient au directeur
+      if (!commercialIds.includes(options.commercialId)) {
+        throw new ForbiddenException('Ce commercial ne vous appartient pas');
+      }
+      whereConditions.commercial_id = options.commercialId;
+    }
+
+    if (options.buildingId) {
+      whereConditions.building_id = options.buildingId;
+    }
+
+    if (options.startDate) {
+      whereConditions.start_time = { ...whereConditions.start_time, gte: options.startDate };
+    }
+
+    if (options.endDate) {
+      whereConditions.start_time = { ...whereConditions.start_time, lte: options.endDate };
+    }
+
+    // Récupérer seulement les transcriptions des commerciaux du directeur
     const transcriptions = await this.prisma.transcriptionSession.findMany({
+      where: whereConditions,
+      take: options.limit,
       orderBy: {
         start_time: 'desc'
       }
     });
+
+    console.log(`${transcriptions.length} transcriptions trouvées pour directeur ${directeurId}`);
 
     return transcriptions;
   }
@@ -455,6 +615,16 @@ export class DirecteurSpaceService {
     });
 
     return !!equipe;
+  }
+
+  // Vérifier si un directeur a accès à un immeuble
+  async verifyDirecteurImmeubleAccess(directeurId: string, immeubleId: string): Promise<boolean> {
+    try {
+      await this.getDirecteurImmeuble(directeurId, immeubleId);
+      return true;
+    } catch (error) {
+      return false;
+    }
   }
 
   // === MÉTHODES POUR LES ASSIGNATIONS ET OBJECTIFS ===
@@ -1016,9 +1186,253 @@ export class DirecteurSpaceService {
     };
   }
 
+  // === MÉTHODES HELPER POUR RÉCUPÉRER LES IDs ===
+
+  // Récupérer les IDs des commerciaux d'un directeur
+  async getDirecteurCommercialIds(directeurId: string): Promise<string[]> {
+    const commerciaux = await this.prisma.commercial.findMany({
+      where: {
+        equipe: {
+          manager: {
+            directeurId: directeurId
+          }
+        }
+      },
+      select: { id: true }
+    });
+    
+    return commerciaux.map(c => c.id);
+  }
+
+  // Récupérer les IDs des managers d'un directeur
+  async getDirecteurManagerIds(directeurId: string): Promise<string[]> {
+    const managers = await this.prisma.manager.findMany({
+      where: { directeurId: directeurId },
+      select: { id: true }
+    });
+    
+    return managers.map(m => m.id);
+  }
+
+  // Récupérer les IDs des équipes d'un directeur
+  async getDirecteurEquipeIds(directeurId: string): Promise<string[]> {
+    const equipes = await this.prisma.equipe.findMany({
+      where: {
+        manager: {
+          directeurId: directeurId
+        }
+      },
+      select: { id: true }
+    });
+    
+    return equipes.map(e => e.id);
+  }
+
+  // Récupérer les IDs des zones d'un directeur
+  async getDirecteurZoneIds(directeurId: string): Promise<string[]> {
+    const commercialIds = await this.getDirecteurCommercialIds(directeurId);
+    const managerIds = await this.getDirecteurManagerIds(directeurId);
+    const equipeIds = await this.getDirecteurEquipeIds(directeurId);
+
+    const zones = await this.prisma.zone.findMany({
+      where: {
+        OR: [
+          { commerciaux: { some: { commercialId: { in: commercialIds } } } },
+          { managerId: { in: managerIds } },
+          { equipeId: { in: equipeIds } }
+        ]
+      },
+      select: { id: true }
+    });
+    
+    return zones.map(z => z.id);
+  }
+
+  // Récupérer une zone spécifique d'un directeur avec vérification d'accès
+  async getDirecteurZone(directeurId: string, zoneId: string) {
+    console.log(`🔍 Recherche zone ${zoneId} pour directeur: ${directeurId}`);
+    
+    // Vérifier que le directeur existe
+    const directeur = await this.prisma.directeur.findUnique({
+      where: { id: directeurId }
+    });
+
+    if (!directeur) {
+      throw new NotFoundException(`Directeur with ID ${directeurId} not found`);
+    }
+
+    // Récupérer les IDs pour vérifier l'accès
+    const commercialIds = await this.getDirecteurCommercialIds(directeurId);
+    const managerIds = await this.getDirecteurManagerIds(directeurId);
+    const equipeIds = await this.getDirecteurEquipeIds(directeurId);
+
+    // Récupérer la zone avec vérification d'accès
+    const zone = await this.prisma.zone.findFirst({
+      where: {
+        id: zoneId,
+        OR: [
+          { commerciaux: { some: { commercialId: { in: commercialIds } } } },
+          { managerId: { in: managerIds } },
+          { equipeId: { in: equipeIds } },
+          // Zone non assignée peut être assignée par le directeur
+          { AND: [
+            { managerId: null },
+            { equipeId: null },
+            { commerciaux: { none: {} } }
+          ]}
+        ]
+      },
+      include: {
+        commerciaux: {
+          include: {
+            commercial: {
+              include: {
+                equipe: {
+                  include: {
+                    manager: true
+                  }
+                }
+              }
+            }
+          }
+        },
+        immeubles: true,
+        equipe: {
+          include: {
+            manager: true
+          }
+        },
+        manager: true
+      }
+    });
+
+    if (!zone) {
+      throw new NotFoundException(`Zone with ID ${zoneId} not found or access denied`);
+    }
+
+    return zone;
+  }
+
+  // Récupérer un immeuble spécifique d'un directeur avec vérification d'accès
+  async getDirecteurImmeuble(directeurId: string, immeubleId: string) {
+    console.log(`🔍 Recherche immeuble ${immeubleId} pour directeur: ${directeurId}`);
+    
+    // Vérifier que le directeur existe
+    const directeur = await this.prisma.directeur.findUnique({
+      where: { id: directeurId }
+    });
+
+    if (!directeur) {
+      throw new NotFoundException(`Directeur with ID ${directeurId} not found`);
+    }
+
+    // Récupérer les IDs pour vérifier l'accès
+    const commercialIds = await this.getDirecteurCommercialIds(directeurId);
+    const zoneIds = await this.getDirecteurZoneIds(directeurId);
+
+    // Récupérer l'immeuble avec vérification d'accès
+    const immeuble = await this.prisma.immeuble.findFirst({
+      where: {
+        id: immeubleId,
+        OR: [
+          { prospectors: { some: { id: { in: commercialIds } } } },
+          { historiques: { some: { commercialId: { in: commercialIds } } } },
+          { zoneId: { in: zoneIds } }
+        ]
+      },
+      include: {
+        zone: true,
+        prospectors: {
+          include: {
+            equipe: {
+              include: {
+                manager: true
+              }
+            }
+          }
+        },
+        portes: true,
+        historiques: {
+          include: {
+            commercial: {
+              include: {
+                equipe: {
+                  include: {
+                    manager: true
+                  }
+                }
+              }
+            }
+          },
+          orderBy: {
+            dateProspection: 'desc'
+          }
+        }
+      }
+    });
+
+    if (!immeuble) {
+      throw new NotFoundException(`Immeuble with ID ${immeubleId} not found or access denied`);
+    }
+
+    return immeuble;
+  }
+
+  // Récupérer les commerciaux avec transcriptions pour un directeur
+  async getDirecteurTranscriptionCommercials(directeurId: string) {
+    console.log(`🔍 Recherche commerciaux avec transcriptions pour directeur: ${directeurId}`);
+    
+    // Vérifier que le directeur existe
+    const directeur = await this.prisma.directeur.findUnique({
+      where: { id: directeurId }
+    });
+
+    if (!directeur) {
+      throw new NotFoundException(`Directeur with ID ${directeurId} not found`);
+    }
+
+    // Récupérer les commerciaux du directeur
+    const commercialIds = await this.getDirecteurCommercialIds(directeurId);
+    
+    const commercials = await this.prisma.commercial.findMany({
+      where: {
+        id: { in: commercialIds }
+      },
+      include: {
+        equipe: {
+          include: {
+            manager: true
+          }
+        }
+      }
+    });
+
+    // Formater les données pour l'API avec comptage des sessions
+    const formattedCommercials = await Promise.all(
+      commercials.map(async (commercial) => {
+        const sessionsCount = await this.prisma.transcriptionSession.count({
+          where: { commercial_id: commercial.id }
+        });
+        
+        const lastSession = await this.prisma.transcriptionSession.findFirst({
+          where: { commercial_id: commercial.id },
+          orderBy: { start_time: 'desc' }
+        });
+        
+        return {
+          id: commercial.id,
+          name: `${commercial.prenom || ''} ${commercial.nom || ''}`.trim() || commercial.email || `Commercial ${commercial.id}`,
+          sessionsCount,
+          lastTime: lastSession ? new Date(lastSession.start_time).getTime() : 0
+        };
+      })
+    );
+
+    return { commercials: formattedCommercials };
+  }
+
   // Validation des dates d'assignation (réutilisée du service principal)
   private validateAssignmentDates(startDate?: Date, durationDays?: number) {
-    const now = new Date();
     const oneYearAgo = new Date();
     oneYearAgo.setFullYear(oneYearAgo.getFullYear() - 1);
     const twoYearsFromNow = new Date();

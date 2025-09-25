@@ -11,15 +11,26 @@ export class CommercialService {
 
   create(createCommercialDto: CreateCommercialDto) {
     const { equipeId, managerId, id: forcedId, isAssigned, ...otherData } = createCommercialDto;
+    
+    // Prepare data object with correct typing
+    const data: any = {
+      ...(forcedId ? { id: forcedId } : {}),
+      ...otherData,
+      isAssigned: Boolean(equipeId && managerId),
+    };
+
+    // Add equipe connection if provided
+    if (equipeId) {
+      data.equipe = { connect: { id: equipeId } };
+    }
+
+    // Add managerId if provided (but not if equipe is connected as they conflict)
+    if (managerId && !equipeId) {
+      data.managerId = managerId;
+    }
+
     return this.prisma.commercial.create({
-      data: {
-        ...(forcedId ? { id: forcedId } : {}),
-        ...otherData,
-        // Compute assignment at creation based on presence of both relations
-        isAssigned: Boolean(equipeId && managerId),
-        ...(equipeId ? { equipe: { connect: { id: equipeId } } } : {}),
-        ...(managerId ? { managerId } : {}),
-      },
+      data,
     });
   }
 
@@ -134,14 +145,25 @@ export class CommercialService {
       ? { isAssigned: Boolean(effectiveManagerId && effectiveEquipeId) }
       : {};
 
+    // Prepare update data with correct typing
+    const updateData: any = {
+      ...otherData,
+      ...isAssignedUpdate,
+    };
+
+    // Add equipe connection if provided
+    if (equipeId) {
+      updateData.equipe = { connect: { id: equipeId } };
+    }
+
+    // Add managerId if provided (but not if equipe is connected as they conflict)
+    if (effectiveManagerId !== undefined && !equipeId) {
+      updateData.managerId = effectiveManagerId;
+    }
+
     const updatedCommercial = await this.prisma.commercial.update({
       where: { id },
-      data: {
-        ...otherData,
-        managerId: effectiveManagerId,
-        ...(equipeId ? { equipe: { connect: { id: equipeId } } } : {}),
-        ...isAssignedUpdate,
-      },
+      data: updateData,
     });
 
     // Si l'équipe a changé, nettoyer les anciennes assignations de zones
