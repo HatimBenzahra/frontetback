@@ -905,6 +905,123 @@ export class AssignmentGoalsService {
     };
   }
 
+  // Version optimisée pour obtenir les assignations avec statut minimal pour dashboard
+  async getAllAssignmentsWithStatusOptimized(limit: number = 20) {
+    const now = new Date();
+    
+    // Utiliser une requête SQL optimisée pour éviter les N+1 queries
+    const assignments = await this.prisma.$queryRaw`
+      SELECT 
+        za.id,
+        za."zoneId",
+        za."assignedToType",
+        za."assignedToId",
+        za."assignedByUserName",
+        za."startDate",
+        za."endDate",
+        za."createdAt",
+        z.nom as "zoneName",
+        CASE 
+          WHEN za."assignedToType" = 'COMMERCIAL' THEN CONCAT(c.prenom, ' ', c.nom)
+          WHEN za."assignedToType" = 'EQUIPE' THEN CONCAT('Équipe ', e.nom)
+          WHEN za."assignedToType" = 'MANAGER' THEN CONCAT(m.prenom, ' ', m.nom)
+          ELSE 'Inconnu'
+        END as "assigneeName",
+        CASE 
+          WHEN za."assignedToType" = 'COMMERCIAL' THEN 1
+          WHEN za."assignedToType" = 'EQUIPE' THEN (
+            SELECT COUNT(*)::int FROM commerciaux WHERE "equipeId" = e.id
+          )
+          WHEN za."assignedToType" = 'MANAGER' THEN (
+            SELECT COUNT(*)::int FROM commerciaux c2 
+            WHERE c2."equipeId" IN (
+              SELECT id FROM equipes WHERE "managerId" = m.id
+            )
+          )
+          ELSE 0
+        END as "affectedCommercialsCount"
+      FROM zone_assignment_histories za
+      LEFT JOIN zones z ON za."zoneId" = z.id
+      LEFT JOIN commerciaux c ON za."assignedToType" = 'COMMERCIAL' AND za."assignedToId" = c.id
+      LEFT JOIN equipes e ON za."assignedToType" = 'EQUIPE' AND za."assignedToId" = e.id
+      LEFT JOIN managers m ON za."assignedToType" = 'MANAGER' AND za."assignedToId" = m.id
+      ORDER BY za."createdAt" DESC
+      LIMIT ${limit}
+    `;
+
+    const enrichedAssignments = (assignments as any[]).map(assignment => {
+      const endDate = assignment.endDate || new Date();
+      const isActive = assignment.startDate <= now && endDate > now;
+      const isFuture = assignment.startDate > now;
+      
+      let status = 'expired';
+      let timeInfo = '';
+      
+      if (isFuture) {
+        status = 'future';
+        const daysUntilStart = Math.ceil((assignment.startDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+        timeInfo = `Commence dans ${daysUntilStart} jour(s)`;
+      } else if (isActive) {
+        status = 'active';
+        const daysUntilEnd = Math.ceil((endDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+        timeInfo = `Se termine dans ${daysUntilEnd} jour(s)`;
+      } else {
+        status = 'expired';
+        const daysSinceEnd = Math.ceil((now.getTime() - endDate.getTime()) / (1000 * 60 * 60 * 24));
+        timeInfo = `Terminée depuis ${daysSinceEnd} jour(s)`;
+      }
+
+      const totalDuration = Math.ceil((endDate.getTime() - assignment.startDate.getTime()) / (1000 * 60 * 60 * 24));
+      let remainingDays = 0;
+      let progressPercentage = 0;
+      
+      if (isActive) {
+        remainingDays = Math.ceil((endDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+        const elapsedDays = totalDuration - remainingDays;
+        progressPercentage = Math.min(100, Math.max(0, (elapsedDays / totalDuration) * 100));
+      } else if (status === 'expired') {
+        progressPercentage = 100;
+      }
+
+      return {
+        id: assignment.id,
+        zoneId: assignment.zoneId,
+        zoneName: assignment.zoneName,
+        assignedToType: assignment.assignedToType,
+        assignedToId: assignment.assignedToId,
+        assigneeName: assignment.assigneeName || 'Inconnu',
+        assignedByUserName: assignment.assignedByUserName || 'Système',
+        startDate: assignment.startDate,
+        endDate: assignment.endDate,
+        createdAt: assignment.createdAt,
+        affectedCommercialsCount: assignment.affectedCommercialsCount || 0,
+        status,
+        timeInfo,
+        totalDurationDays: totalDuration,
+        remainingDays,
+        progressPercentage: Math.round(progressPercentage)
+      };
+    });
+
+    // Grouper par statut pour faciliter l'affichage
+    const grouped = {
+      active: enrichedAssignments.filter(a => a.status === 'active'),
+      future: enrichedAssignments.filter(a => a.status === 'future'),
+      expired: enrichedAssignments.filter(a => a.status === 'expired')
+    };
+
+    return {
+      assignments: enrichedAssignments,
+      grouped,
+      summary: {
+        total: enrichedAssignments.length,
+        active: grouped.active.length,
+        future: grouped.future.length,
+        expired: grouped.expired.length
+      }
+    };
+  }
+
   // Nouvelle méthode pour obtenir toutes les assignations avec leur statut temporel pour l'admin
   async getAllAssignmentsWithStatus() {
     const now = new Date();

@@ -123,6 +123,15 @@ export class AssignmentGoalsController {
     return this.assignmentGoalsService.getActiveZoneForCommercial(commercialId);
   }
 
+  @Get('admin/assignments-status-optimized')
+  async getAllAssignmentsWithStatusOptimized(
+    @Request() req: AuthRequest,
+    @Query('limit') limit?: string
+  ) {
+    const limitNumber = limit ? parseInt(limit, 10) : 20;
+    return this.assignmentGoalsService.getAllAssignmentsWithStatusOptimized(limitNumber);
+  }
+
   @Get('admin/assignments-status')
   async getAllAssignmentsWithStatus(@Request() req: AuthRequest) {
     const { roles, managerId, directeurId } = req.user;

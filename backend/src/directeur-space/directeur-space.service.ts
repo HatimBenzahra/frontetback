@@ -639,105 +639,62 @@ export class DirecteurSpaceService {
     return this.assignmentGoalsService.setGlobalGoal(goal, startDate, durationMonths);
   }
 
-  // Récupérer l'historique des assignations pour un directeur
+  // Récupérer l'historique des assignations pour un directeur - VERSION OPTIMISÉE DASHBOARD
   async getDirecteurAssignmentHistory(directeurId: string) {
-    // Vérifier que le directeur existe
-    const directeur = await this.prisma.directeur.findUnique({
-      where: { id: directeurId }
-    });
+    // Récupérer SEULEMENT les 10 assignations les plus récentes pour le dashboard
+    // Utiliser une requête optimisée avec LEFT JOINs pour éviter les N+1 queries
+    const assignments = await this.prisma.$queryRaw`
+      SELECT 
+        za.id,
+        za."zoneId",
+        za."assignedToType",
+        za."assignedToId",
+        za."assignedByUserName",
+        za."startDate",
+        za."endDate",
+        za."createdAt",
+        z.nom as "zoneName",
+        CASE 
+          WHEN za."assignedToType" = 'COMMERCIAL' THEN CONCAT(c.prenom, ' ', c.nom)
+          WHEN za."assignedToType" = 'EQUIPE' THEN CONCAT('Équipe ', e.nom)
+          WHEN za."assignedToType" = 'MANAGER' THEN CONCAT(m.prenom, ' ', m.nom)
+          ELSE 'Inconnu'
+        END as "assigneeName"
+      FROM zone_assignment_histories za
+      LEFT JOIN zones z ON za."zoneId" = z.id
+      LEFT JOIN commerciaux c ON za."assignedToType" = 'COMMERCIAL' AND za."assignedToId" = c.id
+      LEFT JOIN equipes e ON za."assignedToType" = 'EQUIPE' AND za."assignedToId" = e.id
+      LEFT JOIN managers m ON za."assignedToType" = 'MANAGER' AND za."assignedToId" = m.id
+      WHERE (
+        (za."assignedToType" = 'MANAGER' AND m."directeurId" = ${directeurId}) OR
+        (za."assignedToType" = 'EQUIPE' AND e."managerId" IN (
+          SELECT id FROM managers WHERE "directeurId" = ${directeurId}
+        )) OR
+        (za."assignedToType" = 'COMMERCIAL' AND c."equipeId" IN (
+          SELECT id FROM equipes WHERE "managerId" IN (
+            SELECT id FROM managers WHERE "directeurId" = ${directeurId}
+          )
+        ))
+      )
+      ORDER BY za."createdAt" DESC
+      LIMIT 10
+    `;
 
-    if (!directeur) {
-      throw new NotFoundException(`Directeur with ID ${directeurId} not found`);
-    }
-
-    // Récupérer toutes les assignations liées aux managers, équipes et commerciaux de ce directeur
-    const managers = await this.prisma.manager.findMany({
-      where: { directeurId },
-      select: { id: true }
-    });
-
-    const equipes = await this.prisma.equipe.findMany({
-      where: {
-        manager: { directeurId }
-      },
-      select: { id: true }
-    });
-
-    const commerciaux = await this.prisma.commercial.findMany({
-      where: {
-        equipe: {
-          manager: { directeurId }
-        }
-      },
-      select: { id: true }
-    });
-
-    const managerIds = managers.map(m => m.id);
-    const equipeIds = equipes.map(e => e.id);
-    const commercialIds = commerciaux.map(c => c.id);
-
-    // Récupérer l'historique des assignations
-    const assignments = await this.prisma.zoneAssignmentHistory.findMany({
-      where: {
-        OR: [
-          { assignedToType: 'MANAGER', assignedToId: { in: managerIds } },
-          { assignedToType: 'EQUIPE', assignedToId: { in: equipeIds } },
-          { assignedToType: 'COMMERCIAL', assignedToId: { in: commercialIds } }
-        ]
-      },
-      orderBy: { createdAt: 'desc' },
-      include: { zone: true }
-    });
-
-    // Enrichir les assignations avec les noms
-    const enrichedAssignments = await Promise.all(
-      assignments.map(async (assignment) => {
-        let assigneeName = '';
-
-        switch (assignment.assignedToType) {
-          case 'COMMERCIAL':
-            const commercial = await this.prisma.commercial.findUnique({
-              where: { id: assignment.assignedToId },
-              select: { nom: true, prenom: true },
-            });
-            assigneeName = commercial ? `${commercial.prenom} ${commercial.nom}` : 'Commercial inconnu';
-            break;
-          case 'EQUIPE':
-            const equipe = await this.prisma.equipe.findUnique({
-              where: { id: assignment.assignedToId },
-              select: { nom: true }
-            });
-            assigneeName = equipe ? `Équipe ${equipe.nom}` : 'Équipe inconnue';
-            break;
-          case 'MANAGER':
-            const manager = await this.prisma.manager.findUnique({
-              where: { id: assignment.assignedToId },
-              select: { nom: true, prenom: true }
-            });
-            assigneeName = manager ? `${manager.prenom} ${manager.nom}` : 'Manager inconnu';
-            break;
-        }
-
-        return {
-          id: assignment.id,
-          zoneId: assignment.zoneId,
-          zoneName: assignment.zone?.nom,
-          assignedToType: assignment.assignedToType,
-          assignedToId: assignment.assignedToId,
-          assigneeName,
-          assignedByUserId: assignment.assignedByUserId,
-          assignedByUserName: assignment.assignedByUserName || 'Système',
-          startDate: assignment.startDate,
-          endDate: assignment.endDate,
-          createdAt: assignment.createdAt,
-        };
-      })
-    );
-
-    return enrichedAssignments;
+    return (assignments as any[]).map(assignment => ({
+      id: assignment.id,
+      zoneId: assignment.zoneId,
+      zoneName: assignment.zoneName,
+      assignedToType: assignment.assignedToType,
+      assignedToId: assignment.assignedToId,
+      assigneeName: assignment.assigneeName || 'Inconnu',
+      assignedByUserName: assignment.assignedByUserName || 'Système',
+      startDate: assignment.startDate,
+      endDate: assignment.endDate,
+      createdAt: assignment.createdAt,
+    }));
   }
 
-  // Récupérer les assignations avec statut pour un directeur
+  // Récupérer les assignations avec statut pour un directeur - VERSION OPTIMISÉE
   async getDirecteurAssignmentsWithStatus(directeurId: string) {
     const assignments = await this.getDirecteurAssignmentHistory(directeurId);
     const now = new Date();
@@ -746,7 +703,6 @@ export class DirecteurSpaceService {
       const endDate = assignment.endDate || new Date();
       const isActive = assignment.startDate <= now && endDate > now;
       const isFuture = assignment.startDate > now;
-      const isExpired = endDate <= now;
 
       let status = 'expired';
       let timeInfo = '';
@@ -1028,144 +984,114 @@ export class DirecteurSpaceService {
     }
   }
 
-  // Récupérer toutes les assignations avec statut pour un directeur (avec restrictions hiérarchiques)
-  async getAllAssignmentsWithStatusForDirecteur(directeurId: string) {
+  // VERSION OPTIMISÉE - Récupérer assignations avec statut pour directeur (limité pour dashboard)
+  async getAllAssignmentsWithStatusForDirecteur(directeurId: string, limit: number = 20) {
     const now = new Date();
     
-    // Récupérer seulement les assignations liées aux managers, équipes et commerciaux de ce directeur
-    const managers = await this.prisma.manager.findMany({
-      where: { directeurId },
-      select: { id: true }
+    // Utiliser une requête SQL optimisée similaire à celle du service assignment-goals
+    const assignments = await this.prisma.$queryRaw`
+      SELECT 
+        za.id,
+        za."zoneId",
+        za."assignedToType",
+        za."assignedToId",
+        za."assignedByUserName",
+        za."startDate",
+        za."endDate",
+        za."createdAt",
+        z.nom as "zoneName",
+        CASE 
+          WHEN za."assignedToType" = 'COMMERCIAL' THEN CONCAT(c.prenom, ' ', c.nom)
+          WHEN za."assignedToType" = 'EQUIPE' THEN CONCAT('Équipe ', e.nom)
+          WHEN za."assignedToType" = 'MANAGER' THEN CONCAT(m.prenom, ' ', m.nom)
+          ELSE 'Inconnu'
+        END as "assigneeName",
+        CASE 
+          WHEN za."assignedToType" = 'COMMERCIAL' THEN 1
+          WHEN za."assignedToType" = 'EQUIPE' THEN (
+            SELECT COUNT(*)::int FROM commerciaux WHERE "equipeId" = e.id
+          )
+          WHEN za."assignedToType" = 'MANAGER' THEN (
+            SELECT COUNT(*)::int FROM commerciaux c2 
+            WHERE c2."equipeId" IN (
+              SELECT id FROM equipes WHERE "managerId" = m.id
+            )
+          )
+          ELSE 0
+        END as "affectedCommercialsCount"
+      FROM zone_assignment_histories za
+      LEFT JOIN zones z ON za."zoneId" = z.id
+      LEFT JOIN commerciaux c ON za."assignedToType" = 'COMMERCIAL' AND za."assignedToId" = c.id
+      LEFT JOIN equipes e ON za."assignedToType" = 'EQUIPE' AND za."assignedToId" = e.id
+      LEFT JOIN managers m ON za."assignedToType" = 'MANAGER' AND za."assignedToId" = m.id
+      WHERE (
+        (za."assignedToType" = 'MANAGER' AND m."directeurId" = ${directeurId}) OR
+        (za."assignedToType" = 'EQUIPE' AND e."managerId" IN (
+          SELECT id FROM managers WHERE "directeurId" = ${directeurId}
+        )) OR
+        (za."assignedToType" = 'COMMERCIAL' AND c."equipeId" IN (
+          SELECT id FROM equipes WHERE "managerId" IN (
+            SELECT id FROM managers WHERE "directeurId" = ${directeurId}
+          )
+        ))
+      )
+      ORDER BY za."createdAt" DESC
+      LIMIT ${limit}
+    `;
+
+    const enrichedAssignments = (assignments as any[]).map(assignment => {
+      const endDate = assignment.endDate || new Date();
+      const isActive = assignment.startDate <= now && endDate > now;
+      const isFuture = assignment.startDate > now;
+      
+      let status = 'expired';
+      let timeInfo = '';
+      
+      if (isFuture) {
+        status = 'future';
+        const daysUntilStart = Math.ceil((assignment.startDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+        timeInfo = `Commence dans ${daysUntilStart} jour(s)`;
+      } else if (isActive) {
+        status = 'active';
+        const daysUntilEnd = Math.ceil((endDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+        timeInfo = `Se termine dans ${daysUntilEnd} jour(s)`;
+      } else {
+        status = 'expired';
+        const daysSinceEnd = Math.ceil((now.getTime() - endDate.getTime()) / (1000 * 60 * 60 * 24));
+        timeInfo = `Terminée depuis ${daysSinceEnd} jour(s)`;
+      }
+
+      const totalDuration = Math.ceil((endDate.getTime() - assignment.startDate.getTime()) / (1000 * 60 * 60 * 24));
+      let remainingDays = 0;
+      let progressPercentage = 0;
+      
+      if (isActive) {
+        remainingDays = Math.ceil((endDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+        const elapsedDays = totalDuration - remainingDays;
+        progressPercentage = Math.min(100, Math.max(0, (elapsedDays / totalDuration) * 100));
+      } else if (status === 'expired') {
+        progressPercentage = 100;
+      }
+
+      return {
+        id: assignment.id,
+        zoneId: assignment.zoneId,
+        zoneName: assignment.zoneName,
+        assignedToType: assignment.assignedToType,
+        assignedToId: assignment.assignedToId,
+        assigneeName: assignment.assigneeName || 'Inconnu',
+        assignedByUserName: assignment.assignedByUserName || 'Système',
+        startDate: assignment.startDate,
+        endDate: assignment.endDate,
+        createdAt: assignment.createdAt,
+        affectedCommercialsCount: assignment.affectedCommercialsCount || 0,
+        status,
+        timeInfo,
+        totalDurationDays: totalDuration,
+        remainingDays,
+        progressPercentage: Math.round(progressPercentage)
+      };
     });
-
-    const equipes = await this.prisma.equipe.findMany({
-      where: {
-        manager: { directeurId }
-      },
-      select: { id: true }
-    });
-
-    const commerciaux = await this.prisma.commercial.findMany({
-      where: {
-        equipe: {
-          manager: { directeurId }
-        }
-      },
-      select: { id: true }
-    });
-
-    const managerIds = managers.map(m => m.id);
-    const equipeIds = equipes.map(e => e.id);
-    const commercialIds = commerciaux.map(c => c.id);
-
-    // Récupérer les assignations
-    const assignments = await this.prisma.zoneAssignmentHistory.findMany({
-      where: {
-        OR: [
-          { assignedToType: 'MANAGER', assignedToId: { in: managerIds } },
-          { assignedToType: 'EQUIPE', assignedToId: { in: equipeIds } },
-          { assignedToType: 'COMMERCIAL', assignedToId: { in: commercialIds } }
-        ]
-      },
-      orderBy: { createdAt: 'desc' },
-      include: { zone: true }
-    });
-
-    const enrichedAssignments = await Promise.all(
-      assignments.map(async (assignment) => {
-        let assigneeName = '';
-        let affectedCommercials: any[] = [];
-        
-        switch (assignment.assignedToType) {
-          case 'COMMERCIAL':
-            const commercial = await this.prisma.commercial.findUnique({
-              where: { id: assignment.assignedToId },
-              select: { nom: true, prenom: true },
-            });
-            assigneeName = commercial ? `${commercial.prenom} ${commercial.nom}` : 'Commercial inconnu';
-            affectedCommercials = [commercial ? { id: assignment.assignedToId, nom: commercial.nom, prenom: commercial.prenom } : null].filter(Boolean);
-            break;
-          case 'EQUIPE':
-            const equipe = await this.prisma.equipe.findUnique({
-              where: { id: assignment.assignedToId },
-              include: { commerciaux: true }
-            });
-            assigneeName = equipe ? `Équipe ${equipe.nom}` : 'Équipe inconnue';
-            affectedCommercials = equipe?.commerciaux.map(c => ({ id: c.id, nom: c.nom, prenom: c.prenom })) || [];
-            break;
-          case 'MANAGER':
-            const manager = await this.prisma.manager.findUnique({
-              where: { id: assignment.assignedToId },
-              include: {
-                equipes: {
-                  include: { commerciaux: true }
-                }
-              }
-            });
-            assigneeName = manager ? `${manager.prenom} ${manager.nom}` : 'Manager inconnu';
-            affectedCommercials = manager?.equipes.flatMap(equipe => 
-              equipe.commerciaux.map(c => ({ id: c.id, nom: c.nom, prenom: c.prenom }))
-            ) || [];
-            break;
-        }
-
-        // Calculer le statut temporel
-        const endDate = assignment.endDate || new Date();
-        const isActive = assignment.startDate <= now && endDate > now;
-        const isFuture = assignment.startDate > now;
-        const isExpired = endDate <= now;
-        
-        let status = 'expired';
-        let timeInfo = '';
-        
-        if (isFuture) {
-          status = 'future';
-          const daysUntilStart = Math.ceil((assignment.startDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
-          timeInfo = `Commence dans ${daysUntilStart} jour(s)`;
-        } else if (isActive) {
-          status = 'active';
-          const daysUntilEnd = Math.ceil((endDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
-          timeInfo = `Se termine dans ${daysUntilEnd} jour(s)`;
-        } else {
-          status = 'expired';
-          const daysSinceEnd = Math.ceil((now.getTime() - endDate.getTime()) / (1000 * 60 * 60 * 24));
-          timeInfo = `Terminée depuis ${daysSinceEnd} jour(s)`;
-        }
-
-        const totalDuration = Math.ceil((endDate.getTime() - assignment.startDate.getTime()) / (1000 * 60 * 60 * 24));
-        let remainingDays = 0;
-        let progressPercentage = 0;
-        
-        if (isActive) {
-          remainingDays = Math.ceil((endDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
-          const elapsedDays = totalDuration - remainingDays;
-          progressPercentage = Math.min(100, Math.max(0, (elapsedDays / totalDuration) * 100));
-        } else if (isExpired) {
-          progressPercentage = 100;
-        }
-
-        return {
-          id: assignment.id,
-          zoneId: assignment.zoneId,
-          zoneName: assignment.zone?.nom,
-          assignedToType: assignment.assignedToType,
-          assignedToId: assignment.assignedToId,
-          assigneeName,
-          assignedByUserId: assignment.assignedByUserId,
-          assignedByUserName: assignment.assignedByUserName || 'Système',
-          startDate: assignment.startDate,
-          endDate: assignment.endDate,
-          createdAt: assignment.createdAt,
-          affectedCommercials,
-          affectedCommercialsCount: affectedCommercials.length,
-          status,
-          timeInfo,
-          totalDurationDays: totalDuration,
-          remainingDays,
-          progressPercentage: Math.round(progressPercentage)
-        };
-      })
-    );
 
     // Grouper par statut
     const grouped = {
