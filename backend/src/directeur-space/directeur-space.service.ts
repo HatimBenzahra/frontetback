@@ -99,6 +99,22 @@ export class DirecteurSpaceService {
     return commerciaux;
   }
 
+  // Récupérer l'ID du directeur d'un commercial
+  async getCommercialDirecteurId(commercialId: string): Promise<string | null> {
+    const commercial = await this.prisma.commercial.findUnique({
+      where: { id: commercialId },
+      include: {
+        equipe: {
+          include: {
+            manager: true
+          }
+        }
+      }
+    });
+
+    return commercial?.equipe?.manager?.directeurId || null;
+  }
+
   // Récupérer toutes les équipes d'un directeur
   async getDirecteurEquipes(directeurId: string) {
     console.log(`🔍 Recherche des équipes pour directeur: ${directeurId}`);

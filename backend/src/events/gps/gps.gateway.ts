@@ -6,6 +6,7 @@ import { WsAuthGuard } from '../../auth/ws-auth.guard';
 import { WsRolesGuard } from '../../auth/ws-roles.guard';
 import { Roles } from '../../auth/roles.decorator';
 import { CommercialService } from '../../manager-space/commercial/commercial.service';
+import { DirecteurSpaceService } from '../../directeur-space/directeur-space.service';
 
 interface LocationUpdateData {
   commercialId: string;
@@ -29,7 +30,8 @@ export class GpsGateway implements OnGatewayConnection, OnGatewayDisconnect {
   server: Server;
 
   constructor(
-    @Inject(CommercialService) private readonly commercialService: CommercialService
+    @Inject(CommercialService) private readonly commercialService: CommercialService,
+    @Inject(DirecteurSpaceService) private readonly directeurSpaceService: DirecteurSpaceService
   ) {}
 
   // Stocker les positions des commerciaux en mémoire
@@ -139,7 +141,7 @@ export class GpsGateway implements OnGatewayConnection, OnGatewayDisconnect {
 
   @SubscribeMessage('request_gps_state')
   @UseGuards(WsRolesGuard)
-  @Roles('admin', 'manager')
+  @Roles('admin', 'manager', 'directeur')
   async handleRequestGPSState(client: Socket) {
     console.log(`📍 Demande d'état GPS de ${client.id}`);
     
@@ -148,12 +150,15 @@ export class GpsGateway implements OnGatewayConnection, OnGatewayDisconnect {
       userId: user?.userId,
       roles: user?.roles,
       managerId: user?.managerId,
+      directeurId: user?.directeurId,
       socketId: client.id,
       rawUser: user
     });
 
     const isAdmin = user?.roles?.includes('admin');
+    const isDirecteur = user?.roles?.includes('directeur');
     const managerId = user?.managerId;
+    const directeurId = user?.directeurId;
 
     if (isAdmin) {
       // Admin: envoyer toutes les positions
@@ -161,6 +166,26 @@ export class GpsGateway implements OnGatewayConnection, OnGatewayDisconnect {
         client.emit('locationUpdate', location);
       });
       console.log(`📍 État GPS envoyé (admin): ${this.commercialLocations.size} commerciaux`);
+    } else if (isDirecteur && directeurId) {
+      // Directeur: filtrer selon ses commerciaux
+      try {
+        const directeurCommerciaux = await this.directeurSpaceService.getDirecteurCommerciaux(directeurId);
+        const commercialIds = directeurCommerciaux.map(c => c.id);
+        console.log(`🔍 Directeur ${directeurId} a accès à ${commercialIds.length} commerciaux:`, commercialIds);
+        
+        let sentCount = 0;
+        this.commercialLocations.forEach((location, commercialId) => {
+          if (commercialIds.includes(commercialId)) {
+            client.emit('locationUpdate', location);
+            sentCount++;
+            console.log(`✅ Position envoyée pour commercial ${commercialId}`);
+          }
+        });
+        
+        console.log(`📍 État GPS envoyé (directeur ${directeurId}): ${sentCount}/${this.commercialLocations.size} commerciaux`);
+      } catch (error) {
+        console.error(`Erreur lors de la récupération des commerciaux pour directeur ${directeurId}:`, error);
+      }
     } else if (managerId) {
       // Manager: filtrer selon ses commerciaux
       try {
@@ -215,9 +240,10 @@ export class GpsGateway implements OnGatewayConnection, OnGatewayDisconnect {
       return;
     }
 
-    // Récupérer le managerId du commercial pour savoir à quel manager il appartient
+    // Récupérer le managerId et directeurId du commercial
     const commercialManagerId = await this.commercialService.getCommercialManagerId(data.commercialId);
-    console.log(`🔍 Commercial ${data.commercialId} appartient au manager ${commercialManagerId}`);
+    const commercialDirecteurId = await this.directeurSpaceService.getCommercialDirecteurId(data.commercialId);
+    console.log(`🔍 Commercial ${data.commercialId} appartient au manager ${commercialManagerId} et directeur ${commercialDirecteurId}`);
 
     for (const socketId of room) {
       const socket = this.server.sockets.sockets.get(socketId);
@@ -228,16 +254,26 @@ export class GpsGateway implements OnGatewayConnection, OnGatewayDisconnect {
         userId: user?.userId,
         roles: user?.roles,
         managerId: user?.managerId,
+        directeurId: user?.directeurId,
         socketId: socketId,
         rawUser: user
       });
 
       const isAdmin = user?.roles?.includes('admin');
+      const isDirecteur = user?.roles?.includes('directeur');
       const managerId = user?.managerId;
+      const directeurId = user?.directeurId;
 
       // Admin peut tout voir
       if (isAdmin) {
         console.log(`✅ Envoi position à admin ${user?.userId}`);
+        socket.emit('locationUpdate', data);
+        continue;
+      }
+
+      // Directeur ne peut voir que ses commerciaux
+      if (isDirecteur && directeurId && commercialDirecteurId === directeurId) {
+        console.log(`✅ Envoi position à directeur ${directeurId} pour son commercial`);
         socket.emit('locationUpdate', data);
         continue;
       }
@@ -247,7 +283,7 @@ export class GpsGateway implements OnGatewayConnection, OnGatewayDisconnect {
         console.log(`✅ Envoi position à manager ${managerId} pour son commercial`);
         socket.emit('locationUpdate', data);
       } else {
-        console.log(`❌ Position non envoyée - manager ${managerId} n'a pas accès au commercial ${data.commercialId}`);
+        console.log(`❌ Position non envoyée - utilisateur ${user?.userId} n'a pas accès au commercial ${data.commercialId}`);
       }
     }
   }
@@ -259,6 +295,7 @@ export class GpsGateway implements OnGatewayConnection, OnGatewayDisconnect {
 
     try {
       const commercialManagerId = await this.commercialService.getCommercialManagerId(data.commercialId);
+      const commercialDirecteurId = await this.directeurSpaceService.getCommercialDirecteurId(data.commercialId);
 
       for (const socketId of room) {
         const socket = this.server.sockets.sockets.get(socketId);
@@ -266,9 +303,13 @@ export class GpsGateway implements OnGatewayConnection, OnGatewayDisconnect {
 
         const user = socket.data.user;
         const isAdmin = user?.roles?.includes('admin');
+        const isDirecteur = user?.roles?.includes('directeur');
         const managerId = user?.managerId;
+        const directeurId = user?.directeurId;
 
-        if (isAdmin || (managerId && commercialManagerId === managerId)) {
+        if (isAdmin || 
+            (isDirecteur && directeurId && commercialDirecteurId === directeurId) ||
+            (managerId && commercialManagerId === managerId)) {
           socket.emit('locationError', data);
         }
       }
@@ -286,6 +327,7 @@ export class GpsGateway implements OnGatewayConnection, OnGatewayDisconnect {
 
     try {
       const commercialManagerId = await this.commercialService.getCommercialManagerId(commercialId);
+      const commercialDirecteurId = await this.directeurSpaceService.getCommercialDirecteurId(commercialId);
 
       for (const socketId of room) {
         const socket = this.server.sockets.sockets.get(socketId);
@@ -293,9 +335,13 @@ export class GpsGateway implements OnGatewayConnection, OnGatewayDisconnect {
 
         const user = socket.data.user;
         const isAdmin = user?.roles?.includes('admin');
+        const isDirecteur = user?.roles?.includes('directeur');
         const managerId = user?.managerId;
+        const directeurId = user?.directeurId;
 
-        if (isAdmin || (managerId && commercialManagerId === managerId)) {
+        if (isAdmin || 
+            (isDirecteur && directeurId && commercialDirecteurId === directeurId) ||
+            (managerId && commercialManagerId === managerId)) {
           socket.emit('commercialOffline', commercialId);
         }
       }

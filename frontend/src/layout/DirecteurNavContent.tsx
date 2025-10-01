@@ -1,7 +1,7 @@
 // src/layout/DirecteurNavContent.tsx
 import { NavLink } from 'react-router-dom';
 import { Button } from '@/components/ui-admin/button';
-import { Users, BarChart3, LayoutDashboard, Building2, UserCheck } from 'lucide-react';
+import { Users, BarChart3, LayoutDashboard, Building2, UserCheck, MapPin } from 'lucide-react';
 
 // Liens spécifiques au directeur
 const directeurNavLinks = [
@@ -9,6 +9,7 @@ const directeurNavLinks = [
   { to: '/directeur/managers', text: 'Managers', icon: UserCheck },
   { to: '/directeur/commerciaux', text: 'Commerciaux', icon: Building2 },
   { to: '/directeur/equipes', text: 'Équipes', icon: Users },
+  { to: '/directeur/gps-tracking', text: 'Suivi GPS', icon: MapPin },
   { to: '/directeur/statistiques', text: 'Statistiques', icon: BarChart3 },
 ];
 
