@@ -280,6 +280,57 @@ export class ManagerAssignmentGoalsService {
     return enrichedHistories;
   }
 
+  // VERSION OPTIMISÉE POUR LE DASHBOARD - Récupérer l'historique des assignations d'un manager avec LIMIT
+  async getManagerAssignmentHistoryOptimized(managerId: string, limit: number = 10) {
+    // Utiliser une requête SQL optimisée avec LEFT JOINs pour éviter les N+1 queries
+    const assignments = await this.prisma.$queryRaw`
+      SELECT 
+        za.id,
+        za."zoneId",
+        za."assignedToType",
+        za."assignedToId",
+        za."assignedByUserName",
+        za."startDate",
+        za."endDate",
+        za."createdAt",
+        z.nom as "zoneName",
+        CASE 
+          WHEN za."assignedToType" = 'COMMERCIAL' THEN CONCAT(c.prenom, ' ', c.nom)
+          WHEN za."assignedToType" = 'EQUIPE' THEN CONCAT('Équipe ', e.nom)
+          WHEN za."assignedToType" = 'MANAGER' THEN CONCAT(m.prenom, ' ', m.nom)
+          ELSE 'Inconnu'
+        END as "assigneeName"
+      FROM zone_assignment_histories za
+      LEFT JOIN zones z ON za."zoneId" = z.id
+      LEFT JOIN commerciaux c ON za."assignedToType" = 'COMMERCIAL' AND za."assignedToId" = c.id
+      LEFT JOIN equipes e ON za."assignedToType" = 'EQUIPE' AND za."assignedToId" = e.id
+      LEFT JOIN managers m ON za."assignedToType" = 'MANAGER' AND za."assignedToId" = m.id
+      WHERE (
+        (za."assignedToType" = 'MANAGER' AND za."assignedToId" = ${managerId}) OR
+        (za."assignedToType" = 'EQUIPE' AND e."managerId" = ${managerId}) OR
+        (za."assignedToType" = 'COMMERCIAL' AND (
+          c."managerId" = ${managerId} OR
+          c."equipeId" IN (SELECT id FROM equipes WHERE "managerId" = ${managerId})
+        ))
+      )
+      ORDER BY za."createdAt" DESC
+      LIMIT ${limit}
+    `;
+
+    return (assignments as any[]).map(assignment => ({
+      id: assignment.id,
+      zoneId: assignment.zoneId,
+      zoneName: assignment.zoneName,
+      assignedToType: assignment.assignedToType,
+      assignedToId: assignment.assignedToId,
+      assigneeName: assignment.assigneeName || 'Inconnu',
+      assignedByUserName: assignment.assignedByUserName || 'Système',
+      startDate: assignment.startDate,
+      endDate: assignment.endDate,
+      createdAt: assignment.createdAt,
+    }));
+  }
+
   // Méthode pour obtenir les zones assignées à un manager
   async getManagerZones(managerId: string) {
     return this.prisma.zone.findMany({

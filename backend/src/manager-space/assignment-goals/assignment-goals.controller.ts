@@ -30,9 +30,10 @@ export class ManagerAssignmentGoalsController {
   }
 
   @Get('history')
-  async getManagerAssignmentHistory(@Request() req: AuthRequest) {
+  async getManagerAssignmentHistory(@Request() req: AuthRequest, @Query('limit') limit?: string) {
     const { managerId } = req.user;
-    return this.managerAssignmentGoalsService.getManagerAssignmentHistory(managerId);
+    const limitNumber = limit ? parseInt(limit, 10) : 10;
+    return this.managerAssignmentGoalsService.getManagerAssignmentHistoryOptimized(managerId, limitNumber);
   }
 
   @Get('zones')

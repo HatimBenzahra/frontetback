@@ -73,11 +73,11 @@ const DashboardDirecteur = () => {
         try {
             setLoading(true);
             setError(null);
-            const [dashboardDataResp, chartsDataResp, progressDataResp, goalDataResp] = await Promise.all([
-                directeurSpaceService.getCurrentGlobalGoal(),
+                const [dashboardDataResp, chartsDataResp, progressDataResp, goalDataResp] = await Promise.all([
+                directeurSpaceService.getDashboardStats(),
                 Promise.all([
                     directeurSpaceService.getPerformanceHistory(),
-                    directeurSpaceService.getPerformanceHistory()
+                    directeurSpaceService.getRepassageChart(chartPeriod)
                 ]),
                 directeurSpaceService.getCommerciauxStats(),
                 directeurSpaceService.getCurrentGlobalGoal()
@@ -100,8 +100,8 @@ const DashboardDirecteur = () => {
             };
 
             setDashboardData(adaptedDashboardData);
-            setPerformanceData(chartsDataResp[0]?.week || []);
-            setRepassageData(chartsDataResp[1]?.week || []);
+            setPerformanceData((chartsDataResp[0] as any)?.[chartPeriod] || []);
+            setRepassageData(chartsDataResp[1] || []);
             setCommercialsProgress(progressDataResp || []);
             setCurrentGlobalGoal(goalDataResp || {
                 goal: 0,
@@ -129,10 +129,10 @@ const DashboardDirecteur = () => {
                 
                 // Charger toutes les données en parallèle
                 const [dashboardData, chartsData, progressData, goalData] = await Promise.all([
-                    directeurSpaceService.getCurrentGlobalGoal(),
+                    directeurSpaceService.getDashboardStats(),
                     Promise.all([
                         directeurSpaceService.getPerformanceHistory(),
-                        directeurSpaceService.getPerformanceHistory()
+                        directeurSpaceService.getRepassageChart(chartPeriod)
                     ]),
                     directeurSpaceService.getCommerciauxStats(),
                     directeurSpaceService.getCurrentGlobalGoal()
@@ -157,8 +157,8 @@ const DashboardDirecteur = () => {
 
                 // Mettre à jour tous les states
                 setDashboardData(adaptedDashboardData);
-                setPerformanceData(chartsData[0]?.week || []);
-                setRepassageData(chartsData[1]?.week || []);
+                setPerformanceData((chartsData[0] as any)?.[chartPeriod] || []);
+                setRepassageData(chartsData[1] || []);
                 setCommercialsProgress(progressData || []);
                 setCurrentGlobalGoal(goalData || {
                     goal: 0,
@@ -179,18 +179,22 @@ const DashboardDirecteur = () => {
         loadAllData();
     }, [settings.defaultTimeFilter]);
 
+    // Initialiser le chartPeriod depuis les paramètres
     useEffect(() => {
-        // synchroniser le period par défaut des graphiques avec les paramètres
         setChartPeriod(settings.chartDefaultPeriod || 'week');
+    }, [settings.chartDefaultPeriod]);
+
+    // Charger les données des graphiques quand chartPeriod change
+    useEffect(() => {
         const loadChartsData = async () => {
             try {
                 setChartsLoading(true);
                 const [perfData, repassData] = await Promise.all([
                     directeurSpaceService.getPerformanceHistory(),
-                    directeurSpaceService.getPerformanceHistory()
+                    directeurSpaceService.getRepassageChart(chartPeriod)
                 ]);
-                setPerformanceData(perfData?.week || []);
-                setRepassageData(repassData?.week || []);
+                setPerformanceData((perfData as any)?.[chartPeriod] || []);
+                setRepassageData(repassData || []);
             } catch (err) {
                 console.error('Error fetching charts data:', err);
             } finally {
@@ -199,17 +203,17 @@ const DashboardDirecteur = () => {
         };
         
         loadChartsData();
-    }, [chartPeriod, settings.chartDefaultPeriod]);
+    }, [chartPeriod]);
 
     useEffect(() => {
         if (settings.autoRefresh && !loading) {
             const timer = setInterval(async () => {
                 try {
                     const [dashboardData, chartsData, progressData, goalData] = await Promise.all([
-                        directeurSpaceService.getCurrentGlobalGoal(),
+                        directeurSpaceService.getDashboardStats(),
                         Promise.all([
                             directeurSpaceService.getPerformanceHistory(),
-                            directeurSpaceService.getPerformanceHistory()
+                            directeurSpaceService.getRepassageChart(chartPeriod)
                         ]),
                         directeurSpaceService.getCommerciauxStats(),
                         directeurSpaceService.getCurrentGlobalGoal()
@@ -233,8 +237,8 @@ const DashboardDirecteur = () => {
                     };
 
                     setDashboardData(adaptedDashboardData);
-                    setPerformanceData(chartsData[0]?.week || []);
-                    setRepassageData(chartsData[1]?.week || []);
+                    setPerformanceData((chartsData[0] as any)?.[chartPeriod] || []);
+                    setRepassageData(chartsData[1] || []);
                     setCommercialsProgress(progressData || []);
                     setCurrentGlobalGoal(goalData || {
                     goal: 0,
@@ -324,8 +328,22 @@ const DashboardDirecteur = () => {
                 <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4 animate-in fade-in-0 [animation-delay:100ms] duration-500">
                     <StatCard title="Contrats Signés" value={dashboardData.stats.contratsSignes} Icon={FileSignature} color="text-emerald-500" />
                     <StatCard title="RDV Pris" value={dashboardData.stats.rdvPris} Icon={Briefcase} color="text-sky-500" />
-                    <StatCard title="Taux de Signature" value={dashboardData.stats.tauxSignature} Icon={Sparkles} suffix="%" color="text-violet-500" />
-                    <StatCard title="Performance Moyenne" value={dashboardData.stats.perfMoyenne} Icon={Target} suffix="%" color="text-amber-500" />
+                    <StatCard 
+                        title="Taux de Signature" 
+                        value={dashboardData.stats.tauxSignature} 
+                        Icon={Sparkles} 
+                        suffix="%" 
+                        color="text-violet-500"
+                        tooltip="Pourcentage de portes visitées qui ont abouti à un contrat signé. Calculé comme : (Contrats signés / Portes visitées) × 100"
+                    />
+                    <StatCard 
+                        title="Performance Moyenne" 
+                        value={dashboardData.stats.perfMoyenne} 
+                        Icon={Target} 
+                        suffix="%" 
+                        color="text-amber-500"
+                        tooltip="Performance moyenne de tous les commerciaux sous votre direction. Représente l'efficacité globale de vos équipes sur la période sélectionnée"
+                    />
                 </div>
             </section>
             )}
@@ -348,7 +366,14 @@ const DashboardDirecteur = () => {
                         <span className="text-lg font-semibold">{dashboardData.managerStats.meilleurManager}</span>
                       </CardContent>
                     </Card>
-                    <StatCard title="Taux Conclusion Moyen" value={dashboardData.managerStats.tauxConclusionMoyen} Icon={Percent} suffix="%" color="text-green-500" />
+                    <StatCard 
+                        title="Taux Conclusion Moyen" 
+                        value={dashboardData.managerStats.tauxConclusionMoyen} 
+                        Icon={Percent} 
+                        suffix="%" 
+                        color="text-green-500"
+                        tooltip="Taux de conclusion moyen de vos managers. Représente l'efficacité moyenne de vos managers à convertir les prospections en contrats signés"
+                    />
                     <StatCard title="RDV Moyen / Manager" value={dashboardData.managerStats.rdvMoyen} Icon={ClipboardCheck} color="text-blue-500" />
                     <StatCard title="Effectif total des managers" value={dashboardData.managerStats.effectifTotal} Icon={UserCheck} color="text-indigo-500" />
                 </div>

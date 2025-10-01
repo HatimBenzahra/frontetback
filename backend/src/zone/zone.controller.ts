@@ -29,7 +29,7 @@ interface AuthRequest extends Request {
 
 @Controller('zones')
 @UseGuards(JwtAuthGuard, RolesGuard)
-@Roles('admin', 'manager', 'commercial')
+@Roles('admin', 'manager', 'commercial', 'directeur')
 export class ZoneController {
   constructor(private readonly zoneService: ZoneService) {}
 
@@ -52,6 +52,10 @@ export class ZoneController {
     }
     else if (roles.includes('commercial')) {
       // Commercial voit toutes les zones (pour informations générales)
+      return this.zoneService.findAll();
+    }
+    else if (roles.includes('directeur')) {
+      // Directeur voit toutes les zones
       return this.zoneService.findAll();
     }
     
@@ -179,7 +183,7 @@ export class ZoneController {
     const { roles } = req.user;
     
     // Seuls les admins et managers peuvent voir les statistiques détaillées des zones
-    if (!roles.includes('admin') && !roles.includes('manager')) {
+    if (!roles.includes('admin') && !roles.includes('manager') && !roles.includes('directeur')) {
       throw new ForbiddenException('Access denied to zones statistics');
     }
     

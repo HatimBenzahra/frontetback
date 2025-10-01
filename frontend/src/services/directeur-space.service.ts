@@ -42,6 +42,14 @@ export interface DirecteurEquipe {
     prenom: string;
   };
   commerciaux: DirecteurCommercial[];
+  stats?: {
+    contratsSignes: number;
+    rdvPris: number;
+    refus: number;
+    immeublesProspectes: number;
+    portesProspectees: number;
+    classementGeneral?: number;
+  };
 }
 
 export interface DirecteurStats {
@@ -191,6 +199,12 @@ class DirecteurSpaceService {
     return response.data;
   }
 
+  // Nouvelle méthode pour les stats du dashboard
+  async getDashboardStats(): Promise<any> {
+    const response = await axios.get(`${API_BASE_URL}/directeur-space/statistics/global`);
+    return response.data;
+  }
+
   async getManagersStats(): Promise<any[]> {
     const response = await axios.get(`${API_BASE_URL}/directeur-space/statistics/managers`);
     return response.data;
@@ -208,6 +222,13 @@ class DirecteurSpaceService {
 
   async getPerformanceHistory(): Promise<PerformanceHistory> {
     const response = await axios.get(`${API_BASE_URL}/directeur-space/statistics/performance-history`);
+    return response.data;
+  }
+
+  async getRepassageChart(period: string = 'week'): Promise<any[]> {
+    const response = await axios.get(`${API_BASE_URL}/directeur-space/statistics/repassage-chart`, { 
+      params: { period } 
+    });
     return response.data;
   }
 
@@ -232,8 +253,32 @@ class DirecteurSpaceService {
     return response.data;
   }
 
+  // Version optimisée pour le dashboard avec limite
+  async getAssignmentHistoryOptimized(limit?: number): Promise<any[]> {
+    const response = await axios.get(`${API_BASE_URL}/directeur-space/assignments/history`, {
+      params: limit ? { limit } : {}
+    });
+    return response.data;
+  }
+
   async getAssignmentsWithStatus(): Promise<any> {
     const response = await axios.get(`${API_BASE_URL}/directeur-space/assignments/status`);
+    return response.data;
+  }
+
+  // Zones
+  async getZones(): Promise<any[]> {
+    const response = await axios.get(`${API_BASE_URL}/directeur-space/zones`);
+    return response.data;
+  }
+
+  async getZone(zoneId: string): Promise<any> {
+    const response = await axios.get(`${API_BASE_URL}/directeur-space/zones/${zoneId}`);
+    return response.data;
+  }
+
+  async getZonesStatistics(): Promise<any> {
+    const response = await axios.get(`${API_BASE_URL}/directeur-space/statistics/zones`);
     return response.data;
   }
 }

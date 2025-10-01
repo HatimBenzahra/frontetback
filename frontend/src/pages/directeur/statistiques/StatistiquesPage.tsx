@@ -22,7 +22,6 @@ import {
     BarChart3, Briefcase, FileSignature, Target, TrendingUp, Filter, X, RefreshCw
 } from 'lucide-react';
 import { directeurSpaceService } from '@/services/directeur-space.service';
-import { zoneService } from '@/services/zone.service';
 import { useDashboardSettings } from '@/hooks/useDashboardSettings';
 
 const StatistiquesPage = () => {
@@ -43,12 +42,12 @@ const StatistiquesPage = () => {
     const [entities, setEntities] = useState<{ id: string, nom: string }[]>([]);
     const [loadingEntities, setLoadingEntities] = useState(false);
 
-    // Charger les zones disponibles
+    // Charger les zones disponibles pour le directeur
     useEffect(() => {
         const fetchZones = async () => {
             setLoadingZones(true);
             try {
-                const zonesData = await zoneService.getZones();
+                const zonesData = await directeurSpaceService.getZones();
                 setZones(zonesData.map((zone: any) => ({ id: zone.id, nom: zone.nom })));
             } catch (err) {
                 console.error("Failed to fetch zones:", err);
@@ -581,7 +580,7 @@ const StatistiquesPage = () => {
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.7 }}
             >
-                <ZonesStatsCharts />
+                <ZonesStatsCharts userRole="directeur" />
             </motion.div>
 
             {/* Classements avec design moderne */}

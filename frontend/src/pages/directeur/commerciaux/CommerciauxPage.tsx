@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo, useCallback } from "react";
+import { useNavigate } from "react-router-dom";
 import { Users, UserCheck, TrendingUp, Target } from "lucide-react";
 
 import { createColumns } from "./commerciaux-table/columns";
@@ -11,6 +12,7 @@ import { AdminPageSkeleton } from "@/components/ui-admin/AdminPageSkeleton";
 import type { Commercial, EnrichedCommercial } from "@/types/types";
 
 const CommerciauxPage = () => {
+  const navigate = useNavigate();
   const [data, setData] = useState<EnrichedCommercial[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -94,8 +96,8 @@ const CommerciauxPage = () => {
   const handleEditOpen = () => {};
   const handleViewDetails = useCallback((commercial: Commercial) => {
     // Navigation vers la page de détails du commercial
-    window.location.href = `/directeur/commerciaux/${commercial.id}`;
-  }, []);
+    navigate(`/directeur/commerciaux/${commercial.id}`);
+  }, [navigate]);
 
   const columns = useMemo(
     () => createColumns(false, handleEditOpen as any, handleViewDetails as any, () => {}) as any,

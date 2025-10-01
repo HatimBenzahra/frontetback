@@ -188,13 +188,19 @@ export const createColumns = (
                             <TooltipContent><p>Assigner</p></TooltipContent>
                           </Tooltip>
                         )}
-                        <Link 
-                          to={`/admin/commerciaux/${commercial.id}`} 
-                          onClick={(e) => e.stopPropagation()}
-                          className="inline-flex items-center justify-center h-8 w-8 p-0 rounded-md text-sm font-medium transition-colors hover:bg-accent hover:text-accent-foreground"
-                        >
-                          <Eye className="h-4 w-4" />
-                        </Link>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <Link 
+                              to={`/admin/commerciaux/${commercial.id}`} 
+                              onClick={(e) => e.stopPropagation()}
+                              className="inline-flex items-center justify-center h-8 w-8 p-0 rounded-md text-sm font-medium transition-colors hover:bg-accent hover:text-accent-foreground"
+                            >
+                              <Eye className="h-4 w-4" />
+                              <span className="sr-only">Voir détails</span>
+                            </Link>
+                          </TooltipTrigger>
+                          <TooltipContent><p>Voir détails</p></TooltipContent>
+                        </Tooltip>
 
                         <Tooltip>
                             <TooltipTrigger asChild>

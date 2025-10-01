@@ -138,9 +138,13 @@ const DashboardAdmin = () => {
         loadAllData();
     }, [settings.defaultTimeFilter]);
 
+    // Initialiser le chartPeriod depuis les paramètres
     useEffect(() => {
-        // synchroniser le period par défaut des graphiques avec les paramètres
         setChartPeriod(settings.chartDefaultPeriod || 'week');
+    }, [settings.chartDefaultPeriod]);
+
+    // Charger les données des graphiques quand chartPeriod change
+    useEffect(() => {
         const loadChartsData = async () => {
             try {
                 setChartsLoading(true);
@@ -158,7 +162,7 @@ const DashboardAdmin = () => {
         };
         
         loadChartsData();
-    }, [chartPeriod, settings.chartDefaultPeriod]);
+    }, [chartPeriod]);
 
     useEffect(() => {
         if (settings.autoRefresh && !loading) {
@@ -262,8 +266,22 @@ const DashboardAdmin = () => {
                 <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4 animate-in fade-in-0 [animation-delay:100ms] duration-500">
                     <StatCard title="Contrats Signés" value={dashboardData.stats.contratsSignes} Icon={FileSignature} color="text-emerald-500" />
                     <StatCard title="RDV Pris" value={dashboardData.stats.rdvPris} Icon={Briefcase} color="text-sky-500" />
-                    <StatCard title="Taux de Signature" value={dashboardData.stats.tauxSignature} Icon={Sparkles} suffix="%" color="text-violet-500" />
-                    <StatCard title="Performance Moyenne" value={dashboardData.stats.perfMoyenne} Icon={Target} suffix="%" color="text-amber-500" />
+                    <StatCard 
+                        title="Taux de Signature" 
+                        value={dashboardData.stats.tauxSignature} 
+                        Icon={Sparkles} 
+                        suffix="%" 
+                        color="text-violet-500"
+                        tooltip="Pourcentage de portes visitées qui ont abouti à un contrat signé. Calculé comme : (Contrats signés / Portes visitées) × 100"
+                    />
+                    <StatCard 
+                        title="Performance Moyenne" 
+                        value={dashboardData.stats.perfMoyenne} 
+                        Icon={Target} 
+                        suffix="%" 
+                        color="text-amber-500"
+                        tooltip="Performance moyenne de tous les commerciaux. Représente l'efficacité globale de l'équipe commerciale sur la période sélectionnée"
+                    />
                 </div>
             </section>
             )}
@@ -286,7 +304,14 @@ const DashboardAdmin = () => {
                         <span className="text-lg font-semibold">{dashboardData.managerStats.meilleurManager}</span>
                       </CardContent>
                     </Card>
-                    <StatCard title="Taux Conclusion Moyen" value={dashboardData.managerStats.tauxConclusionMoyen} Icon={Percent} suffix="%" color="text-green-500" />
+                    <StatCard 
+                        title="Taux Conclusion Moyen" 
+                        value={dashboardData.managerStats.tauxConclusionMoyen} 
+                        Icon={Percent} 
+                        suffix="%" 
+                        color="text-green-500"
+                        tooltip="Taux de conclusion moyen de tous les managers. Représente l'efficacité moyenne des managers à convertir les prospections en contrats signés"
+                    />
                     <StatCard title="RDV Moyen / Manager" value={dashboardData.managerStats.rdvMoyen} Icon={ClipboardCheck} color="text-blue-500" />
                     <StatCard title="Effectif total des managers" value={dashboardData.managerStats.effectifTotal} Icon={UserCheck} color="text-indigo-500" />
                 </div>

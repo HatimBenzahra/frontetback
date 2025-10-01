@@ -3,6 +3,7 @@ import {
   Get,
   UseGuards,
   Request,
+  Query,
 } from '@nestjs/common';
 import { DirecteurStatisticsService } from './directeur-statistics.service';
 import { JwtAuthGuard } from '../../auth/jwt-auth.guard';
@@ -63,6 +64,23 @@ export class DirecteurStatisticsController {
   ) {
     const directeurId = req.user.directeurId;
     return this.statisticsService.getDirecteurPerformanceHistory(directeurId);
+  }
+
+  @Get('repassage-chart')
+  async getRepassageChart(
+    @Request() req: AuthRequest,
+    @Query('period') period?: string
+  ) {
+    const directeurId = req.user.directeurId;
+    return this.statisticsService.getDirecteurRepassageChart(directeurId, period);
+  }
+
+  @Get('zones')
+  async getZonesStats(
+    @Request() req: AuthRequest
+  ) {
+    const directeurId = req.user.directeurId;
+    return this.statisticsService.getDirecteurZonesStats(directeurId);
   }
 }
 

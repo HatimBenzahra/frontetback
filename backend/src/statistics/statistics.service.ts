@@ -1049,13 +1049,13 @@ export class StatisticsService {
     return [];
   }
 
-  async getRepassageChart(period: string = 'WEEKLY') {
+  async getRepassageChart(period: string = 'week') {
     const getDateRanges = (period: string) => {
       const now = new Date();
       let startDate: Date, endDate: Date;
 
       switch (period) {
-        case 'WEEKLY':
+        case 'week':
           const currentDay = now.getDay();
           // Lundi = 1, Dimanche = 0
           const daysFromMonday = currentDay === 0 ? 6 : currentDay - 1;
@@ -1064,11 +1064,11 @@ export class StatisticsService {
           endDate = new Date(startDate);
           endDate.setDate(startDate.getDate() + 6);
           break;
-        case 'MONTHLY':
+        case 'month':
           startDate = new Date(now.getFullYear(), now.getMonth(), 1);
           endDate = new Date(now.getFullYear(), now.getMonth() + 1, 0);
           break;
-        case 'YEARLY':
+        case 'year':
           startDate = new Date(now.getFullYear(), 0, 1);
           endDate = new Date(now.getFullYear(), 11, 31);
           break;

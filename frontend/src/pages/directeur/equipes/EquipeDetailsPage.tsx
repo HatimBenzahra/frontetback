@@ -13,6 +13,7 @@ import StatCard from "@/components/ui-admin/StatCard";
 import { GenericBarChart } from "@/components/charts/GenericBarChart";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui-admin/card";
 import { directeurSpaceService, type DirecteurEquipe, type DirecteurCommercial } from "@/services/directeur-space.service";
+import { assignmentGoalsService } from "@/services/assignment-goals.service";
 import { Modal } from "@/components/ui-admin/Modal";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui-admin/select";
 import { Label } from "@/components/ui-admin/label";
@@ -43,19 +44,36 @@ const EquipeDetailsPage = () => {
       
       const fetchAllData = async () => {
         try {
-          const [equipeData, commerciauxData] = await Promise.all([
+          const [equipeData, commerciauxData, assignedZonesData] = await Promise.all([
             directeurSpaceService.getEquipe(equipeId),
             directeurSpaceService.getCommerciaux(),
+            assignmentGoalsService.getAssignedZonesForEquipe(equipeId),
           ]);
 
-          setEquipeDetails(equipeData);
+          // Calculer les statistiques à partir des historiques des commerciaux
+          const calculatedStats = calculateStatsFromHistoriques(equipeData.commerciaux);
+
+          // Enrichir les données de l'équipe avec les statistiques calculées
+          const enrichedEquipeData = {
+            ...equipeData,
+            stats: {
+              contratsSignes: calculatedStats.totalContratsSignes,
+              rdvPris: calculatedStats.totalRdvPris,
+              refus: calculatedStats.totalRefus,
+              immeublesProspectes: calculatedStats.totalImmeublesProspectes,
+              portesProspectees: calculatedStats.totalPortesProspectees,
+              classementGeneral: 1, // Par défaut, on peut calculer cela plus tard
+            }
+          };
+
+          setEquipeDetails(enrichedEquipeData);
           setAllCommerciaux(commerciauxData);
           
-          // For now, we'll use empty zones since the backend doesn't have zone assignment yet
-          setZonesStats([]);
+          // Les zones sont déjà triées par date de création (plus récent en premier) depuis le backend
+          setZonesStats(assignedZonesData);
           
-          // Generate performance data based on equipe data
-          generateZonePerformanceData(equipeData, []);
+          // Génération des données de performance par zone (vraies données)
+          generateZonePerformanceData(enrichedEquipeData, assignedZonesData);
 
         } catch (error) {
           console.error("Erreur lors de la récupération des données:", error);
@@ -69,6 +87,42 @@ const EquipeDetailsPage = () => {
       fetchAllData();
     }
   }, [equipeId]);
+
+  // Fonction pour calculer les statistiques à partir des historiques des commerciaux
+  const calculateStatsFromHistoriques = (commerciaux: DirecteurCommercial[]) => {
+    let totalContratsSignes = 0;
+    let totalRdvPris = 0;
+    let totalRefus = 0;
+    let totalPortesProspectees = 0;
+    let totalImmeublesProspectes = 0;
+    const immeublesVisites = new Set();
+
+    commerciaux.forEach(commercial => {
+      if (commercial.historiques) {
+        commercial.historiques.forEach(historique => {
+          totalContratsSignes += historique.nbContratsSignes || 0;
+          totalRdvPris += historique.nbRdvPris || 0;
+          totalRefus += historique.nbRefus || 0;
+          totalPortesProspectees += historique.nbPortesVisitees || 0;
+          
+          // Compter les immeubles uniques visités
+          if (historique.immeubleId) {
+            immeublesVisites.add(historique.immeubleId);
+          }
+        });
+      }
+    });
+
+    totalImmeublesProspectes = immeublesVisites.size;
+
+    return {
+      totalContratsSignes,
+      totalRdvPris,
+      totalRefus,
+      totalImmeublesProspectes,
+      totalPortesProspectees,
+    };
+  };
 
   // Fonction pour générer les données de performance par zone (utilise les vraies données)
   const generateZonePerformanceData = (_equipeData: DirecteurEquipe, zones: any[]) => {
@@ -169,7 +223,7 @@ const EquipeDetailsPage = () => {
                   </div>
                   <div className="flex items-center gap-1">
                     <Award className="h-4 w-4" />
-                    <span>Équipe</span>
+                    <span>Classement #{equipeDetails.stats?.classementGeneral || '-'}</span>
                   </div>
                 </div>
                 <p className="text-green-200 mt-1 text-sm">
@@ -210,7 +264,7 @@ const EquipeDetailsPage = () => {
               <Trophy className="h-5 w-5 text-yellow-500" />
               <div>
                 <p className="text-sm text-gray-500">Classement général</p>
-                <p className="font-medium">-</p>
+                <p className="font-medium">#{equipeDetails.stats?.classementGeneral || '-'}</p>
               </div>
             </div>
                   </div>
@@ -221,31 +275,31 @@ const EquipeDetailsPage = () => {
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
         <StatCard 
           title="Contrats Signés" 
-          value={0} 
+          value={equipeDetails.stats?.contratsSignes || 0} 
           Icon={Handshake} 
           color="text-emerald-500" 
         />
         <StatCard 
           title="RDV Pris" 
-          value={0} 
+          value={equipeDetails.stats?.rdvPris || 0} 
           Icon={Briefcase} 
           color="text-sky-500" 
         />
         <StatCard 
           title="Refus" 
-          value={0} 
+          value={equipeDetails.stats?.refus || 0} 
           Icon={X} 
           color="text-red-500" 
         />
         <StatCard 
           title="Immeubles Prospectés" 
-          value={0} 
+          value={equipeDetails.stats?.immeublesProspectes || 0} 
           Icon={Building} 
           color="text-orange-500" 
         />
         <StatCard 
           title="Portes Prospectées" 
-          value={0} 
+          value={equipeDetails.stats?.portesProspectees || 0} 
           Icon={DoorOpen} 
           color="text-indigo-500" 
         />

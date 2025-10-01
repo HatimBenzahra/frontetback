@@ -168,6 +168,14 @@ const getManagerRepassageChart = async (period?: string): Promise<any> => {
   return response.data;
 };
 
+// Fonction optimisée pour récupérer l'historique des assignations (pour le dashboard)
+const getManagerAssignmentHistory = async (limit?: number): Promise<any[]> => {
+  const response = await axios.get(`${API_BASE_URL}/manager-space/assignment-goals/history`, {
+    params: limit ? { limit } : {}
+  });
+  return response.data;
+};
+
 // Fonctions pour les portes
 const getManagerPortesForImmeuble = async (immeubleId: string): Promise<any> => {
   const response = await axios.get(`${API_BASE_URL}/manager-space/portes/immeuble/${immeubleId}`);
@@ -245,4 +253,5 @@ export const managerService = {
   getManagerEquipeStats,
   getManagerGlobalPerformanceChart,
   getManagerRepassageChart,
+  getManagerAssignmentHistory,
 };

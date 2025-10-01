@@ -1,7 +1,10 @@
 import { useEffect, useState, useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui-admin/card';
 import { AlertCircle } from 'lucide-react';
+import { assignmentGoalsService } from '@/services/assignment-goals.service';
 import { directeurSpaceService } from '@/services/directeur-space.service';
+import { managerService } from '@/services/manager.service';
+import { useAuth } from '@/contexts/AuthContext';
 
 interface CountdownCardProps {
   currentGlobalGoal?: { goal: number; startDate: string; endDate: string } | null;
@@ -38,17 +41,27 @@ export const CountdownCard = ({
   isLoading = false,
   refreshTrigger = 0
 }: CountdownCardProps) => {
+  const { user } = useAuth();
   const [goalTimeRemaining, setGoalTimeRemaining] = useState<TimeRemaining | null>(null);
   const [zoneTimeRemaining, setZoneTimeRemaining] = useState<TimeRemaining | null>(null);
   const [zoneDeadline, setZoneDeadline] = useState<Date | null>(null);
   const [nearestZoneAssignment, setNearestZoneAssignment] = useState<any>(null);
   const [loadingZoneData, setLoadingZoneData] = useState(true);
 
-  // Fonction pour récupérer la prochaine deadline d'assignation de zone
+  // Fonction pour récupérer la prochaine deadline d'assignation de zone selon le rôle
   const loadZoneAssignments = async () => {
     try {
       setLoadingZoneData(true);
-      const assignmentHistory = await directeurSpaceService.getAssignmentHistory();
+      let assignmentHistory: any[] = [];
+
+      // Utiliser le bon service selon le rôle de l'utilisateur
+      if (user?.role === 'admin') {
+        assignmentHistory = await assignmentGoalsService.getAssignmentHistory();
+      } else if (user?.role === 'directeur') {
+        assignmentHistory = await directeurSpaceService.getAssignmentHistoryOptimized(10);
+      } else if (user?.role === 'manager') {
+        assignmentHistory = await managerService.getManagerAssignmentHistory(10);
+      }
       
       if (assignmentHistory && assignmentHistory.length > 0) {
         // Trouver l'assignation avec la date de fin la plus proche dans le futur

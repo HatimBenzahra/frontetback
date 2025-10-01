@@ -4,14 +4,16 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { GenericPieChart } from '@/components/charts/GenericPieChart';
 import { GenericBarChart } from '@/components/charts/GenericBarChart';
 import { zoneService, type ZonesStatisticsResponse } from '@/services/zone.service';
+import { directeurSpaceService } from '@/services/directeur-space.service';
 import { MapPin, TrendingDown, TrendingUp, Target } from 'lucide-react';
 import StatCard from '@/components/ui-admin/StatCard';
 
 interface ZonesStatsChartsProps {
   className?: string;
+  userRole?: 'admin' | 'directeur' | 'manager';
 }
 
-export const ZonesStatsCharts = ({ className }: ZonesStatsChartsProps) => {
+export const ZonesStatsCharts = ({ className, userRole = 'admin' }: ZonesStatsChartsProps) => {
   const [zonesStats, setZonesStats] = useState<ZonesStatisticsResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -20,7 +22,10 @@ export const ZonesStatsCharts = ({ className }: ZonesStatsChartsProps) => {
     const fetchZonesStatistics = async () => {
       try {
         setLoading(true);
-        const data = await zoneService.getZonesStatistics();
+        // Utiliser le service approprié selon le rôle de l'utilisateur
+        const data = userRole === 'directeur' 
+          ? await directeurSpaceService.getZonesStatistics()
+          : await zoneService.getZonesStatistics();
         setZonesStats(data);
       } catch (err) {
         console.error('Erreur lors de la récupération des statistiques des zones:', err);
@@ -31,7 +36,7 @@ export const ZonesStatsCharts = ({ className }: ZonesStatsChartsProps) => {
     };
 
     fetchZonesStatistics();
-  }, []);
+  }, [userRole]);
 
   if (loading) {
     return (

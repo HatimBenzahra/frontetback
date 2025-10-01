@@ -12,7 +12,7 @@ interface DirecteurSidebarProps {
 export const DirecteurSidebar = ({ isCollapsed, toggleSidebar }: DirecteurSidebarProps) => {
   return (
     <aside
-      className={`hidden lg:flex flex-col bg-[#FEF3E2] transition-all duration-300 sticky top-0 h-screen ${
+      className={`hidden lg:flex flex-col bg-[#FAFAFA] transition-all duration-300 sticky top-0 h-screen ${
         isCollapsed ? 'w-20' : 'w-64'
       }`}
     >
