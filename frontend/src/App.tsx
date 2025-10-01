@@ -69,6 +69,8 @@ import DirecteurCommerciauxPage from './pages/directeur/commerciaux/CommerciauxP
 import DirecteurCommercialDetailsPage from './pages/directeur/commerciaux/CommercialDetailsPage';
 import DirecteurStatistiquesPage from './pages/directeur/statistiques/StatistiquesPage';
 import DirecteurGPSTrackingPage from './pages/directeur/gps-tracking/GPSTrackingPage';
+import DirecteurImmeublesPage from './pages/directeur/immeubles/ImmeublesPage';
+import DirecteurImmeubleDetailsPage from './pages/directeur/immeubles/portes/ImmeubleDetailsPage';
 import DashboardBackoffice from './pages/backoffice/DashboardBackoffice';
 import ManagerGPSPage from './pages/manager/gps/gps_suivi';
 import ManagerZonesPage from './pages/manager/zones/ZonesPage';
@@ -176,6 +178,8 @@ function App() {
                     <Route path="commerciaux/:id" element={<DirecteurCommercialDetailsPage />} />
                     <Route path="statistiques" element={<DirecteurStatistiquesPage />} />
                     <Route path="gps-tracking" element={<DirecteurGPSTrackingPage />} />
+                    <Route path="immeubles" element={<DirecteurImmeublesPage />} />
+                    <Route path="immeubles/:immeubleId" element={<DirecteurImmeubleDetailsPage />} />
                     {/* Routes supplémentaires pour le directeur seront ajoutées ici */}
                   </Route>
 

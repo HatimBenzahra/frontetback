@@ -267,7 +267,7 @@ export const createColumns = (
                         <Tooltip>
                             <TooltipTrigger asChild>
                                 <Link 
-                                  to={`/directeur/immeubles/${immeuble.id}/portes`} 
+                                  to={`/directeur/immeubles/${immeuble.id}`} 
                                   onClick={(e) => e.stopPropagation()}
                                   className="inline-flex items-center justify-center h-8 w-8 p-0 rounded-md text-sm font-medium transition-colors hover:bg-accent hover:text-accent-foreground"
                                 >

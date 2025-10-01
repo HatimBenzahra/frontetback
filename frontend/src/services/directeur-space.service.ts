@@ -281,6 +281,31 @@ class DirecteurSpaceService {
     const response = await axios.get(`${API_BASE_URL}/directeur-space/statistics/zones`);
     return response.data;
   }
+
+  // Immeubles
+  async getImmeubles(): Promise<any[]> {
+    const response = await axios.get(`${API_BASE_URL}/directeur-space/immeubles`);
+    return response.data;
+  }
+
+  async getImmeuble(immeubleId: string): Promise<any> {
+    const response = await axios.get(`${API_BASE_URL}/directeur-space/immeubles/${immeubleId}`);
+    return response.data;
+  }
+
+  // Transcriptions
+  async getTranscriptions(options: {
+    commercialId?: string;
+    buildingId?: string;
+    limit?: number;
+    startDate?: Date;
+    endDate?: Date;
+  } = {}): Promise<any[]> {
+    const response = await axios.get(`${API_BASE_URL}/directeur-space/transcriptions`, {
+      params: options
+    });
+    return response.data;
+  }
 }
 
 export const directeurSpaceService = new DirecteurSpaceService();

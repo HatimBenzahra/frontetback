@@ -8,6 +8,9 @@ import { DirecteurCommercialModule } from './commercial/commercial.module';
 import { DirecteurManagerModule } from './manager/manager.module';
 import { EquipeModule } from './equipe/equipe.module';
 import { DirecteurStatisticsModule } from './statistics/directeur-statistics.module';
+import { DirecteurImmeubleModule } from './immeuble/directeur-immeuble.module';
+import { DirecteurTranscriptionsModule } from './transcriptions/directeur-transcriptions.module';
+import { DirecteurZoneModule } from './zone/directeur-zone.module';
 
 @Module({
   imports: [
@@ -17,7 +20,10 @@ import { DirecteurStatisticsModule } from './statistics/directeur-statistics.mod
     DirecteurCommercialModule,
     DirecteurManagerModule,
     forwardRef(() => EquipeModule),
-    DirecteurStatisticsModule
+    DirecteurStatisticsModule,
+    DirecteurImmeubleModule,
+    DirecteurTranscriptionsModule,
+    DirecteurZoneModule
   ],
   controllers: [DirecteurSpaceController],
   providers: [DirecteurSpaceService],
