@@ -1,13 +1,14 @@
 import { Module } from '@nestjs/common';
 import { TranscriptionHistoryController } from './transcription-history.controller';
 import { TranscriptionHistoryService } from './transcription-history.service';
+import { AIQueueService } from './ai-queue.service';
 import { PrismaModule } from '../prisma/prisma.module';
 import { TextProcessingModule } from '../text-processing/text-processing.module';
 
 @Module({
   imports: [PrismaModule, TextProcessingModule],
   controllers: [TranscriptionHistoryController],
-  providers: [TranscriptionHistoryService],
+  providers: [TranscriptionHistoryService, AIQueueService],
   exports: [TranscriptionHistoryService],
 })
 export class TranscriptionHistoryModule {} 

@@ -121,30 +121,50 @@ export class EventsGateway implements OnGatewayConnection, OnGatewayDisconnect {
     console.log('Sauvegarde automatique périodique démarrée (toutes les 30s)');
   }
 
-  // Sauvegarder toutes les sessions actives
+  // Sauvegarder toutes les sessions actives EN PARALLÈLE pour la scalabilité
   private async saveActiveSessions() {
     if (this.activeTranscriptionSessions.size === 0) {
       return;
     }
 
-    console.log(`💾 Sauvegarde automatique de ${this.activeTranscriptionSessions.size} session(s) active(s)`);
+    const sessionCount = this.activeTranscriptionSessions.size;
+    console.log(`💾 Sauvegarde automatique de ${sessionCount} session(s) active(s) en parallèle`);
     
-    for (const [commercialId, session] of this.activeTranscriptionSessions) {
-      try {
-        // Créer une copie de la session avec un end_time temporaire pour la sauvegarde
-        const sessionBackup = {
-          ...session,
-          end_time: new Date().toISOString(), // Temporaire pour la sauvegarde
-          duration_seconds: Math.round((new Date().getTime() - new Date(session.start_time).getTime()) / 1000)
-        };
+    const startTime = Date.now();
+    
+    // Créer un tableau de promesses pour sauvegarder en parallèle
+    const savePromises = Array.from(this.activeTranscriptionSessions.entries()).map(
+      async ([commercialId, session]) => {
+        try {
+          // Créer une copie de la session avec un end_time temporaire pour la sauvegarde
+          const sessionBackup = {
+            ...session,
+            end_time: new Date().toISOString(), // Temporaire pour la sauvegarde
+            duration_seconds: Math.round((new Date().getTime() - new Date(session.start_time).getTime()) / 1000)
+          };
 
-        // Utiliser l'ID original de la session (upsert mettra à jour si elle existe)
-        // Sauvegarder SANS traitement IA (sauvegarde automatique)
-        await this.transcriptionHistoryService.saveSession(sessionBackup, true);
-        console.log(`💾 Session active ${commercialId} sauvegardée (backup)`);
-      } catch (error) {
-        console.error(`❌ Erreur sauvegarde session active ${commercialId}:`, error);
+          // Utiliser l'ID original de la session (upsert mettra à jour si elle existe)
+          // Sauvegarder SANS traitement IA (sauvegarde automatique)
+          await this.transcriptionHistoryService.saveSession(sessionBackup, true);
+          return { success: true, commercialId };
+        } catch (error) {
+          console.error(`❌ Erreur sauvegarde session active ${commercialId}:`, error);
+          return { success: false, commercialId, error };
+        }
       }
+    );
+
+    // Attendre que toutes les sauvegardes se terminent (en parallèle)
+    const results = await Promise.all(savePromises);
+    
+    const successCount = results.filter(r => r.success).length;
+    const duration = Date.now() - startTime;
+    
+    console.log(`✅ Sauvegarde automatique terminée: ${successCount}/${sessionCount} réussies en ${duration}ms (${Math.round(duration / sessionCount)}ms/session en moyenne)`);
+    
+    if (successCount < sessionCount) {
+      const failedCount = sessionCount - successCount;
+      console.warn(`⚠️  ${failedCount} session(s) non sauvegardée(s)`);
     }
   }
 
@@ -261,22 +281,33 @@ export class EventsGateway implements OnGatewayConnection, OnGatewayDisconnect {
       socket_id: client.id,
     });
     
-    // Créer une nouvelle session de transcription
-    const sessionId = `${data.commercial_id}_${Date.now()}`;
-    const session: TranscriptionSession = {
-      id: sessionId,
-      commercial_id: data.commercial_id,
-      commercial_name: data.commercial_info?.name || 'Commercial',
-      start_time: new Date().toISOString(),
-      end_time: '',
-      full_transcript: '',
-      duration_seconds: 0,
-      building_id: data.building_id,
-      building_name: data.building_name
-    };
-    
-    this.activeTranscriptionSessions.set(data.commercial_id, session);
-    console.log(`📝 Session de transcription créée pour ${data.commercial_id}:`, sessionId);
+    // Créer une nouvelle session de transcription SEULEMENT si elle n'existe pas
+    let session = this.activeTranscriptionSessions.get(data.commercial_id);
+    if (!session) {
+      const sessionId = `${data.commercial_id}_${Date.now()}`;
+      session = {
+        id: sessionId,
+        commercial_id: data.commercial_id,
+        commercial_name: data.commercial_info?.name || 'Commercial',
+        start_time: new Date().toISOString(),
+        end_time: '',
+        full_transcript: '',
+        duration_seconds: 0,
+        building_id: data.building_id,
+        building_name: data.building_name
+      };
+      
+      this.activeTranscriptionSessions.set(data.commercial_id, session);
+      console.log(`📝 Session de transcription créée pour ${data.commercial_id}:`, sessionId);
+    } else {
+      // Session existe déjà, ne pas en créer une nouvelle
+      console.log(`♻️  Session de transcription existe déjà pour ${data.commercial_id} (ID: ${session.id}), réutilisation`);
+      // Mettre à jour les infos du bâtiment si nécessaire
+      if (data.building_name && !session.building_name) {
+        session.building_name = data.building_name;
+        session.building_id = data.building_id;
+      }
+    }
     
     // Diffuser aux admins dans la room audio-streaming avec socket_id
     this.server.to('audio-streaming').emit('start_streaming', {
@@ -549,11 +580,13 @@ export class EventsGateway implements OnGatewayConnection, OnGatewayDisconnect {
       this.activeTranscriptionSessions.set(data.commercial_id, session);
       console.log(`📝 Session de transcription initialisée pour ${data.commercial_id} (${commercialName}) via ${data.source || 'navigateur'}`);
     } else {
+      // Session existe déjà, ne pas en créer une nouvelle
+      // Seulement mettre à jour les informations manquantes
       if (data.building_name && !session.building_name) {
         session.building_name = data.building_name;
         session.building_id = data.building_id;
       }
-      console.log(`🎧 Transcription mise à jour pour ${data.commercial_id} (source: ${data.source || 'navigateur'})`);
+      console.log(`♻️  Session de transcription existe déjà pour ${data.commercial_id} (ID: ${session.id}), réutilisation (source: ${data.source || 'navigateur'})`);
     }
   }
 

@@ -329,6 +329,14 @@ const CommercialTranscriptionPage = () => {
       const fullLocal = (liveCommitted + (livePartial ? (liveCommitted ? ' ' : '') + livePartial : '')).trim();
       console.log('Session terminée, texte local complet:', fullLocal.length, 'caractères');
 
+      // Ne démarrer le traitement IA que si le texte est suffisamment long
+      if (fullLocal.length < 50) {
+        console.warn('⚠️ Texte trop court pour le traitement IA (<50 caractères), pas de polling');
+        toast.warning('Transcription trop courte pour être traitée par l\'IA (minimum 50 caractères)');
+        await loadHistory();
+        return;
+      }
+
       setAiProcessing(session.id, true);
       console.log('🤖 Loading IA activé pour session:', session.id);
 
@@ -454,13 +462,31 @@ const CommercialTranscriptionPage = () => {
     }
   }, [loadCommercialInfo, loadHistory, socket]);
 
-  // Polling pour recharger l'historique (optimisé)
+  // Polling pour recharger l'historique avec timeout anti-boucle infinie
   useEffect(() => {
     if (aiProcessingSessions.size > 0) {
+      let pollCount = 0;
+      const MAX_POLLS = 12; // 12 polls × 10s = 2 minutes max
+      
       const interval = setInterval(() => {
-        console.log('🔄 Polling pour sessions en traitement IA...');
+        pollCount++;
+        console.log(`🔄 Polling pour sessions en traitement IA... (${pollCount}/${MAX_POLLS})`);
+        
+        if (pollCount >= MAX_POLLS) {
+          console.warn('⚠️ Timeout du polling IA atteint (2 minutes), arrêt automatique');
+          console.warn('Sessions ignorées (probablement trop courtes < 50 caractères):', Array.from(aiProcessingSessions.keys()));
+          
+          // Arrêter le loading pour toutes les sessions en attente
+          aiProcessingSessions.forEach(sessionId => {
+            setAiProcessing(sessionId, false);
+          });
+          
+          clearInterval(interval);
+          return;
+        }
+        
         loadHistory();
-      }, 10000); // Réduit de 2s à 10s pour éviter le spam
+      }, 10000); // 10 secondes
 
       return () => clearInterval(interval);
     }

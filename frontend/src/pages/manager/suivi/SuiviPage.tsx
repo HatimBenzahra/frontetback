@@ -32,14 +32,38 @@ const ManagerSuiviPage = () => {
 
   const getIceServers = () => {
     const iceServers: RTCIceServer[] = [];
-    const stun = import.meta.env.VITE_STUN_URL || 'stun:stun.l.google.com:19302';
-    if (stun) iceServers.push({ urls: stun });
+    
+    // Plusieurs serveurs STUN pour plus de robustesse
+    const stunServers = [
+      'stun:stun.l.google.com:19302',
+      'stun:stun1.l.google.com:19302',
+      'stun:stun2.l.google.com:19302',
+      'stun:stun.services.mozilla.com:3478'
+    ];
+    
+    const customStun = import.meta.env.VITE_STUN_URL;
+    if (customStun) {
+      iceServers.push({ urls: customStun });
+    } else {
+      // Utiliser tous les serveurs STUN publics par défaut
+      iceServers.push({ urls: stunServers });
+    }
+    
+    // Serveur TURN si configuré (nécessaire pour NAT restrictif)
     const turnUrl = import.meta.env.VITE_TURN_URL as string | undefined;
     const turnUser = import.meta.env.VITE_TURN_USERNAME as string | undefined;
     const turnCred = import.meta.env.VITE_TURN_CREDENTIAL as string | undefined;
     if (turnUrl && turnUser && turnCred) {
-      iceServers.push({ urls: turnUrl, username: turnUser, credential: turnCred });
+      iceServers.push({ 
+        urls: turnUrl, 
+        username: turnUser, 
+        credential: turnCred 
+      });
+      console.log('✅ Serveur TURN configuré');
+    } else {
+      console.warn('⚠️ Pas de serveur TURN configuré - peut échouer avec NAT restrictif');
     }
+    
     return iceServers;
   };
 

@@ -306,6 +306,31 @@ class DirecteurSpaceService {
     });
     return response.data;
   }
+
+  // Portes
+  async createPorte(porteData: any): Promise<any> {
+    const response = await axios.post(`${API_BASE_URL}/directeur-space/portes`, porteData);
+    return response.data;
+  }
+
+  async updatePorte(porteId: string, porteData: any): Promise<any> {
+    const response = await axios.put(`${API_BASE_URL}/directeur-space/portes/${porteId}`, porteData);
+    return response.data;
+  }
+
+  async deletePorte(porteId: string): Promise<any> {
+    const response = await axios.delete(`${API_BASE_URL}/directeur-space/portes/${porteId}`);
+    return response.data;
+  }
+
+  // Rapports
+  async downloadReport(reportType: string, params?: any): Promise<Blob> {
+    const response = await axios.get(`${API_BASE_URL}/directeur-space/reports/${reportType}`, {
+      params,
+      responseType: 'blob'
+    });
+    return response.data;
+  }
 }
 
 export const directeurSpaceService = new DirecteurSpaceService();

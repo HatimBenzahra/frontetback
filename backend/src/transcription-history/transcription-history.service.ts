@@ -4,6 +4,7 @@ import { Injectable, Inject } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { TextProcessingService } from '../text-processing/text-processing.service';
 import { EventEmitterService } from '../events/event-emitter.service';
+import { AIQueueService } from './ai-queue.service';
 import { S3Client, PutObjectCommand } from '@aws-sdk/client-s3';
 
 export interface TranscriptionSession {
@@ -22,6 +23,7 @@ export interface TranscriptionSession {
 @Injectable()
 export class TranscriptionHistoryService {
   private processingSessions = new Set<string>(); // Protection contre le traitement multiple
+  private aiProcessedSessions = new Set<string>(); // Sessions déjà traitées par l'IA (ne pas écraser)
 
   // Paramètres de backup configurables
   private backupSettings = {
@@ -33,32 +35,46 @@ export class TranscriptionHistoryService {
   constructor(
     private prisma: PrismaService,
     private textProcessingService: TextProcessingService,
-    @Inject('EventEmitterService') private eventEmitterService: EventEmitterService
+    @Inject('EventEmitterService') private eventEmitterService: EventEmitterService,
+    private aiQueueService: AIQueueService
   ) {}
 
   async saveSession(session: TranscriptionSession, skipAI: boolean = false) {
     try {
       console.log('Sauvegarde session dans la base de données:', session.id, 'skipAI:', skipAI, 'transcript length:', session.full_transcript?.length || 0);
       
-      // 1. Sauvegarder d'abord la session sans traitement IA
+      // Vérifier si cette session a déjà été traitée par l'IA
+      const alreadyProcessedByAI = this.aiProcessedSessions.has(session.id);
+      
+      // Si c'est une sauvegarde automatique (skipAI=true) et que la session a déjà été traitée par l'IA,
+      // ne pas écraser le full_transcript
+      const updateData: any = {
+        commercial_name: session.commercial_name,
+        end_time: new Date(session.end_time),
+        duration_seconds: session.duration_seconds,
+        building_id: session.building_id,
+        building_name: session.building_name,
+        visited_doors: session.visited_doors || [],
+      };
+      
+      // N'inclure full_transcript que si la session n'a pas été traitée par l'IA
+      if (!alreadyProcessedByAI || !skipAI) {
+        updateData.full_transcript = session.full_transcript;
+      } else {
+        console.log(`🔒 Session ${session.id} déjà traitée par IA, préservation du texte corrigé`);
+      }
+      
+      // 1. Sauvegarder la session
       const savedSession = await this.prisma.transcriptionSession.upsert({
         where: { id: session.id },
-        update: {
-          commercial_name: session.commercial_name,
-          end_time: new Date(session.end_time),
-          full_transcript: session.full_transcript, // Texte original
-          duration_seconds: session.duration_seconds,
-          building_id: session.building_id,
-          building_name: session.building_name,
-          visited_doors: session.visited_doors || [],
-        },
+        update: updateData,
         create: {
           id: session.id,
           commercial_id: session.commercial_id,
           commercial_name: session.commercial_name,
           start_time: new Date(session.start_time),
           end_time: new Date(session.end_time),
-          full_transcript: session.full_transcript, // Texte original
+          full_transcript: session.full_transcript, // Texte original pour création
           duration_seconds: session.duration_seconds,
           building_id: session.building_id,
           building_name: session.building_name,
@@ -77,14 +93,50 @@ export class TranscriptionHistoryService {
       if (!skipAI && session.full_transcript && session.full_transcript.trim().length > 50) {
         // Vérifier si la session n'est pas déjà en cours de traitement
         if (!this.processingSessions.has(session.id)) {
-          console.log(`🤖 Traitement IA activé pour session: ${session.id}`);
+          console.log(`🤖 Traitement IA activé pour session: ${session.id} (ajout à la queue)`);
           this.processingSessions.add(session.id); // Marquer comme en cours de traitement
           
-          // Lancer le traitement IA en arrière-plan sans bloquer la sauvegarde
-          this.processSessionWithAI(session.id, session.full_transcript).catch(error => {
+          // Ajouter à la queue IA avec rate limiting (au lieu d'appeler directement)
+          this.aiQueueService.enqueue(
+            session.id,
+            session.full_transcript,
+            (text) => this.textProcessingService.processTranscription(text, { useAI: true })
+          ).then(async (processed) => {
+            // Mettre à jour la session avec le texte traité
+            await this.prisma.transcriptionSession.update({
+              where: { id: session.id },
+              data: { full_transcript: processed.processedText }
+            });
+            
+            console.log(`✅ Traitement IA terminé pour session: ${session.id} (${processed.processingType})`);
+            
+            // Marquer la session comme traitée par l'IA
+            this.aiProcessedSessions.add(session.id);
+            this.processingSessions.delete(session.id);
+            
+            // Émettre l'événement WebSocket
+            try {
+              const updatedSession = await this.prisma.transcriptionSession.findUnique({ where: { id: session.id } });
+              if (updatedSession) {
+                this.eventEmitterService.emitToRoom('audio-streaming', 'transcription_session_updated', {
+                  id: updatedSession.id,
+                  commercial_id: updatedSession.commercial_id,
+                  commercial_name: updatedSession.commercial_name,
+                  start_time: updatedSession.start_time.toISOString(),
+                  end_time: updatedSession.end_time.toISOString(),
+                  full_transcript: updatedSession.full_transcript,
+                  duration_seconds: updatedSession.duration_seconds,
+                  building_id: updatedSession.building_id,
+                  building_name: updatedSession.building_name,
+                  visited_doors: updatedSession.visited_doors || []
+                });
+              }
+            } catch (error) {
+              console.error(`❌ Erreur émission WebSocket pour session ${session.id}:`, error);
+            }
+          }).catch(error => {
             console.error(`❌ Erreur traitement IA en arrière-plan pour ${session.id}:`, error);
-            this.processingSessions.delete(session.id); // Retirer de la liste en cas d'erreur
-            // Ne pas faire échouer la sauvegarde principale
+            this.processingSessions.delete(session.id);
           });
         } else {
           console.log(`⚠️ Session ${session.id} déjà en cours de traitement IA, ignorée`);
@@ -102,58 +154,7 @@ export class TranscriptionHistoryService {
     }
   }
 
-  /**
-   * Traitement IA asynchrone d'une session
-   */
-  private async processSessionWithAI(sessionId: string, originalText: string) {
-    try {
-      console.log(`🤖 Début traitement IA pour session: ${sessionId}`);
-      
-      // Traitement IA
-      const processed = await this.textProcessingService.processTranscription(
-        originalText,
-        {
-          useAI: true
-        }
-      );
-      
-      // Mettre à jour la session avec le texte traité
-      const updatedSession = await this.prisma.transcriptionSession.update({
-        where: { id: sessionId },
-        data: {
-          full_transcript: processed.processedText
-        }
-      });
-      
-      console.log(`✅ Traitement IA terminé pour session: ${sessionId} (${processed.processingType})`);
-      
-      // Retirer la session de la liste de traitement
-      this.processingSessions.delete(sessionId);
-      
-      // Émettre l'événement WebSocket pour notifier le frontend
-      try {
-        this.eventEmitterService.emitToRoom('audio-streaming', 'transcription_session_updated', {
-          id: updatedSession.id,
-          commercial_id: updatedSession.commercial_id,
-          commercial_name: updatedSession.commercial_name,
-          start_time: updatedSession.start_time.toISOString(),
-          end_time: updatedSession.end_time.toISOString(),
-          full_transcript: updatedSession.full_transcript,
-          duration_seconds: updatedSession.duration_seconds,
-          building_id: updatedSession.building_id,
-          building_name: updatedSession.building_name,
-          visited_doors: updatedSession.visited_doors || []
-        });
-        console.log(`📡 Événement WebSocket émis pour session mise à jour: ${sessionId}`);
-      } catch (error) {
-        console.error(`❌ Erreur émission WebSocket pour session ${sessionId}:`, error);
-      }
-      
-    } catch (error) {
-      console.error(`❌ Erreur traitement IA pour session: ${sessionId}:`, error);
-      // En cas d'erreur, on garde le texte original
-    }
-  }
+  // Note: processSessionWithAI supprimée - remplacée par AIQueueService pour gérer le rate limiting
 
   async getHistory(commercialId?: string, limit?: number, buildingId?: string): Promise<TranscriptionSession[]> {
     try {
@@ -220,6 +221,10 @@ export class TranscriptionHistoryService {
       await this.prisma.transcriptionSession.delete({
         where: { id },
       });
+      
+      // Nettoyer les Sets en mémoire
+      this.processingSessions.delete(id);
+      this.aiProcessedSessions.delete(id);
       
       console.log(`Session transcription supprimée: ${id} (commercial: ${existingSession.commercial_id})`);
       return { success: true, commercialId: existingSession.commercial_id };
@@ -755,6 +760,12 @@ export class TranscriptionHistoryService {
             in: toDelete
           }
         }
+      });
+      
+      // Nettoyer les Sets en mémoire pour les sessions supprimées
+      toDelete.forEach(id => {
+        this.processingSessions.delete(id);
+        this.aiProcessedSessions.delete(id);
       });
 
       console.log(`✅ ${deleteResult.count} sessions supprimées, ${recentIds.length} récentes conservées (limite: ${this.backupSettings.keepRecentSessions})`);

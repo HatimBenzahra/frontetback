@@ -119,9 +119,21 @@ const ProspectingDoorsPage = () => {
         if (!socket) return;
 
         const handleOffer = async (payload: { from_socket_id: string; sdp: string; type: string }) => {
-            if (!isMicOn) return;
+            console.log('📞 Offer WebRTC reçu de:', payload.from_socket_id);
+            console.log('  - isMicOn:', isMicOn);
+            console.log('  - isMicOnRef.current:', isMicOnRef.current);
+            console.log('  - localStreamRef.current exists:', !!localStreamRef.current);
+            
+            if (!isMicOnRef.current) {
+                console.warn('❌ Offer rejeté: Micro non actif');
+                return;
+            }
             try {
-                if (!localStreamRef.current) return;
+                if (!localStreamRef.current) {
+                    console.warn('❌ Offer rejeté: Pas de stream local');
+                    return;
+                }
+                console.log('✅ Création de la peer connection pour:', payload.from_socket_id);
                 const pc = new RTCPeerConnection({ iceServers: getIceServers() });
                 // Send local audio
                 localStreamRef.current.getTracks().forEach(track => pc.addTrack(track, localStreamRef.current!));
@@ -149,13 +161,14 @@ const ProspectingDoorsPage = () => {
                 const answer = await pc.createAnswer();
                 await pc.setLocalDescription(answer);
                 peerConnectionsRef.current.set(payload.from_socket_id, pc);
+                console.log('✅ Answer créé et envoyé à:', payload.from_socket_id);
                 socket.emit('suivi:webrtc_answer', {
                     to_socket_id: payload.from_socket_id,
                     sdp: answer.sdp,
                     type: answer.type,
                 });
             } catch (err) {
-                console.error('Error handling offer:', err);
+                console.error('❌ Error handling offer:', err);
             }
         };
 
@@ -238,10 +251,10 @@ const ProspectingDoorsPage = () => {
         try {
             const stream = await navigator.mediaDevices.getUserMedia({
                 audio: {
-                    // Optimisations pour maximiser la capture
-                    echoCancellation: false,
-                    noiseSuppression: false,
-                    autoGainControl: false,
+                    // Optimisations pour une meilleure capture et stabilité
+                    echoCancellation: true,  // Réactivé pour éviter les échos
+                    noiseSuppression: true,  // Réactivé pour améliorer la qualité
+                    autoGainControl: true,   // Réactivé pour normaliser le volume
                     channelCount: 1,
                     sampleRate: 48000,
                     latency: 0,
@@ -257,6 +270,8 @@ const ProspectingDoorsPage = () => {
             localStreamRef.current = stream;
             isMicOnRef.current = true;
             setIsMicOn(true);
+            
+            // Un seul événement suffit pour créer la session
             socket.emit('start_streaming', {
                 commercial_id: user.id,
                 commercial_info: { name: user.name || user.nom || 'Commercial' },
@@ -264,16 +279,9 @@ const ProspectingDoorsPage = () => {
                 building_name: building ? `${building.adresse}, ${building.ville}` : `Immeuble ${buildingId}`
             });
 
-            socket.emit('transcription_start', {
-                commercial_id: user.id,
-                building_id: buildingId,
-                building_name: building ? `${building.adresse}, ${building.ville}` : `Immeuble ${buildingId}`,
-                source: 'browser-speech'
-            });
-
             const recognition = getSpeechRecognition();
             if (!recognition) {
-                toast.error('La reconnaissance vocale n\'est pas supportée par ce navigateur.');
+                console.error('La reconnaissance vocale n\'est pas supportée par ce navigateur.');
                 return;
             }
 
@@ -282,6 +290,10 @@ const ProspectingDoorsPage = () => {
             recognition.interimResults = true;
             recognition.maxAlternatives = 1;
 
+            let lastFinalTranscript = '';
+            let restartAttempts = 0;
+            const MAX_RESTART_ATTEMPTS = 5;
+
             recognition.onresult = (event: SpeechRecognitionEventLike) => {
                 for (let i = event.resultIndex; i < event.results.length; i += 1) {
                     const result = event.results[i];
@@ -289,6 +301,18 @@ const ProspectingDoorsPage = () => {
                     const transcript = alternative?.transcript?.trim();
                     if (!transcript) continue;
                     const isFinal = !!result.isFinal;
+                    
+                    // Éviter les doublons de transcriptions finales
+                    if (isFinal && transcript === lastFinalTranscript) {
+                        console.log('🔄 Transcription finale dupliquée détectée, ignorée:', transcript);
+                        continue;
+                    }
+                    
+                    if (isFinal) {
+                        lastFinalTranscript = transcript;
+                        restartAttempts = 0; // Reset le compteur en cas de succès
+                    }
+                    
                     socket.emit('transcription_update', {
                         commercial_id: user.id,
                         transcript,
@@ -301,21 +325,46 @@ const ProspectingDoorsPage = () => {
             };
 
             recognition.onerror = (event: SpeechRecognitionErrorEventLike) => {
-                console.error('Speech recognition error:', event);
+                console.error('Speech recognition error:', event.error);
                 if (event.error === 'not-allowed' || event.error === 'service-not-allowed') {
-                    toast.error('Autorisez l\'utilisation du micro pour la transcription.');
+                    console.error('Autorisez l\'utilisation du micro pour la transcription.');
                     stopStreaming();
+                } else if (event.error === 'no-speech') {
+                    // Ignorer l'erreur no-speech, le redémarrage automatique gérera
+                    console.log('ℹ️  Pas de parole détectée, continuation...');
+                } else if (event.error === 'aborted') {
+                    console.log('ℹ️  Reconnaissance vocale interrompue');
+                } else {
+                    console.warn(`⚠️  Erreur de reconnaissance vocale: ${event.error}`);
                 }
             };
 
             recognition.onend = () => {
                 if (!isMicOnRef.current) {
+                    console.log('🛑 Reconnaissance vocale arrêtée (micro désactivé)');
                     return;
                 }
+                
+                // Limiter les tentatives de redémarrage pour éviter les boucles infinies
+                if (restartAttempts >= MAX_RESTART_ATTEMPTS) {
+                    console.error(`❌ Échec du redémarrage de la reconnaissance vocale après ${MAX_RESTART_ATTEMPTS} tentatives`);
+                    stopStreaming();
+                    return;
+                }
+                
                 try {
-                    recognition.start();
+                    restartAttempts++;
+                    console.log(`🔄 Redémarrage de la reconnaissance vocale (tentative ${restartAttempts}/${MAX_RESTART_ATTEMPTS})`);
+                    setTimeout(() => {
+                        if (isMicOnRef.current) {
+                            recognition.start();
+                        }
+                    }, 100); // Petit délai pour éviter les conflits
                 } catch (error) {
                     console.error('Failed to restart speech recognition:', error);
+                    if (restartAttempts >= MAX_RESTART_ATTEMPTS) {
+                        stopStreaming();
+                    }
                 }
             };
 
@@ -325,7 +374,6 @@ const ProspectingDoorsPage = () => {
                 recognition.start();
             } catch (error) {
                 console.error('Failed to start speech recognition:', error);
-                toast.error('Impossible de démarrer la reconnaissance vocale.');
                 recognitionRef.current = null;
             }
         } catch (err) {
@@ -1283,13 +1331,37 @@ const ProspectingDoorsPage = () => {
 export default ProspectingDoorsPage;
     const getIceServers = () => {
         const iceServers: RTCIceServer[] = [];
-        const stun = import.meta.env.VITE_STUN_URL || 'stun:stun.l.google.com:19302';
-        if (stun) iceServers.push({ urls: stun });
+        
+        // Plusieurs serveurs STUN pour plus de robustesse
+        const stunServers = [
+            'stun:stun.l.google.com:19302',
+            'stun:stun1.l.google.com:19302',
+            'stun:stun2.l.google.com:19302',
+            'stun:stun.services.mozilla.com:3478'
+        ];
+        
+        const customStun = import.meta.env.VITE_STUN_URL;
+        if (customStun) {
+            iceServers.push({ urls: customStun });
+        } else {
+            // Utiliser tous les serveurs STUN publics par défaut
+            iceServers.push({ urls: stunServers });
+        }
+        
+        // Serveur TURN si configuré (nécessaire pour NAT restrictif)
         const turnUrl = import.meta.env.VITE_TURN_URL as string | undefined;
         const turnUser = import.meta.env.VITE_TURN_USERNAME as string | undefined;
         const turnCred = import.meta.env.VITE_TURN_CREDENTIAL as string | undefined;
         if (turnUrl && turnUser && turnCred) {
-            iceServers.push({ urls: turnUrl, username: turnUser, credential: turnCred });
+            iceServers.push({ 
+                urls: turnUrl, 
+                username: turnUser, 
+                credential: turnCred 
+            });
+            console.log('✅ Serveur TURN configuré');
+        } else {
+            console.warn('⚠️ Pas de serveur TURN configuré - peut échouer avec NAT restrictif');
         }
+        
         return iceServers;
     };

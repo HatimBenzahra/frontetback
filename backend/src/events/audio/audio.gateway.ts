@@ -131,22 +131,8 @@ export class AudioGateway implements OnGatewayConnection, OnGatewayDisconnect {
       console.log(`❌ Erreur assignation manager pour commercial ${data.commercial_id}:`, error);
     }
     
-    // Créer une nouvelle session de transcription
-    const sessionId = `${data.commercial_id}_${Date.now()}`;
-    const session: TranscriptionSession = {
-      id: sessionId,
-      commercial_id: data.commercial_id,
-      commercial_name: data.commercial_info?.name || 'Commercial',
-      start_time: new Date().toISOString(),
-      end_time: '',
-      full_transcript: '',
-      duration_seconds: 0,
-      building_id: data.building_id,
-      building_name: data.building_name
-    };
-    
-    this.activeTranscriptionSessions.set(data.commercial_id, session);
-    console.log(`📝 Session de transcription créée pour ${data.commercial_id}:`, sessionId);
+    // Note: La création de session de transcription est gérée par events.gateway.ts
+    // pour éviter les duplications. Ce gateway se concentre sur la diffusion filtrée aux managers.
     
     // Diffuser intelligemment les événements de stream
     const streamPayload = {

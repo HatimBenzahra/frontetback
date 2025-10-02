@@ -72,7 +72,7 @@ IMPORTANT :
 RÉSULTAT (avec retours à la ligne obligatoires) :`;
 
         // Appel à l'API Gemini
-        const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${this.geminiApiKey}`, {
+        const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${this.geminiApiKey}`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',

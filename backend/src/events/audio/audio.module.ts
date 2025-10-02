@@ -6,6 +6,7 @@ import { AuthModule } from '../../auth/auth.module';
 
 @Module({
   imports: [TranscriptionHistoryModule, CommercialModule, AuthModule],
+  // AudioGateway réactivé pour gérer les événements WebRTC (sans créer de sessions dupliquées)
   providers: [AudioGateway],
   exports: [AudioGateway],
 })
